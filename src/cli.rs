@@ -63,8 +63,12 @@ pub enum Commands {
         #[arg(long, short, default_value_t = true)]
         notify: bool,
         /// Automatically open PRs in Chrome when notifications appear
-        #[arg(long, default_value_t = true, action = clap::ArgAction::SetTrue)]
+        #[arg(long, default_value_t = true)]
         auto_open: bool,
+        
+        /// Disable automatic opening of PRs in Chrome
+        #[arg(long, overrides_with = "auto_open")]
+        no_auto_open: bool,
         /// Interactive mode - prompt for actions on new PRs
         #[arg(long)]
         interactive: bool,
