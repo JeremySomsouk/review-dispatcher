@@ -337,8 +337,15 @@ pub async fn monitor_new_prs(
                     let notification_title = format!("New PR: #{}", pr.pr_number);
                     let notification_message = format!("{} by {} in {}", pr.pr_title, pr.pr_author, pr.repo);
                     
-                    if notifications::send_mac_notification(&notification_title, &notification_message, Some(&pr.pr_url)) {
-                        println!("✓ macOS notification sent (click to open in Chrome)");
+                    // For now, always auto-open. We can add a config option later.
+                    let auto_open_browser = true;
+                    
+                    if notifications::send_mac_notification(&notification_title, &notification_message, Some(&pr.pr_url), auto_open_browser) {
+                        if auto_open_browser {
+                            println!("✓ macOS notification sent (Chrome will open automatically)");
+                        } else {
+                            println!("✓ macOS notification sent (URL included in message)");
+                        }
                     } else {
                         println!("⚠ Failed to send macOS notification");
                     }
