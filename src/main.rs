@@ -205,10 +205,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
         
-        Commands::Monitor { interval, notify, interactive } => {
+        Commands::Monitor { interval, notify, auto_open, interactive } => {
             println!("👀 Starting PR monitor (polling every {} seconds)...", interval);
             if interactive {
                 println!("🎮 Interactive mode enabled - will prompt for actions on new PRs");
+            }
+            if notify {
+                if auto_open {
+                    println!("🔔 Notifications enabled with auto-open in Chrome");
+                } else {
+                    println!("🔔 Notifications enabled (URLs shown in message)");
+                }
+            } else {
+                println!("🔔 Notifications disabled");
             }
             println!("Press Ctrl+C to stop.");
             
@@ -224,6 +233,7 @@ async fn main() -> anyhow::Result<()> {
                 crew_members,
                 interval,
                 notify,
+                auto_open,
                 interactive,
                 output_dir.clone(),
             )

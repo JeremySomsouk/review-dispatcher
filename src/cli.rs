@@ -62,6 +62,9 @@ pub enum Commands {
         /// Send macOS notifications for new PRs
         #[arg(long, short, default_value_t = true)]
         notify: bool,
+        /// Automatically open PRs in Chrome when notifications appear
+        #[arg(long, default_value_t = true, action = clap::ArgAction::SetTrue)]
+        auto_open: bool,
         /// Interactive mode - prompt for actions on new PRs
         #[arg(long)]
         interactive: bool,

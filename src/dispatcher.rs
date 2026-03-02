@@ -253,6 +253,7 @@ pub async fn monitor_new_prs(
     crew_members: &[String],
     interval_seconds: u64,
     send_notifications: bool,
+    auto_open_browser: bool,
     interactive_mode: bool,
     output_dir: Option<PathBuf>,
 ) -> Result<()> {
@@ -336,9 +337,6 @@ pub async fn monitor_new_prs(
                 if send_notifications {
                     let notification_title = format!("New PR: #{}", pr.pr_number);
                     let notification_message = format!("{} by {} in {}", pr.pr_title, pr.pr_author, pr.repo);
-                    
-                    // For now, always auto-open. We can add a config option later.
-                    let auto_open_browser = true;
                     
                     if notifications::send_mac_notification(&notification_title, &notification_message, Some(&pr.pr_url), auto_open_browser) {
                         if auto_open_browser {
