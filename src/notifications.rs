@@ -2,18 +2,28 @@ use std::process::Command;
 
 pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>) -> bool {
     let escaped_title = title.replace('"', "\\\"");
+    let escaped_message = message.replace('"', "\\\"");
     
-    // Simple notification - macOS display notification doesn't support click handlers
-    // So we'll just show the notification with the URL in the message
-    let notification_message = if let Some(url) = pr_url {
-        format!("{}\n\n🔗 {}", message, url)
-    } else {
-        message.to_string()
-    };
+    if let Some(url) = pr_url {
+        let escaped_url = url.replace('"', "\\\"");
+        
+        // Create a script that shows notification AND opens Chrome automatically
+        let script = format!(
+            "display notification \"{}\" with title \"🦀 {}\" subtitle \"Review Dispatcher\" sound name \"Glass\"\ntell application \"Google Chrome\" to open location \"{}\"",
+            escaped_message, escaped_title, escaped_url
+        );
+        
+        return Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .status()
+            .map_or(false, |status| status.success());
+    }
     
+    // Fallback to simple notification if no URL provided
     let apple_script = format!(
         r#"display notification "{}" with title "🦀 {}" subtitle "Review Dispatcher" sound name "Glass""#,
-        notification_message.replace('"', "\\\""),
+        escaped_message,
         escaped_title
     );
 
