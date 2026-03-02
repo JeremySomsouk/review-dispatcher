@@ -337,8 +337,8 @@ pub async fn monitor_new_prs(
                     let notification_title = format!("New PR: #{}", pr.pr_number);
                     let notification_message = format!("{} by {} in {}", pr.pr_title, pr.pr_author, pr.repo);
                     
-                    if notifications::send_mac_notification(&notification_title, &notification_message) {
-                        println!("✓ macOS notification sent");
+                    if notifications::send_mac_notification(&notification_title, &notification_message, Some(&pr.pr_url)) {
+                        println!("✓ macOS notification sent (click to open in Chrome)");
                     } else {
                         println!("⚠ Failed to send macOS notification");
                     }
