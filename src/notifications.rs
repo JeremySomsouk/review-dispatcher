@@ -4,7 +4,10 @@ pub fn send_mac_notification(title: &str, message: &str) -> bool {
     let escaped_message = message.replace('"', "\\\"");
     let escaped_title = title.replace('"', "\\\"");
     let apple_script = format!(
-        "display notification \"{}\" with title \"{}\" sound name \"Ping\"",
+        r#"display notification "{}"
+        with title "🦀 {}"
+        subtitle "Review Dispatcher"
+        sound name "Glass""#,
         escaped_message,
         escaped_title
     );
