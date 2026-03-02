@@ -1,0 +1,34 @@
+# Custom Review Instructions
+
+## Review Guidelines
+
+1. **Security First**: Always check for potential security vulnerabilities
+2. **Performance Matters**: Look for N+1 queries and inefficient algorithms
+3. **Code Quality**: Ensure consistent formatting and meaningful variable names
+4. **Testing**: Verify all changes have appropriate test coverage
+5. **Documentation**: Check that public APIs are well-documented
+
+## Team-Specific Focus Areas
+
+- **Database Changes**: Review migration files carefully
+- **API Endpoints**: Check authentication, validation, and error handling
+- **Frontend Components**: Ensure accessibility and responsive design
+- **Error Handling**: Verify proper error messages and logging
+
+## Review Process
+
+1. Start with the PR description and changes
+2. Check the overall architecture and design
+3. Look at the specific implementation details
+4. Verify test coverage and edge cases
+5. Consider performance implications
+
+## Recommendation Criteria
+
+- **REVIEW NOW**: Small changes, urgent fixes, security-related
+- **DELEGATE**: Large refactors, complex features, non-critical
+- **NEEDS DISCUSSION**: Architectural changes, breaking changes
+
+---
+
+**Note**: These instructions will be included in every Claude review to ensure consistent evaluation criteria.
