@@ -1,36 +1,19 @@
 use std::process::Command;
-use std::fs;
 
 pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>) -> bool {
-    let escaped_message = message.replace('"', "\\\"");
     let escaped_title = title.replace('"', "\\\"");
     
-    // Create a temporary AppleScript file for clickable notifications
-    if let Some(url) = pr_url {
-        let escaped_url = url.replace('"', "\\\"");
-        let script_content = format!(
-            "display notification \"{}\" with title \"🦀 {}\" subtitle \"Review Dispatcher\" sound name \"Glass\"\n
-on clicked(theNotification)\n    tell application \"Google Chrome\"\n        activate\n        open location \"{}\"\n    end tell\nend clicked",
-            escaped_message, escaped_title, escaped_url
-        );
-        
-        // Write to temp file and execute
-        let temp_dir = std::env::temp_dir();
-        let script_path = temp_dir.join("review_dispatcher_notification.scpt");
-        
-        if let Ok(_) = fs::write(&script_path, script_content) {
-            let status = Command::new("osascript")
-                .arg(&script_path)
-                .status();
-            let _ = fs::remove_file(&script_path); // Clean up
-            return status.map_or(false, |s| s.success());
-        }
-    }
+    // Simple notification - macOS display notification doesn't support click handlers
+    // So we'll just show the notification with the URL in the message
+    let notification_message = if let Some(url) = pr_url {
+        format!("{}\n\n🔗 {}", message, url)
+    } else {
+        message.to_string()
+    };
     
-    // Fallback to simple notification
     let apple_script = format!(
         r#"display notification "{}" with title "🦀 {}" subtitle "Review Dispatcher" sound name "Glass""#,
-        escaped_message,
+        notification_message.replace('"', "\\\""),
         escaped_title
     );
 
