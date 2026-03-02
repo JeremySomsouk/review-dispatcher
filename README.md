@@ -18,6 +18,50 @@ review-dispatcher monitor
 
 **That's it!** You'll get desktop notifications when new PRs arrive.
 
+## 🔔 Notification Features
+
+The monitor includes powerful macOS notification features:
+
+### Enhanced Notifications
+- **🦀 Rust Crab Emoji** - Easily recognizable notifications
+- **Custom Subtitle** - "Review Dispatcher" context
+- **Glass Sound** - Pleasant notification chime
+- **PR Details** - Shows PR number, title, author, and repo
+
+### Auto-Open Browser (Default Behavior)
+By default, when a notification appears:
+- **Notification pops up** with PR details
+- **Chrome automatically opens** to the PR URL
+- **No clicking needed** - immediate access to the PR
+
+### Disable Auto-Open
+To disable auto-opening and just show notifications with URLs:
+
+```bash
+# Show notification with URL (no auto-open)
+# This feature will be available in a future update
+review-dispatcher monitor --no-auto-open
+```
+
+For now, auto-open is always enabled. The notification will show the PR details and Chrome will open automatically.
+
+### Notification Content
+Notifications include:
+```
+🦀 New PR: #123
+Review Dispatcher
+Fix login bug by alice in frontend-app
+```
+
+### Troubleshooting Notifications
+If notifications aren't working:
+1. Check macOS notification permissions for your terminal
+2. Test with: `osascript -e 'display notification "Test" with title "Review Dispatcher"'`
+3. Ensure "Do Not Disturb" is disabled
+4. Check terminal-specific notification settings
+
+See the [Troubleshooting](#-troubleshooting) section for detailed help.
+
 ## Installation
 
 ```bash
@@ -305,6 +349,7 @@ The monitor will:
 - Poll GitHub at your specified interval (default: 300 seconds / 5 minutes)
 - Detect new PRs that match your current filter criteria
 - Send macOS notifications with PR details (title, author, repo, number)
+- **Auto-open Chrome** to the PR URL when notification appears
 - Print console output for each new PR detected
 - Support Ctrl+C to stop monitoring
 - **Prevent duplicate processes** - Only one monitor can run at a time
@@ -529,7 +574,7 @@ If you're not receiving macOS notifications:
 
 3. **Test Notifications**:
    ```bash
-   osascript -e 'display notification "Test" with title "Review Dispatcher" sound name "Ping"'
+   osascript -e 'display notification "Test" with title "🦀 Review Dispatcher" subtitle "Test Notification" sound name "Glass"'
    ```
    If this doesn't work, the issue is with your macOS setup.
 
@@ -537,6 +582,18 @@ If you're not receiving macOS notifications:
    - **iTerm2**: Check iTerm2 → Settings → Profiles → [Your Profile] → Terminal → Notifications
    - **Warp**: Ensure app has notification permissions
    - **Default Terminal**: Check System Settings → Notifications → Terminal
+
+5. **Chrome Auto-Open Issues**:
+   If notifications appear but Chrome doesn't open:
+   - Verify Chrome is installed at `/Applications/Google Chrome.app`
+   - Test Chrome opening: `osascript -e 'tell application "Google Chrome" to activate'`
+   - Check Chrome permissions in System Settings → Privacy & Security
+
+6. **Notification Content Issues**:
+   If notifications show but content is wrong:
+   - Check the PR URL format in your configuration
+   - Verify the notification format matches expected patterns
+   - Test with a simple notification first
 
 ### Instruction File Not Loading
 
