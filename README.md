@@ -39,11 +39,27 @@ To disable auto-opening and just show notifications with URLs:
 
 ```bash
 # Show notification with URL (no auto-open)
-# This feature will be available in a future update
-review-dispatcher monitor --no-auto-open
+review-dispatcher monitor --notify --no-auto-open
 ```
 
-For now, auto-open is always enabled. The notification will show the PR details and Chrome will open automatically.
+When auto-open is disabled:
+- Notifications still show with 🦀 emoji and Glass sound
+- PR URL is included in the notification message
+- You can copy/paste the URL manually
+- Chrome won't open automatically
+
+**Examples:**
+```bash
+# Auto-open enabled (default)
+review-dispatcher monitor --notify --auto-open
+review-dispatcher monitor --notify  # auto-open is true by default
+
+# Auto-open disabled
+review-dispatcher monitor --notify --no-auto-open
+
+# Combined with other options
+review-dispatcher monitor --notify --no-auto-open --interval 60 -c
+```
 
 ### Notification Content
 Notifications include:
@@ -326,7 +342,7 @@ review-dispatcher -o ~/work/reviews clean
 Run a background process that polls GitHub for new PRs and sends macOS notifications:
 
 ```bash
-# Basic monitor (5-minute intervals, notifications on)
+# Basic monitor (5-minute intervals, notifications on, auto-open enabled)
 review-dispatcher monitor
 
 # Crew mode with 2-minute polling
@@ -335,11 +351,14 @@ review-dispatcher monitor -c -i 120
 # Monitor including drafts, no notifications
 review-dispatcher monitor -d -n false
 
+# Auto-open disabled (show URLs only)
+review-dispatcher monitor --notify --no-auto-open
+
 # Interactive mode - prompt for actions on new PRs
 review-dispatcher monitor --interactive
 
-# Combined: interactive + crew mode
-review-dispatcher monitor -c -i 120 --interactive --notify
+# Combined: interactive + crew mode + no auto-open
+review-dispatcher monitor -c -i 120 --interactive --notify --no-auto-open
 
 # Monitor with custom prefix exclusions
 review-dispatcher monitor --exclude-prefix "chore,docs,test"
@@ -349,7 +368,8 @@ The monitor will:
 - Poll GitHub at your specified interval (default: 300 seconds / 5 minutes)
 - Detect new PRs that match your current filter criteria
 - Send macOS notifications with PR details (title, author, repo, number)
-- **Auto-open Chrome** to the PR URL when notification appears
+- **Auto-open Chrome** to the PR URL when notification appears (if `--auto-open` enabled)
+- Show PR URL in notification message (if `--no-auto-open` used)
 - Print console output for each new PR detected
 - Support Ctrl+C to stop monitoring
 - **Prevent duplicate processes** - Only one monitor can run at a time
