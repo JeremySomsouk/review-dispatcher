@@ -378,15 +378,9 @@ pub async fn monitor_new_prs(
                                         let path = writer::write_review(dir, pr, Some(&summary))?;
                                         println!("   💾 Saved to {}", path.display());
                                         
-                                        // Offer to open in IntelliJ
-                                        println!("\n   Open in IntelliJ? [y/N]");
-                                        print!("   ");
-                                        std::io::stdout().flush()?;
-                                        let mut confirm = String::new();
-                                        std::io::stdin().read_line(&mut confirm)?;
-                                        if confirm.trim().eq_ignore_ascii_case("y") {
-                                            open_in_intellij(&path)?;
-                                        }
+                                        // Automatically open in IntelliJ (like auto-open for PRs)
+                                        println!("   🎯 Opening Claude review in IntelliJ...");
+                                        open_in_intellij(&path)?;
                                     }
                                 }
                                 Err(e) => println!("❌ Failed to delegate: {}", e),
