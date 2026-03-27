@@ -1,41 +1,30 @@
-# COMMAND
+# comment
 
-**One-liner description of what this does.**
+**Post a comment on a PR directly from the CLI.**
 
-Detailed explanation of when and why you'd use this command.
+Share feedback, ask questions, or leave notes — all without leaving your terminal.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Leave feedback: "Minor nit, consider fixing"
+- Ask questions: "Can you explain this?"
+- Document decisions: "Approved with this note"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher comment [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBER` | PR number to comment on | Required |
+| `-t, --text <TEXT>` | Comment text (supports markdown) | Required |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher comment 4821 --text "Looks good, just a few nits"
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

@@ -1,41 +1,34 @@
-# COMMAND
+# activity
 
-**One-liner description of what this does.**
+**Show your recent review activity — PRs you reviewed in the last N days.**
 
-Detailed explanation of when and why you'd use this command.
+Track your review throughput and see what you've been up to.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Weekly check: "How much did I review this week?"
+- Performance reviews: "Show my review history"
+- Team reporting: "Here's my review output"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher activity [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
+| `-d, --days <DAYS>` | Number of days to look back | `7` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
+# Last week's reviews
+review-dispatcher activity
 
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+# Last 30 days
+review-dispatcher activity --days 30
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

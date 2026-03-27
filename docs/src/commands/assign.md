@@ -1,41 +1,28 @@
-# COMMAND
+# assign
 
-**One-liner description of what this does.**
+**Assign yourself as a reviewer on a PR.**
 
-Detailed explanation of when and why you'd use this command.
+Skip the web UI — claim review responsibility directly from the terminal.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Quick claim: "I want to review this before anyone else"
+- Triage workflow: Pair with `delegate` for AI-assisted assignment
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher assign [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBER` | PR number to assign yourself to | Required |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher assign 4821
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

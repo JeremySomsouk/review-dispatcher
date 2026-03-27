@@ -1,41 +1,22 @@
-# COMMAND
+# team-summary
 
-**One-liner description of what this does.**
+**Show team review summary — how many PRs each crew member has waiting.**
 
-Detailed explanation of when and why you'd use this command.
+See the review load across your team.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Team standup: "Who has the most reviews?"
+- Load balancing: "Can someone help?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher team-summary
 ```
-
-## Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher team-summary
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

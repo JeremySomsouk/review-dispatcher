@@ -1,41 +1,30 @@
-# COMMAND
+# claim
 
-**One-liner description of what this does.**
+**Claim multiple PRs for review at once.**
 
-Detailed explanation of when and why you'd use this command.
+Sign up for review responsibility without clicking through the web UI.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Sprint start: "I'll take these three"
+- Batch workflow: "Claim, review, repeat"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `-a, --all` | Claim all pending reviews | `false` |
+| `PR_NUMBERS` | PR number(s) to claim (comma-separated) | - |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher claim 4821,3156,2890
+review-dispatcher claim --all
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

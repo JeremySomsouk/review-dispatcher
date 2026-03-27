@@ -1,41 +1,11 @@
-# COMMAND
+# monitor-status
 
-**One-liner description of what this does.**
+**Check if monitor process is running.**
 
-Detailed explanation of when and why you'd use this command.
-
-## When to Use
-
-- Scenario 1
-- Scenario 2
+See whether background monitoring is active.
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher monitor-status
 ```
-
-## Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
-
-## Examples
-
-```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
-```
-
-## Tips
-
-- Tip 1
-- Tip 2

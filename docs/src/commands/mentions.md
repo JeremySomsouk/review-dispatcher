@@ -1,41 +1,30 @@
-# COMMAND
+# mentions
 
-**One-liner description of what this does.**
+**Show GitHub notifications where you were mentioned or directly involved.**
 
-Detailed explanation of when and why you'd use this command.
+Stay on top of conversations without opening GitHub.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Morning check: "Any mentions while I was offline?"
+- Follow-up: "What threads am I in?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher mentions [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `-u, --unread` | Only show unread notifications | `false` |
+| `-n, --limit <NUM>` | Limit results shown | `20` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher mentions
+review-dispatcher mentions --unread
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

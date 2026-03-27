@@ -1,41 +1,30 @@
-# COMMAND
+# snooze
 
-**One-liner description of what this does.**
+**Temporarily hide PRs from the pending list.**
 
-Detailed explanation of when and why you'd use this command.
+Snooze PRs you're not ready to review yet.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Context overload: "Not now, remind me later"
+- Vacation: "Hide until I return"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher snooze [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBERS` | PR number(s) to snooze | Required |
+| `-d, --days <NUM>` | Days to snooze | `3` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher snooze 4821
+review-dispatcher snooze 4821 --days 7
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

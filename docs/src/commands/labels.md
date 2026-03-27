@@ -1,41 +1,31 @@
-# COMMAND
+# labels
 
-**One-liner description of what this does.**
+**Show labels for one or more PRs.**
 
-Detailed explanation of when and why you'd use this command.
+Quickly see what tags and categories are applied to your pending PRs.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Filtering: "Find all 'security' PRs"
+- Organization: "What labels are being used?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher labels [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBERS` | PR number(s) to show labels for | - |
+| `-a, --all` | Show labels for all pending reviews | `false` |
+| `-f, --filter <LABEL>` | Filter by label name | - |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher labels 4821
+review-dispatcher labels --filter security
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

@@ -1,41 +1,31 @@
-# COMMAND
+# conflicts
 
-**One-liner description of what this does.**
+**Show which pending PRs have merge conflicts.**
 
-Detailed explanation of when and why you'd use this command.
+Avoid wasting time on PRs that can't be merged yet.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Pre-review: "Is this even mergeable?"
+- Sprint planning: "Which PRs are blocked?"
+- Merge day: "What can we actually ship?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher conflicts [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
+| `--conflicts-only` | Hide PRs without conflicts | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher conflicts
+review-dispatcher conflicts --conflicts-only
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

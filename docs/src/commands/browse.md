@@ -1,41 +1,29 @@
-# COMMAND
+# browse
 
-**One-liner description of what this does.**
+**Open one or more PRs in your browser.**
 
-Detailed explanation of when and why you'd use this command.
+Jump straight to GitHub without switching windows or copying URLs.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- After triage: "Let me see the actual code"
+- Quick access: "Open all my pending PRs"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher browse [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBERS` | PR number(s) to open (comma-separated) | - |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher browse 4821
+review-dispatcher browse 4821,3156,2890
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

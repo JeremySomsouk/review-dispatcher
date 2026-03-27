@@ -1,41 +1,30 @@
-# COMMAND
+# files
 
-**One-liner description of what this does.**
+**Show changed files for one or more PRs.**
 
-Detailed explanation of when and why you'd use this command.
+Quickly see which files were modified before diving into the diff.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Pre-review scan: "What did they change?"
+- Impact assessment: "Which services are affected?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher files [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBERS` | PR number(s) to show files for | - |
+| `-a, --all` | Show files for all pending reviews | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher files 4821
+review-dispatcher files --all
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

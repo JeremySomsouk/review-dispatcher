@@ -1,41 +1,31 @@
-# COMMAND
+# catchup
 
-**One-liner description of what this does.**
+**Show PRs you should catch up on — oldest, longest-ignored, sorted by neglect.**
 
-Detailed explanation of when and why you'd use this command.
+Perfect for after vacation or when returning to a busy sprint.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Back from vacation: "What did I miss?"
+- Weekly review: "What have I been neglecting?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher catchup [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
+| `-a, --min-age <DAYS>` | Minimum age to be considered "catchup" | `3` |
+| `-n, --limit <NUM>` | Limit results shown | `10` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher catchup
+review-dispatcher catchup --min-age 1
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

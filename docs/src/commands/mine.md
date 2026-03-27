@@ -1,41 +1,22 @@
-# COMMAND
+# mine
 
-**One-liner description of what this does.**
+**List your own open PRs — draft or not.**
 
-Detailed explanation of when and why you'd use this command.
+Track your own pull requests from the command line.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Status check: "What's my open PRs?"
+- Draft management: "Find all my draft PRs"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher mine
 ```
-
-## Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher mine
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

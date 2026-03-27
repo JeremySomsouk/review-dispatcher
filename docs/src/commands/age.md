@@ -1,41 +1,41 @@
-# COMMAND
+# age
 
-**One-liner description of what this does.**
+**Categorize pending PRs by age — new, aging, stale, or overdue.**
 
-Detailed explanation of when and why you'd use this command.
+Visual buckets help you spot neglected PRs at a glance.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Morning overview: "What's new vs. what's been waiting?"
+- Sprint planning: "What might become overdue?"
+
+## Age Buckets
+
+| Bucket | Age |
+|--------|-----|
+| 🆕 New | 0-2 days |
+| ⏳ Aging | 3-5 days |
+| ⚠️ Stale | 6-9 days |
+| 🔴 Overdue | 10+ days |
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher age [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
+| `-n, --min-days <DAYS>` | Show only PRs newer than N days | - |
+| `-x, --older-than <DAYS>` | Show only PRs older than N days | - |
+| `-g, --grouped` | Group output by age bucket | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher age
+review-dispatcher age --grouped
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

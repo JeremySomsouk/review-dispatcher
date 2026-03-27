@@ -1,41 +1,31 @@
-# COMMAND
+# review
 
-**One-liner description of what this does.**
+**Fetch and display a PR diff in the terminal with syntax highlighting.**
 
-Detailed explanation of when and why you'd use this command.
+Full code review in your terminal — no browser needed.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Deep dive: "I need to see the actual code"
+- Offline review: "No browser, but need to review"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher review [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBER` | PR number to review | Required |
+| `-c, --context <NUM>` | Context lines around changes | `3` |
+| `-o, --output <FILE>` | Output diff to file | Terminal |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher review 4821
+review-dispatcher review 4821 --context 5
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

@@ -1,41 +1,34 @@
-# COMMAND
+# delegate
 
-**One-liner description of what this does.**
+**Ask Claude to triage each pending review — AI-powered PR analysis.**
 
-Detailed explanation of when and why you'd use this command.
+Let Claude Code analyze your PRs, summarize changes, identify risks, and recommend actions.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Morning triage: "Which PRs should I prioritize?"
+- Before deep work: "Quick summary of what's waiting"
+- Risk assessment: "Does this security-related PR need extra scrutiny?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher delegate [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
+| `PR_NUMBER` | Target specific PR (optional) | All pending |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher delegate
+review-dispatcher delegate 4821
 ```
 
 ## Tips
 
-- Tip 1
-- Tip 2
+- Create `instruction.md` for project-specific review criteria

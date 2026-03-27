@@ -1,41 +1,28 @@
-# COMMAND
+# health
 
-**One-liner description of what this does.**
+**Show GitHub API health status and rate limits.**
 
-Detailed explanation of when and why you'd use this command.
+Avoid hitting rate limits by checking before large operations.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Before batch operations: "Will I hit the limit?"
+- Debugging: "Why is the CLI slow?"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher health [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher health
 ```
-
-## Tips
-
-- Tip 1
-- Tip 2

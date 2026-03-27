@@ -1,41 +1,21 @@
-# COMMAND
+# clean
 
-**One-liner description of what this does.**
+**Remove all past review files from the output directory.**
 
-Detailed explanation of when and why you'd use this command.
+Keep your reviews folder tidy by purging old output.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Weekly cleanup: "Fresh start"
+- Before `report`: "Start clean for new report period"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
-```
-
-## Options
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
-| `--json` | Output as JSON | `false` |
-
-## Examples
-
-```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher clean
 ```
 
 ## Tips
 
-- Tip 1
-- Tip 2
+- Only deletes files in your local output directory
+- Does not affect GitHub data

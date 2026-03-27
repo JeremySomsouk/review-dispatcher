@@ -1,41 +1,35 @@
-# COMMAND
+# report
 
-**One-liner description of what this does.**
+**Generate a weekly review report from processed review files.**
 
-Detailed explanation of when and why you'd use this command.
+See your review activity over time — PRs reviewed, time spent, patterns.
 
 ## When to Use
 
-- Scenario 1
-- Scenario 2
+- Weekly summary: "What did I review this week?"
+- Team reporting: "Show my review output"
 
 ## Synopsis
 
 ```bash
-review-dispatcher COMMAND [OPTIONS]
+review-dispatcher report [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-p, --pr <NUM>` | Target specific PR | - |
+| `-d, --days <NUM>` | Number of days to look back | `7` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
-# Basic usage
-review-dispatcher COMMAND
-
-# With specific PR
-review-dispatcher COMMAND --pr 4821
-
-# For scripting
-review-dispatcher COMMAND --json
+review-dispatcher report
+review-dispatcher report --days 30
 ```
 
 ## Tips
 
-- Tip 1
-- Tip 2
+- Review files must exist in the output directory
+- Use `clean` before generating a fresh report
