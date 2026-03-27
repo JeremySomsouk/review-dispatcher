@@ -1,0 +1,104 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@catppuccin/palette-css@2.0.0/dist/catppuccin.min.css">
+<style>
+:root {
+    /* Catppuccin Mocha */
+    --ctp-rosewater: #f5e0dc;
+    --ctp-flamingo: #f2cdcd;
+    --ctp-pink: #f5c2e7;
+    --ctp-mauve: #cba6f7;
+    --ctp-red: #f38ba8;
+    --ctp-maroon: #eba0ac;
+    --ctp-peach: #fab387;
+    --ctp-yellow: #f9e2af;
+    --ctp-green: #a6e3a1;
+    --ctp-teal: #94e2d5;
+    --ctp-sky: #89dceb;
+    --ctp-sapphire: #74c7ec;
+    --ctp-blue: #89b4fa;
+    --ctp-lavender: #b4befe;
+    --ctp-text: #cdd6f4;
+    --ctp-subtext: #a6adc8;
+    --ctp-surface0: #313244;
+    --ctp-surface1: #45475a;
+    --ctp-surface2: #585b70;
+    --ctp-overlay0: #6c7086;
+    --ctp-overlay1: #7f849c;
+    --ctp-overlay2: #9399b2;
+    --ctp-base: #1e1e2e;
+    --ctp-mantle: #181825;
+    --ctp-crust: #11111b;
+
+    --bg: #11111b;
+    --fg: #cdd6f4;
+    --heading-color: #cba6f7;
+    --link-color: #89b4fa;
+    --link-hover: #74c7ec;
+    --code-bg: #313244;
+    --code-fg: #cdd6f4;
+    --sidebar-bg: #181825;
+    --sidebar-fg: #cdd6f4;
+    --sidebar-hover-bg: #313244;
+    --sidebar-active-bg: #45475a;
+    --table-header-bg: #313244;
+    --table-border-color: #45475a;
+    --blockquote-bg: #313244;
+    --blockquote-border-color: #cba6f7;
+    --blockquote-fg: #cdd6f4;
+    --header-bg: #11111b;
+    --header-fg: #cdd6f4;
+    --page-nav-bg: #313244;
+    --page-nav-fg: #cdd6f4;
+    --scrollbar-color: #45475a;
+    --search-bg: #313244;
+    --search-border-color: #45475a;
+    --search-fg: #cdd6f4;
+    --search-hover-bg: #45475a;
+    --button-bg: #313244;
+    --button-hover-bg: #45475a;
+    --button-fg: #cdd6f4;
+    --menu-bg: #181825;
+    --menu-fg: #cdd6f4;
+    --menu-hover-bg: #313244;
+    --toolbar-bg: #11111b;
+    --toolbar-fg: #cdd6f4;
+    --metadata-fg: #7f849c;
+    --breadcrumb-fg: #7f849c;
+    --breadcrumb-hover-fg: #cdd6f4;
+    --theme-popup-bg: #313244;
+    --theme-popup-border-color: #45475a;
+    --invalid-url-fg: #f38ba8;
+    --copybutton-bg: #313244;
+    --copybutton-fg: #cdd6f4;
+    --copybutton-border-color: #45475a;
+    --copybutton-hover-bg: #45475a;
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+::selection { background: var(--ctp-mauve); color: var(--ctp-crust); }
+::-webkit-scrollbar { background: var(--ctp-mantle); }
+::-webkit-scrollbar-thumb { background: var(--ctp-surface1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ctp-surface2); }
+a { color: var(--link-color); text-decoration: none; }
+a:hover { color: var(--link-hover); }
+h1, h2, h3, h4, h5, h6 { color: var(--heading-color); }
+code { background: var(--code-bg); color: var(--code-fg); padding: 0.1em 0.3em; border-radius: 4px; }
+pre { background: var(--code-bg); border: 1px solid var(--ctp-surface1); border-radius: 8px; padding: 1em; }
+pre code { background: transparent; padding: 0; }
+table { border-collapse: collapse; width: 100%; }
+th { background: var(--table-header-bg); color: var(--heading-color); }
+th, td { border: 1px solid var(--table-border-color); padding: 0.5em 1em; }
+blockquote { background: var(--blockquote-bg); border-left: 4px solid var(--blockquote-border-color); padding: 0.5em 1em; margin: 1em 0; }
+blockquote > p { color: var(--blockquote-fg); margin: 0; }
+.sidebar { background: var(--sidebar-bg); border-right: 1px solid var(--ctp-surface0); }
+.sidebar a { color: var(--sidebar-fg); }
+.sidebar a:hover { background: var(--sidebar-hover-bg); }
+.sidebar a.active { background: var(--sidebar-active-bg); color: var(--ctp-mauve); }
+.mobile-nav-chapters { background: var(--menu-bg); }
+.menu-title { background: var(--toolbar-bg); color: var(--toolbar-fg); }
+button { background: var(--button-bg); color: var(--button-fg); border: 1px solid var(--ctp-surface1); border-radius: 4px; padding: 0.3em 0.8em; cursor: pointer; }
+button:hover { background: var(--button-hover-bg); }
+.page-nav { background: var(--page-nav-bg); border-top: 1px solid var(--ctp-surface0); }
+.page-nav a { color: var(--page-nav-fg); }
+.content { background: var(--bg); }
+.page-wrapper { background: var(--bg); }
+</style>
