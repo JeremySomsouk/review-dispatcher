@@ -91,4 +91,10 @@ pub enum Commands {
     MonitorStop,
     /// Check if monitor process is running
     MonitorStatus,
+    /// Show diff/stats for a specific PR directly in terminal
+    Diff {
+        /// PR number to show diff for
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+    },
 }

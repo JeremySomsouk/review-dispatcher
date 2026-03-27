@@ -372,6 +372,116 @@ async fn main() -> anyhow::Result<()> {
                 println!("❌ Monitor process is not running");
             }
         }
+
+        Commands::Diff { pr_number } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    // Show all pending reviews and let user pick
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to diff [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found to diff.");
+                return Ok(());
+            }
+
+            for review in prs {
+                let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                let age_label = match age_days {
+                    0 => "today".green(),
+                    1 => "1 day ago".normal(),
+                    _ => format!("{} days ago", age_days).red(),
+                };
+
+                println!("\n{}", "─".repeat(60));
+                println!("📄 {}  #{}", review.pr_title.bold(), review.pr_number);
+                println!("   👤 {}  •  📅 {}  •  🌿 {}", 
+                    review.pr_author.cyan(), 
+                    age_label,
+                    review.branch.dimmed()
+                );
+                println!("   📊 {}  •  +{} additions  •  -{} deletions",
+                    if review.draft { "DRAFT".yellow() } else { "READY".green() },
+                    review.additions.to_string().green(),
+                    review.deletions.to_string().red()
+                );
+                println!("   🔗 {}", review.pr_url.blue().underline());
+                println!("{}", "─".repeat(60));
+
+                // Show size category
+                let total = review.additions + review.deletions;
+                let size_label = if total < 50 {
+                    "XS".to_string()
+                } else if total < 200 {
+                    "S".to_string()
+                } else if total < 500 {
+                    "M".to_string()
+                } else if total < 1000 {
+                    "L".to_string()
+                } else {
+                    "XL".to_string()
+                };
+                let size_color: colored::Color = match size_label.as_str() {
+                    "XS" | "S" => colored::Color::Green,
+                    "M" => colored::Color::Yellow,
+                    "L" => colored::Color::Red,
+                    _ => colored::Color::Magenta,
+                };
+                println!("   📦 Size: {} ({} lines)", size_label.color(size_color), total);
+
+                // Show age category
+                let age_cat = if age_days == 0 {
+                    "🔥 HOT"
+                } else if age_days <= 2 {
+                    "⚡ FRESH"
+                } else if age_days <= 7 {
+                    "📅 WEEK OLD"
+                } else if age_days <= 14 {
+                    "⚠️  STALE"
+                } else {
+                    "🚨 OLD"
+                };
+                println!("   ⏱️  Age: {} ({} days)", age_cat, age_days);
+
+                // Priority indicator
+                let score = logger::calculate_priority_score(&review);
+                println!("   ⭐ Priority: {}/5  {}", score, logger::priority_stars(score));
+
+                // Show repo
+                println!("   📁 Repository: {}", review.repo);
+                println!("{}", "─".repeat(60));
+                println!();
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
