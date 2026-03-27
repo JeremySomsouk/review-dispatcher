@@ -665,7 +665,7 @@ async fn main() -> anyhow::Result<()> {
                     .map(|t| t.slug.clone())
                     .collect::<Vec<_>>();
 
-                let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                let _age_days = (chrono::Utc::now() - review.created_at).num_days();
                 let created_str = review.created_at.format("%Y-%m-%d %H:%M UTC").to_string();
                 let updated_str = full_pr
                     .updated_at
@@ -2374,7 +2374,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Size { filter_size, grouped, priority, json } => {
-            use chrono::Utc;
+            
 
             // Size buckets: (label, emoji, min_lines, max_lines)
             // XS: 0-30, S: 31-100, M: 101-300, L: 301-800, XL: 801+
@@ -2522,7 +2522,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("{}", "─".repeat(40));
 
                     for r in prs {
-                        let total_lines = r.additions + r.deletions;
+                        let _total_lines = r.additions + r.deletions;
                         let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
                         let priority_str = if priority {
                             let score = logger::calculate_priority_score(r);
@@ -2589,7 +2589,7 @@ async fn main() -> anyhow::Result<()> {
 
                 for r in &all_filtered {
                     let total_lines = r.additions + r.deletions;
-                    let (size_label, emoji, size_desc) = get_size_info(total_lines);
+                    let (size_label, emoji, _size_desc) = get_size_info(total_lines);
                     let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
                     let priority_str = if priority {
                         let score = logger::calculate_priority_score(r);
@@ -2626,7 +2626,7 @@ async fn main() -> anyhow::Result<()> {
             use std::collections::HashMap;
 
             let now = Utc::now();
-            let cutoff = now - Duration::days(days as i64);
+            let _cutoff = now - Duration::days(days as i64);
 
             // Compute age buckets
             #[derive(Clone, Copy)]
@@ -2688,7 +2688,7 @@ async fn main() -> anyhow::Result<()> {
             let age_bar: String = bucket_counts
                 .iter()
                 .map(|(b, c)| {
-                    let Bucket(label, emoji, _, _) = *b;
+                    let Bucket(_label, emoji, _, _) = *b;
                     if *c > 0 {
                         format!("{}:{} ", emoji, c)
                     } else {
@@ -3217,7 +3217,7 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         // Interactive: show snoozed list and let user pick
                         let now = chrono::Utc::now();
-                        let mut active: Vec<_> = snoozed
+                        let active: Vec<_> = snoozed
                             .iter()
                             .filter(|e| {
                                 if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
@@ -4491,7 +4491,7 @@ async fn main() -> anyhow::Result<()> {
                 if bottlenecks {
                     println!("\n  🐢 Bottleneck Analysis — by Author");
                     println!("     (slowest average review time)");
-                    for (author, avg, median, count) in author_stats.iter().rev().take(5) {
+                    for (author, avg, _median, count) in author_stats.iter().rev().take(5) {
                         let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
                         let bar: String = "█".repeat(bar_len.max(1));
                         println!("     {} {}  {:.1}h avg  ({} PRs)",
@@ -4504,7 +4504,7 @@ async fn main() -> anyhow::Result<()> {
 
                     println!("\n  🐢 Bottleneck Analysis — by Repository");
                     println!("     (slowest average review time)");
-                    for (repo, avg, median, count) in repo_stats.iter().rev().take(5) {
+                    for (repo, avg, _median, count) in repo_stats.iter().rev().take(5) {
                         let short_name = repo.split('/').last().unwrap_or(repo);
                         let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
                         let bar: String = "█".repeat(bar_len.max(1));
@@ -4881,7 +4881,7 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} days ago!!", age_days).red().bold().to_string()
                     };
 
-                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let _draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
 
                     println!();
                     println!("🎯 YOUR FOCUS PR");
