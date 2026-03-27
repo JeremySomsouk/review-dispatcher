@@ -14,6 +14,7 @@
 - [search](commands/search.md)
 - [filter](commands/filter.md)
 - [top](commands/top.md)
+- [focus](commands/focus.md)
 - [quick](commands/quick.md)
 - [catchup](commands/catchup.md)
 - [age](commands/age.md)
