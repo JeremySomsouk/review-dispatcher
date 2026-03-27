@@ -377,6 +377,18 @@ pub enum Commands {
         #[arg(long)]
         raw: bool,
     },
+    /// Analyze review trends over time (velocity, avg time to review, top reviewers)
+    Trends {
+        /// Number of days to analyze (default: 30)
+        #[arg(long, short = 'd', default_value_t = 30)]
+        days: u32,
+        /// Number of top authors/reviewers to show (default: 10)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

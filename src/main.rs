@@ -3194,6 +3194,277 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Trends { days, limit, json } => {
+            use chrono::{Duration, Utc};
+            use std::collections::{HashMap, BTreeMap};
+
+            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+            let n = limit.unwrap_or(10) as usize;
+
+            if !report_output_dir.exists() {
+                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", report_output_dir.display());
+                return Ok(());
+            }
+
+            let cutoff = Utc::now() - Duration::days(days as i64);
+
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct TrendedReview {
+                pr_title: String,
+                pr_number: u64,
+                repo: String,
+                author: String,
+                reviewed_at: String,
+                additions: u64,
+                deletions: u64,
+            }
+
+            // ── Collect processed reviews from review files ──
+            let mut reviews_data: Vec<TrendedReview> = vec![];
+            let mut total_additions: u64 = 0;
+            let mut total_deletions: u64 = 0;
+            let mut by_author: HashMap<String, u32> = HashMap::new();
+            let mut by_repo: HashMap<String, u32> = HashMap::new();
+            let mut by_day: BTreeMap<String, u32> = BTreeMap::new(); // BTree for sorted days
+
+            if let Ok(entries) = std::fs::read_dir(&report_output_dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            let lines: Vec<&str> = content.lines().collect();
+                            if lines.len() >= 4 {
+                                let pr_title = lines.first().unwrap_or(&"").trim().trim_start_matches("# ").to_string();
+                                let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
+                                let additions_line = lines.iter().find(|l| l.contains("+") && l.contains("additions"));
+                                let deletions_line = lines.iter().find(|l| l.contains("-") && l.contains("deletions"));
+                                let author_line = lines.iter().find(|l| l.starts_with("- **Author**:"));
+                                let repo_line = lines.iter().find(|l| l.starts_with("- **Repository**:"));
+
+                                if let Some(date_str) = date_line {
+                                    if let Some(date_part) = date_str.strip_prefix("Reviewed on ") {
+                                        if let Ok(reviewed_at) = chrono::DateTime::parse_from_rfc3339(date_part) {
+                                            let reviewed_at_tz = reviewed_at.with_timezone(&Utc);
+                                            if reviewed_at_tz >= cutoff {
+                                                let pr_number = path.file_stem()
+                                                    .and_then(|s| s.to_str())
+                                                    .and_then(|s| s.split('_').last())
+                                                    .and_then(|s| s.parse().ok())
+                                                    .unwrap_or(0);
+
+                                                let additions: u64 = additions_line
+                                                    .and_then(|l| l.split('`').nth(1))
+                                                    .and_then(|s| s.replace(['+', ','], "").trim().parse().ok())
+                                                    .unwrap_or(0);
+                                                let deletions: u64 = deletions_line
+                                                    .and_then(|l| l.split('`').nth(1))
+                                                    .and_then(|s| s.replace(['-', ','], "").trim().parse().ok())
+                                                    .unwrap_or(0);
+                                                let author = author_line
+                                                    .and_then(|l| l.strip_prefix("- **Author**:"))
+                                                    .map(|s| s.trim().to_string())
+                                                    .unwrap_or_default();
+                                                let repo = repo_line
+                                                    .and_then(|l| l.strip_prefix("- **Repository**:"))
+                                                    .map(|s| s.trim().to_string())
+                                                    .unwrap_or_default();
+
+                                                total_additions += additions;
+                                                total_deletions += deletions;
+                                                *by_author.entry(author.clone()).or_insert(0) += 1;
+                                                *by_repo.entry(repo.clone()).or_insert(0) += 1;
+
+                                                let day_key = reviewed_at_tz.format("%Y-%m-%d").to_string();
+                                                *by_day.entry(day_key).or_insert(0) += 1;
+
+                                                reviews_data.push(TrendedReview {
+                                                    pr_title,
+                                                    pr_number,
+                                                    repo,
+                                                    author,
+                                                    reviewed_at: reviewed_at_tz.to_rfc3339(),
+                                                    additions,
+                                                    deletions,
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let review_count = reviews_data.len();
+
+            // ── Compute daily averages ──
+            let active_days = by_day.len().max(1) as u64;
+            let avg_per_day = review_count as f64 / active_days as f64;
+            let avg_additions = if review_count > 0 { total_additions as f64 / review_count as f64 } else { 0.0 };
+            let avg_deletions = if review_count > 0 { total_deletions as f64 / review_count as f64 } else { 0.0 };
+
+            // ── Week-over-week comparison ──
+            let this_week_start = Utc::now() - Duration::days(7);
+            let prev_week_start = Utc::now() - Duration::days(14);
+
+            let this_week_count: usize = reviews_data.iter().filter(|r| {
+                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
+                    dt.with_timezone(&Utc) >= this_week_start
+                } else { false }
+            }).count();
+
+            let prev_week_count: usize = reviews_data.iter().filter(|r| {
+                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
+                    let d = dt.with_timezone(&Utc);
+                    d >= prev_week_start && d < this_week_start
+                } else { false }
+            }).count();
+
+            let wow_change = if prev_week_count > 0 {
+                ((this_week_count as f64 - prev_week_count as f64) / prev_week_count as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            // ── Top authors ──
+            let mut top_authors: Vec<(String, u32)> = by_author
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect();
+            top_authors.sort_by(|a, b| b.1.cmp(&a.1));
+
+            // ── Top repos ──
+            let mut top_repos: Vec<(String, u32)> = by_repo
+                .into_iter()
+                .map(|(k, v)| (k, v))
+                .collect();
+            top_repos.sort_by(|a, b| b.1.cmp(&a.1));
+
+            // ── Daily chart (last 14 days) ──
+            let mut chart_days: Vec<(String, u32)> = vec![];
+            for i in (0..14).rev() {
+                let day = (Utc::now() - Duration::days(i)).format("%Y-%m-%d").to_string();
+                let count = *by_day.get(&day).unwrap_or(&0);
+                chart_days.push((day, count));
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct TrendsOutput {
+                    period_days: u32,
+                    total_reviews: usize,
+                    reviews_by_day: BTreeMap<String, u32>,
+                    avg_per_day: f64,
+                    avg_additions: f64,
+                    avg_deletions: f64,
+                    total_additions: u64,
+                    total_deletions: u64,
+                    this_week_count: usize,
+                    prev_week_count: usize,
+                    wow_change_pct: f64,
+                    top_authors: Vec<(String, u32)>,
+                    top_repos: Vec<(String, u32)>,
+                }
+                let output = TrendsOutput {
+                    period_days: days,
+                    total_reviews: review_count,
+                    reviews_by_day: by_day,
+                    avg_per_day,
+                    avg_additions,
+                    avg_deletions,
+                    total_additions,
+                    total_deletions,
+                    this_week_count,
+                    prev_week_count,
+                    wow_change_pct: wow_change,
+                    top_authors,
+                    top_repos,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("\n📈 Review Trends — last {} days\n{}", days, "─".repeat(45));
+
+                if review_count == 0 {
+                    println!("  😴 No review data found in the last {} days.", days);
+                    println!("  Process some reviews first with `review-dispatcher delegate`.\n");
+                    return Ok(());
+                }
+
+                // ── Summary stats ──
+                println!("  📊 Summary");
+                println!("     Total reviews:       {}", review_count);
+                println!("     Daily average:       {:.1} PRs/day", avg_per_day);
+                println!("     Lines reviewed:      +{} / -{}",
+                    total_additions.to_string().green(),
+                    total_deletions.to_string().red());
+                println!("     Avg PR size:         +{:.0} / -{:.0}",
+                    avg_additions, avg_deletions);
+                println!();
+
+                // ── Week over week ──
+                println!("  📅 Week-over-Week");
+                let wow_icon = if wow_change > 0.0 { "📈" } else if wow_change < 0.0 { "📉" } else { "➖" };
+                let wow_color: colored::ColoredString = if wow_change > 0.0 {
+                    wow_change.to_string().green()
+                } else if wow_change < 0.0 {
+                    wow_change.to_string().red()
+                } else {
+                    "0%".normal()
+                };
+                println!("     {} This week: {}   Previous: {}   Change: {}",
+                    wow_icon,
+                    this_week_count.to_string().cyan().bold(),
+                    prev_week_count.to_string().dimmed(),
+                    wow_color
+                );
+                println!();
+
+                // ── Sparkline chart (last 14 days) ──
+                println!("  📈 Daily Activity (last 14 days)");
+                let max_count = chart_days.iter().map(|(_, c)| *c).max().unwrap_or(1).max(1) as f64;
+                for (day, count) in &chart_days {
+                    let bar_len = ((*count as f64 / max_count) * 20.0).round() as usize;
+                    let bar: String = "█".repeat(bar_len);
+                    let empty: String = "░".repeat(20 - bar_len);
+                    let is_today = *day == Utc::now().format("%Y-%m-%d").to_string();
+                    let day_label = if is_today { format!("{} (today)", &day[5..]) } else { day[5..].to_string() };
+                    let count_label = if *count == 0 { "   ".to_string() } else { count.to_string() };
+                    println!("     {}  {}{}  {}",
+                        day_label.dimmed(),
+                        bar.green(),
+                        empty.truecolor(40, 40, 40),
+                        count_label.dimmed()
+                    );
+                }
+                println!();
+
+                // ── Top authors ──
+                if !top_authors.is_empty() {
+                    println!("  👥 Top Authors (by PR count)");
+                    for (author, count) in top_authors.iter().take(n) {
+                        println!("     {}  {}", author.cyan(), count.to_string().dimmed());
+                    }
+                    println!();
+                }
+
+                // ── Top repos ──
+                if !top_repos.is_empty() {
+                    println!("  📁 Top Repositories");
+                    for (repo, count) in top_repos.iter().take(n) {
+                        let short_name = repo.split('/').last().unwrap_or(repo);
+                        println!("     {}  {}", short_name, count.to_string().dimmed());
+                    }
+                    println!();
+                }
+
+                println!("  💡 Use `--days <N>` to adjust the lookback period");
+                println!("  💡 Use `--json` for machine-readable output");
+                println!("{}", "─".repeat(45));
+                println!();
+            }
+        }
+
         Commands::Summary { json } => {
             use chrono::Utc;
 
