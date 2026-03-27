@@ -190,6 +190,24 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show CI/CD pipeline status for pending PRs (GitHub Actions, etc.)
+    Ci {
+        /// Only show PRs with failing checks
+        #[arg(long, short = 'f')]
+        failed_only: bool,
+        /// Only show PRs with passing checks
+        #[arg(long, short = 'p')]
+        passing_only: bool,
+        /// Show CI status for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to check (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Show which pending PRs have merge conflicts
     Conflicts {
         /// Only show PRs with conflicts (hide clean PRs)

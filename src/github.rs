@@ -313,6 +313,28 @@ pub struct MergeConflictStatus {
     pub rebaseable: Option<bool>,
 }
 
+/// Represents CI check run status for a commit
+#[derive(Debug, Clone, Serialize)]
+pub struct CiStatus {
+    pub repo: String,
+    pub pr_number: u64,
+    pub pr_title: String,
+    pub head_sha: String,
+    pub overall_status: String, // "success", "failure", "pending", "error", "cancelled"
+    pub checks: Vec<CiCheck>,
+}
+
+/// Individual CI check within a commit
+#[derive(Debug, Clone, Serialize)]
+pub struct CiCheck {
+    pub name: String,
+    pub status: String,       // "completed", "in_progress", "queued", "pending", "waiting", "requested"
+    pub conclusion: Option<String>, // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required"
+    pub app_name: String,     // "GitHub Actions", "CircleCI", "Jenkins", etc.
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
 pub async fn fetch_pr_diff(
     token: &str,
     org: &str,
@@ -531,6 +553,111 @@ pub async fn fetch_merge_conflict_status(
                 Err(e) => {
                     // Log but don't fail - just skip this PR
                     eprintln!("Warning: Failed to fetch PR #{} in {}: {}", pr_number, repo, e);
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}
+
+/// Fetch CI (GitHub Actions / checks) status for a list of pending reviews
+pub async fn fetch_ci_status(
+    token: &str,
+    org: &str,
+    reviews: &[PendingReview],
+) -> Result<Vec<CiStatus>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let mut results = Vec::new();
+
+    // Group by repo to fetch combined status per repo
+    use std::collections::HashMap;
+    let mut by_repo: HashMap<String, Vec<&PendingReview>> = HashMap::new();
+    for review in reviews {
+        by_repo.entry(review.repo.clone())
+            .or_insert_with(Vec::new)
+            .push(review);
+    }
+
+    for (repo, reviews_in_repo) in by_repo {
+        // Get the head SHAs for all PRs in this repo
+        for review in reviews_in_repo {
+            match client.pulls(org, &repo).get(review.pr_number).await {
+                Ok(pr) => {
+                    let head_sha = pr.head.sha.clone();
+                    let pr_title = pr.title.clone().unwrap_or_default();
+
+                    // Fetch combined status for this commit via GitHub status API
+                    #[derive(serde::Deserialize)]
+                    struct CombinedStatus {
+                        state: String,
+                    }
+
+                    let combined_status_url = format!(
+                        "/repos/{}/{}/commits/{}/status",
+                        org, repo, head_sha
+                    );
+
+                    let overall_status: String = client
+                        .get(&combined_status_url, None::<&str>)
+                        .await
+                        .map(|s: CombinedStatus| s.state)
+                        .unwrap_or_else(|_| "unknown".to_string());
+
+                    // Fetch check runs (GitHub Actions, etc.) via check-runs endpoint
+                    #[derive(serde::Deserialize)]
+                    struct CheckRunsResponse {
+                        total_count: u32,
+                        check_runs: Vec<CheckRunDto>,
+                    }
+
+                    #[derive(serde::Deserialize)]
+                    #[serde(rename_all = "camelCase")]
+                    struct CheckRunDto {
+                        name: String,
+                        status: String,
+                        conclusion: Option<String>,
+                        app_name: String,
+                        started_at: Option<String>,
+                        completed_at: Option<String>,
+                    }
+
+                    let check_runs_url = format!(
+                        "/repos/{}/{}/commits/{}/check-runs",
+                        org, repo, head_sha
+                    );
+
+                    let checks: Vec<CiCheck> = client
+                        .get(&check_runs_url, None::<&str>)
+                        .await
+                        .map(|response: CheckRunsResponse| {
+                            response.check_runs.into_iter().map(|cr| {
+                                CiCheck {
+                                    name: cr.name,
+                                    status: cr.status,
+                                    conclusion: cr.conclusion,
+                                    app_name: cr.app_name,
+                                    started_at: cr.started_at,
+                                    completed_at: cr.completed_at,
+                                }
+                            }).collect()
+                        })
+                        .unwrap_or_default();
+
+                    results.push(CiStatus {
+                        repo: repo.clone(),
+                        pr_number: review.pr_number,
+                        pr_title,
+                        head_sha,
+                        overall_status,
+                        checks,
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to fetch PR #{} in {}: {}", review.pr_number, repo, e);
                 }
             }
         }

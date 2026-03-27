@@ -2224,6 +2224,180 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+
+        Commands::Ci { failed_only, passing_only, all, pr_numbers, json } => {
+            let targets: Vec<_> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            };
+
+            if targets.is_empty() {
+                println!("No PRs to check CI status for.");
+                return Ok(());
+            }
+
+            println!("\n🔧 Checking CI status for {} PR(s)...\n", targets.len());
+            io::stdout().flush()?;
+
+            match github::fetch_ci_status(
+                &cfg.github_token,
+                &cfg.github_org,
+                &targets,
+            )
+            .await
+            {
+                Ok(statuses) => {
+                    // Apply filters
+                    let filtered: Vec<_> = statuses
+                        .into_iter()
+                        .filter(|s| {
+                            if failed_only {
+                                s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))
+                            } else if passing_only {
+                                s.overall_status == "success" || s.checks.iter().all(|c| c.conclusion.as_deref() == Some("success"))
+                            } else {
+                                true
+                            }
+                        })
+                        .collect();
+
+                    if filtered.is_empty() {
+                        if failed_only {
+                            println!("🎉 No PRs with failing CI checks!\n");
+                        } else if passing_only {
+                            println!("❌ No PRs with fully passing CI.\n");
+                        } else {
+                            println!("No CI status data available.\n");
+                        }
+                        return Ok(());
+                    }
+
+                    let failure_count = filtered.iter().filter(|s| s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))).count();
+                    let success_count = filtered.len() - failure_count;
+
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&filtered)?);
+                    } else {
+                        println!("\n🔧 CI Status Report\n{}", "─".repeat(50));
+                        println!("  ❌ Failing:  {}", failure_count.to_string().red().bold());
+                        println!("  ✅ Passing:  {}", success_count.to_string().green().bold());
+                        println!("{}", "─".repeat(50));
+
+                        // Sort: failures first, then by repo
+                        let mut sorted = filtered.clone();
+                        sorted.sort_by(|a, b| {
+                            let a_fail = if a.overall_status == "failure" || a.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
+                            let b_fail = if b.overall_status == "failure" || b.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
+                            if a_fail != b_fail {
+                                a_fail.cmp(&b_fail)
+                            } else {
+                                a.repo.cmp(&b.repo)
+                            }
+                        });
+
+                        for status in &sorted {
+                            let has_failure = status.overall_status == "failure" || status.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"));
+                            let has_success = status.checks.iter().all(|c| c.conclusion.as_deref() == Some("success"));
+                            let has_in_progress = status.checks.iter().any(|c| c.status == "in_progress");
+
+                            let status_icon = if has_failure {
+                                "❌".red()
+                            } else if has_success {
+                                "✅".green()
+                            } else if has_in_progress {
+                                "⏳".yellow()
+                            } else {
+                                "⚪".normal()
+                            };
+
+                            let status_label = if has_failure {
+                                "FAILING".red().to_string()
+                            } else if has_success {
+                                "PASSING".green().to_string()
+                            } else if has_in_progress {
+                                "IN PROGRESS".yellow().to_string()
+                            } else {
+                                "UNKNOWN".dimmed().to_string()
+                            };
+
+                            println!(
+                                "\n{} #{}  {}  ({})\n    Status: {}",
+                                status_icon,
+                                status.pr_number,
+                                status.pr_title.bold(),
+                                status.repo.dimmed(),
+                                status_label
+                            );
+
+                            if status.checks.is_empty() {
+                                println!("    (no checks configured)");
+                            } else {
+                                for check in &status.checks {
+                                    let check_status_icon = match check.conclusion.as_deref() {
+                                        Some("success") => "✅".to_string(),
+                                        Some("failure") => "❌".to_string(),
+                                        Some("cancelled") | Some("skipped") => "⚠️ ".to_string(),
+                                        Some("timed_out") => "⏱️ ".to_string(),
+                                        Some("neutral") => "➖".to_string(),
+                                        Some("action_required") => "🔔".to_string(),
+                                        None if check.status == "in_progress" => "🔄 ".yellow().to_string(),
+                                        None if check.status == "queued" || check.status == "waiting" => "⏳ ".yellow().to_string(),
+                                        _ => "⚪ ".to_string(),
+                                    };
+                                    let check_conclusion = check.conclusion.as_deref().unwrap_or(&check.status);
+                                    println!(
+                                        "      {}{}  ({})",
+                                        check_status_icon,
+                                        check.name.dimmed(),
+                                        check_conclusion.dimmed()
+                                    );
+                                }
+                            }
+                        }
+
+                        println!("{}", "─".repeat(50));
+                        println!("\n💡 Use `ci --failed-only` or `-f` to show only failing PRs");
+                        println!("💡 Use `ci --passing-only` or `-p` to show only passing PRs\n");
+                    }
+                }
+                Err(e) => {
+                    println!("{}", "❌ Failed to check CI status".red());
+                    println!("   Error: {}", e);
+                }
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
