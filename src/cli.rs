@@ -97,4 +97,10 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Assign yourself as a reviewer on a PR
+    Assign {
+        /// PR number to assign yourself to
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+    },
 }

@@ -482,6 +482,82 @@ async fn main() -> anyhow::Result<()> {
                 println!();
             }
         }
+
+        Commands::Assign { pr_number } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to assign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found to assign.");
+                return Ok(());
+            }
+
+            for review in prs {
+                print!(
+                    "\n⏳ Requesting review on #{} {}... ",
+                    review.pr_number,
+                    review.pr_title
+                );
+                io::stdout().flush()?;
+
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                let result = client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .request_reviews(
+                        review.pr_number,
+                        vec![cfg.github_username.clone()],
+                        Vec::<String>::new(),
+                    )
+                    .await;
+
+                match result {
+                    Ok(_) => {
+                        println!("{}", "✅ Assigned".green());
+                        println!("   👤 You're now a reviewer on {} ({})", review.pr_title, review.repo);
+                        println!("   🔗 {}", review.pr_url.blue().underline());
+                    }
+                    Err(e) => {
+                        println!("{}", "❌ Failed".red());
+                        println!("   Error: {}", e);
+                    }
+                }
+            }
+            println!();
+        }
     }
 
     // Open terminal tab last, after all files are written
