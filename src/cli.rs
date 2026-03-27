@@ -64,6 +64,8 @@ pub enum Commands {
     Mine,
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats,
+    /// Show team review summary (how many PRs each crew member has waiting)
+    TeamSummary,
     /// Remove all past review files from the output directory
     Clean,
     /// Monitor for new PRs and send macOS notifications

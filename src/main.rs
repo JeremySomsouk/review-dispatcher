@@ -251,6 +251,52 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::TeamSummary => {
+            use std::collections::HashMap;
+
+            let mut team_counts: HashMap<String, usize> = HashMap::new();
+            let mut unassigned = 0usize;
+
+            for review in &reviews {
+                if review.pr_author.is_empty() {
+                    unassigned += 1;
+                } else {
+                    *team_counts.entry(review.pr_author.clone()).or_insert(0) += 1;
+                }
+            }
+
+            println!("\n👥 Team Review Summary\n{}", "─".repeat(40));
+            println!("  Total pending reviews: {}", reviews.len());
+
+            if !team_counts.is_empty() {
+                println!("\n  By author:");
+                let mut sorted: Vec<_> = team_counts.iter().collect();
+                sorted.sort_by(|a, b| b.1.cmp(a.1)); // descending by count
+                for (author, count) in sorted {
+                    let bar = "█".repeat(*count).cyan();
+                    println!("    {}  {}", author.bold(), bar);
+                }
+            }
+
+            if unassigned > 0 {
+                println!("\n  Unassigned/Unknown: {}", unassigned);
+            }
+
+            // Show breakdown by repository
+            let mut repo_counts: HashMap<String, usize> = HashMap::new();
+            for review in &reviews {
+                *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
+            }
+            println!("\n  By repository:");
+            let mut repo_sorted: Vec<_> = repo_counts.iter().collect();
+            repo_sorted.sort_by(|a, b| b.1.cmp(a.1));
+            for (repo, count) in repo_sorted {
+                println!("    {}: {}", repo, count);
+            }
+
+            println!();
+        }
+
         Commands::Clean => {
             if let Some(ref dir) = output_dir {
                 if dir.exists() {
