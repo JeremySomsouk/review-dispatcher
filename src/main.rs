@@ -744,6 +744,32 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Search { query, priority, json } => {
+            let query_lower = query.to_lowercase();
+            let filtered: Vec<_> = reviews
+                .iter()
+                .filter(|r| r.pr_title.to_lowercase().contains(&query_lower))
+                .cloned()
+                .collect();
+
+            if filtered.is_empty() {
+                println!("\n🔍 No reviews matching '{}' found.\n", query.yellow());
+                return Ok(());
+            }
+
+            if json {
+                let json_output = serde_json::to_string_pretty(&filtered)?;
+                println!("{}", json_output);
+            } else {
+                println!(
+                    "\n🔍 {} review(s) matching '{}'\n",
+                    filtered.len().to_string().yellow().bold(),
+                    query.yellow().bold()
+                );
+                logger::print_reviews(&filtered, priority);
+            }
+        }
+
         Commands::Filter { repo, author, min_size, max_size, min_age, max_age, drafts_only, no_drafts, priority, json } => {
             // Apply filters to the reviews
             let filtered: Vec<_> = reviews.iter().filter(|r| {

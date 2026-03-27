@@ -127,6 +127,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Search pending reviews by title keyword
+    Search {
+        /// Keyword to search for in PR titles
+        #[arg(value_name = "KEYWORD")]
+        query: String,
+        /// Show priority scores for search results
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Filter pending reviews by various criteria
     Filter {
         /// Filter by repository name (partial match)
