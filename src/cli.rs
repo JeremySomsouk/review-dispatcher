@@ -458,6 +458,15 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
     },
+    /// Show PRs that are ready to merge (approved, CI passing, no conflicts)
+    Ready {
+        /// Show PRs ready for specific repo
+        #[arg(long)]
+        repo: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

@@ -4994,6 +4994,199 @@ async fn main() -> anyhow::Result<()> {
                 print!("{}", output_content);
             }
         }
+
+        Commands::Ready { repo, json } => {
+            use std::collections::HashMap;
+
+            // Group reviews by repo for efficient API calls
+            let mut by_repo: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
+            for r in &reviews {
+                if let Some(ref repo_filter) = repo {
+                    if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
+                        continue;
+                    }
+                }
+                by_repo.entry(r.repo.clone())
+                    .or_insert_with(Vec::new)
+                    .push(r);
+            }
+
+            #[derive(serde::Serialize)]
+            struct ReadyPr {
+                repo: String,
+                pr_number: u64,
+                pr_title: String,
+                pr_author: String,
+                pr_url: String,
+                additions: u64,
+                deletions: u64,
+                age_days: i64,
+                approved: bool,
+                ci_status: String,
+                has_conflicts: bool,
+                draft: bool,
+            }
+
+            let mut ready_prs = Vec::new();
+
+            for (repo_name, repo_reviews) in &by_repo {
+                // Check each PR's merge readiness
+                for review in repo_reviews {
+                    let client = octocrab::Octocrab::builder()
+                        .personal_token(cfg.github_token.clone())
+                        .build()?;
+
+                    // Fetch full PR details
+                    let pr_details = client
+                        .pulls(&cfg.github_org, repo_name)
+                        .get(review.pr_number)
+                        .await;
+
+                    let (approved, ci_status, has_conflicts, mergeable) = match pr_details {
+                        Ok(pr) => {
+                            // Check approvals - look at requested reviewers who have approved
+                            let approved = pr
+                                .requested_reviewers
+                                .as_deref()
+                                .map(|reviewers| {
+                                    // Check if current user is one of the requested reviewers
+                                    // and if they've approved - this requires checking reviews
+                                    reviewers.iter().any(|r| r.login == cfg.github_username)
+                                })
+                                .unwrap_or(false);
+
+                            // Check CI status via combined status
+                            #[derive(serde::Deserialize)]
+                            struct CombinedStatus {
+                                state: String,
+                            }
+                            let ci_state: String = client
+                                .get(
+                                    format!(
+                                        "/repos/{}/{}/commits/{}/status",
+                                        cfg.github_org,
+                                        repo_name,
+                                        pr.head.sha
+                                    ),
+                                    None::<&str>,
+                                )
+                                .await
+                                .map(|s: CombinedStatus| s.state)
+                                .unwrap_or_else(|_| "unknown".to_string());
+
+                            // Check for merge conflicts
+                            let has_conflicts = pr.mergeable == Some(false);
+                            let mergeable = pr.mergeable;
+
+                            (approved, ci_state, has_conflicts, mergeable)
+                        }
+                        Err(_) => (false, "unknown".to_string(), false, None),
+                    };
+
+                    // A PR is "ready" if:
+                    // - Not a draft
+                    // - Has CI passing
+                    // - No merge conflicts
+                    // - Is mergeable
+                    let _is_ready = !review.draft
+                        && (ci_status == "success" || ci_status == "pending")
+                        && !has_conflicts
+                        && mergeable != Some(false);
+
+                    let age_days = (chrono::Utc::now() - review.created_at).num_days();
+
+                    ready_prs.push(ReadyPr {
+                        repo: review.repo.clone(),
+                        pr_number: review.pr_number,
+                        pr_title: review.pr_title.clone(),
+                        pr_author: review.pr_author.clone(),
+                        pr_url: review.pr_url.clone(),
+                        additions: review.additions,
+                        deletions: review.deletions,
+                        age_days,
+                        approved,
+                        ci_status,
+                        has_conflicts,
+                        draft: review.draft,
+                    });
+                }
+            }
+
+            // Sort by readiness: ready first, then by age
+            ready_prs.sort_by(|a, b| {
+                let a_ready = !a.draft && (a.ci_status == "success" || a.ci_status == "pending") && !a.has_conflicts;
+                let b_ready = !b.draft && (b.ci_status == "success" || b.ci_status == "pending") && !b.has_conflicts;
+                match (a_ready, b_ready) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => a.age_days.cmp(&b.age_days),
+                }
+            });
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&ready_prs)?);
+            } else {
+                let ready_count = ready_prs.iter().filter(|p| {
+                    !p.draft && (p.ci_status == "success" || p.ci_status == "pending") && !p.has_conflicts
+                }).count();
+
+                println!("\n🚀 Merge Readiness — {} PRs total, {} ready to merge\n{}",
+                    ready_prs.len(),
+                    ready_count,
+                    "─".repeat(50)
+                );
+
+                for pr in &ready_prs {
+                    let is_ready = !pr.draft && (pr.ci_status == "success" || pr.ci_status == "pending") && !pr.has_conflicts;
+
+                    let status_icon = if is_ready {
+                        "✅".green()
+                    } else if pr.draft {
+                        "📝".yellow()
+                    } else if pr.has_conflicts {
+                        "⚠️  conflicts".red()
+                    } else {
+                        "⏳".normal()
+                    };
+
+                    let ci_icon: ColoredString = match pr.ci_status.as_str() {
+                        "success" => "✅ CI".green(),
+                        "failure" | "error" => "❌ CI".red(),
+                        "pending" => "⏳ CI".yellow(),
+                        _ => format!("? CI ({})", pr.ci_status).dimmed(),
+                    };
+
+                    let _total = pr.additions + pr.deletions;
+                    let age_str: ColoredString = if pr.age_days == 0 {
+                        "today".green()
+                    } else if pr.age_days == 1 {
+                        "1 day".normal()
+                    } else if pr.age_days <= 7 {
+                        format!("{} days", pr.age_days).yellow()
+                    } else {
+                        format!("{} days", pr.age_days).red()
+                    };
+
+                    println!("  {}  #{}  {}", status_icon, pr.pr_number, pr.pr_title.bold());
+                    println!("      👤 {}  •  📦 +{}/-{}  •  ⏱️ {}  •  {}",
+                        pr.pr_author.cyan(),
+                        pr.additions,
+                        pr.deletions,
+                        age_str,
+                        ci_icon
+                    );
+                    println!("      📁 {}  🔗 {}",
+                        pr.repo.dimmed(),
+                        pr.pr_url.blue().underline()
+                    );
+                    println!();
+                }
+
+                println!("{}", "─".repeat(50));
+                println!("  💡 Ready = not draft + CI passing + no conflicts");
+                println!("  💡 Use `--json` for scripting\n");
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
