@@ -241,6 +241,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show "quick win" PRs — small, non-draft PRs you can review quickly
+    Quick {
+        /// Maximum total lines for a "quick" PR (default: 200)
+        #[arg(long, short = 'l')]
+        max_lines: Option<u64>,
+        /// Limit the number of results shown (default: 10)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

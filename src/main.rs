@@ -1569,6 +1569,87 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Quick { max_lines, limit, json } => {
+            let max_lines = max_lines.unwrap_or(200);
+            let limit = limit.unwrap_or(10);
+
+            // Filter to small, non-draft PRs
+            let quick_wins: Vec<_> = reviews
+                .iter()
+                .filter(|r| !r.draft && (r.additions + r.deletions) <= max_lines)
+                .take(limit)
+                .cloned()
+                .collect();
+
+            if quick_wins.is_empty() {
+                println!("\n⚡ No quick wins found (max {} lines, non-draft)\n", max_lines);
+                return Ok(());
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct QuickWin<'a> {
+                    repo: &'a str,
+                    pr_number: u64,
+                    pr_title: &'a str,
+                    pr_author: &'a str,
+                    pr_url: &'a str,
+                    age_days: i64,
+                    additions: u64,
+                    deletions: u64,
+                }
+                let output: Vec<QuickWin> = quick_wins
+                    .iter()
+                    .map(|r| QuickWin {
+                        repo: &r.repo,
+                        pr_number: r.pr_number,
+                        pr_title: &r.pr_title,
+                        pr_author: &r.pr_author,
+                        pr_url: &r.pr_url,
+                        age_days: (chrono::Utc::now() - r.created_at).num_days(),
+                        additions: r.additions,
+                        deletions: r.deletions,
+                    })
+                    .collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!(
+                    "\n⚡ Quick Wins (≤{} lines, non-draft)\n{}",
+                    max_lines,
+                    "─".repeat(50)
+                );
+                for r in &quick_wins {
+                    let age_days = (chrono::Utc::now() - r.created_at).num_days();
+                    let age_label = match age_days {
+                        0 => "today".green(),
+                        1 => "1 day".normal(),
+                        _ => format!("{} days", age_days).red(),
+                    };
+                    let total = r.additions + r.deletions;
+                    let size_label = if total < 50 {
+                        format!("{} lines", total).green()
+                    } else {
+                        format!("{} lines", total).yellow()
+                    };
+
+                    println!(
+                        "  ⚡ {} #{} ({})\n      👤 {}  •  📦 {}  •  ⏱️ {}\n      🔗 {}",
+                        r.pr_title.bold(),
+                        r.pr_number,
+                        r.repo.dimmed(),
+                        r.pr_author.cyan(),
+                        size_label,
+                        age_label,
+                        r.pr_url.blue().underline()
+                    );
+                    println!();
+                }
+                println!("{}", "─".repeat(50));
+                println!("  💡 Use `--max-lines 100` for tiny PRs only");
+                println!("  💡 Use `--json` for scripting\n");
+            }
+        }
+
         Commands::Snooze { action, pr_numbers, days } => {
             use serde::{Deserialize, Serialize};
 
