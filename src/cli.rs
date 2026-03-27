@@ -368,6 +368,15 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Generate a shareable weekly digest (markdown, perfect for Slack/Teams)
+    Digest {
+        /// Number of days to include (default: 7)
+        #[arg(long, short = 'd', default_value_t = 7)]
+        days: u32,
+        /// Output as raw Markdown (no preamble)
+        #[arg(long)]
+        raw: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

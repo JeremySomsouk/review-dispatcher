@@ -2393,6 +2393,180 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Digest { days, raw } => {
+            use chrono::{Duration, Utc};
+            use std::collections::HashMap;
+
+            let now = Utc::now();
+            let cutoff = now - Duration::days(days as i64);
+
+            // Compute age buckets
+            #[derive(Clone, Copy)]
+            struct Bucket(&'static str, &'static str, Option<i64>, Option<i64>);
+            const BUCKETS: [Bucket; 5] = [
+                Bucket("New",     "🆕", None,      Some(2)),
+                Bucket("Fresh",   "🌱", Some(2),   Some(4)),
+                Bucket("Aging",   "⏳", Some(4),   Some(8)),
+                Bucket("Stale",   "🔥", Some(8),   Some(15)),
+                Bucket("Overdue", "💀", Some(15),  None),
+            ];
+
+            let mut bucket_counts: Vec<(Bucket, usize)> = BUCKETS.iter().copied().map(|b| (b, 0)).collect();
+            let mut total_additions = 0u64;
+            let mut total_deletions = 0u64;
+            let mut by_repo: HashMap<String, usize> = HashMap::new();
+            let mut by_author: HashMap<String, usize> = HashMap::new();
+            let mut overdue_prs: Vec<&github::PendingReview> = vec![];
+
+            for r in &reviews {
+                let age_days = (now - r.created_at).num_days();
+                total_additions += r.additions;
+                total_deletions += r.deletions;
+                *by_repo.entry(r.repo.clone()).or_insert(0) += 1;
+                if !r.pr_author.is_empty() {
+                    *by_author.entry(r.pr_author.clone()).or_insert(0) += 1;
+                }
+                for (bucket, count) in &mut bucket_counts {
+                    let Bucket(_, _, bucket_max, bucket_min) = *bucket;
+                    let in_bucket = match (bucket_min, bucket_max) {
+                        (Some(min), Some(max)) => age_days >= min && age_days <= max,
+                        (Some(min), None) => age_days >= min,
+                        (None, Some(max)) => age_days <= max,
+                        (None, None) => true,
+                    };
+                    if in_bucket {
+                        *count += 1;
+                        if age_days >= 15 {
+                            overdue_prs.push(r);
+                        }
+                    }
+                }
+            }
+
+            let total = reviews.len();
+            let overdue_count = overdue_prs.len();
+
+            // Top repos
+            let mut top_repos: Vec<_> = by_repo.iter().collect();
+            top_repos.sort_by(|a, b| b.1.cmp(a.1));
+            let top_repos: Vec<_> = top_repos.into_iter().take(5).collect();
+
+            // Top authors
+            let mut top_authors: Vec<_> = by_author.iter().collect();
+            top_authors.sort_by(|a, b| b.1.cmp(a.1));
+            let top_authors: Vec<_> = top_authors.into_iter().take(5).collect();
+
+            // Build age bar (visual breakdown)
+            let age_bar: String = bucket_counts
+                .iter()
+                .map(|(b, c)| {
+                    let Bucket(label, emoji, _, _) = *b;
+                    if *c > 0 {
+                        format!("{}:{} ", emoji, c)
+                    } else {
+                        String::new()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("");
+
+            if raw {
+                // Raw markdown output (for piping to Slack/Teams)
+                println!("## 📋 Review Digest — last {} days", days);
+                println!();
+                println!("**Total:** {} PRs | **+{}** / **-{}** lines | **Overdue:** {}",
+                    total, total_additions, total_deletions, overdue_count);
+                println!();
+
+                if !top_repos.is_empty() {
+                    println!("### By Repository");
+                    for (repo, count) in &top_repos {
+                        println!("- **{}**: {} PR(s)", repo, count);
+                    }
+                    println!();
+                }
+
+                if !top_authors.is_empty() {
+                    println!("### By Author");
+                    for (author, count) in &top_authors {
+                        println!("- **{}**: {} PR(s)", author, count);
+                    }
+                    println!();
+                }
+
+                println!("### Age Breakdown");
+                for (b, c) in &bucket_counts {
+                    let Bucket(label, emoji, _, _) = *b;
+                    println!("- {} **{}**: {} PR(s)", emoji, label, c);
+                }
+                println!();
+
+                if !overdue_prs.is_empty() {
+                    println!("### 🚨 Overdue (15d+)");
+                    for r in overdue_prs.iter().take(10) {
+                        let age = (now - r.created_at).num_days();
+                        println!("- [{}#{}]({}) *{}* — {}d old",
+                            r.repo, r.pr_number, r.pr_url, r.pr_title, age);
+                    }
+                }
+            } else {
+                // Pretty terminal output
+                println!("\n📋 Weekly Review Digest — last {} days\n{}", days, "─".repeat(45));
+                println!();
+                println!("  📊 Summary");
+                println!("     Total PRs:          {}", total);
+                println!("     Lines changed:      +{} / -{}",
+                    total_additions.to_string().green(),
+                    total_deletions.to_string().red());
+                if overdue_count > 0 {
+                    println!("     🚨 Overdue (15d+):  {}", overdue_count.to_string().red().bold());
+                }
+                println!();
+
+                if !age_bar.is_empty() {
+                    println!("  ⏱️  Age Breakdown");
+                    for (b, c) in &bucket_counts {
+                        let Bucket(label, emoji, _, _) = *b;
+                        if *c > 0 {
+                            println!("     {} {}: {}", emoji, label, c);
+                        }
+                    }
+                    println!();
+                }
+
+                if !top_repos.is_empty() {
+                    println!("  📁 By Repository (top 5)");
+                    for (repo, count) in &top_repos {
+                        println!("     {}: {}", repo, count);
+                    }
+                    println!();
+                }
+
+                if !top_authors.is_empty() {
+                    println!("  👥 By Author (top 5)");
+                    for (author, count) in &top_authors {
+                        println!("     {}: {}", author.cyan(), count);
+                    }
+                    println!();
+                }
+
+                if !overdue_prs.is_empty() {
+                    println!("  🚨 Overdue PRs (15d+)");
+                    for r in overdue_prs.iter().take(5) {
+                        let age = (now - r.created_at).num_days();
+                        println!("     #{} {} — {}d old", r.pr_number, r.pr_title.bold(), age);
+                    }
+                    if overdue_prs.len() > 5 {
+                        println!("     ...and {} more", overdue_prs.len() - 5);
+                    }
+                    println!();
+                }
+
+                println!("  💡 Use `--raw` to get Markdown output for Slack/Teams");
+                println!("{}", "─".repeat(45));
+            }
+        }
+
         Commands::Snooze { action, pr_numbers, days } => {
             use serde::{Deserialize, Serialize};
 
