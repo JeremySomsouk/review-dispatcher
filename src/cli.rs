@@ -109,4 +109,37 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
     },
+    /// Filter pending reviews by various criteria
+    Filter {
+        /// Filter by repository name (partial match)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match)
+        #[arg(long)]
+        author: Option<String>,
+        /// Minimum total lines changed (+additions -deletions)
+        #[arg(long)]
+        min_size: Option<u64>,
+        /// Maximum total lines changed
+        #[arg(long)]
+        max_size: Option<u64>,
+        /// Minimum age in days
+        #[arg(long)]
+        min_age: Option<u32>,
+        /// Maximum age in days
+        #[arg(long)]
+        max_age: Option<u32>,
+        /// Show only draft PRs
+        #[arg(long)]
+        drafts_only: bool,
+        /// Show only non-draft PRs
+        #[arg(long)]
+        no_drafts: bool,
+        /// Show priority scores for filtered results
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }

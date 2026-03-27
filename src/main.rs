@@ -626,6 +626,77 @@ async fn main() -> anyhow::Result<()> {
             }
             println!();
         }
+
+        Commands::Filter { repo, author, min_size, max_size, min_age, max_age, drafts_only, no_drafts, priority, json } => {
+            // Apply filters to the reviews
+            let filtered: Vec<_> = reviews.iter().filter(|r| {
+                // Filter by repo (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
+                        return false;
+                    }
+                }
+
+                // Filter by author (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                        return false;
+                    }
+                }
+
+                // Filter by size
+                let total_size = r.additions + r.deletions;
+                if let Some(min) = min_size {
+                    if total_size < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_size {
+                    if total_size > max {
+                        return false;
+                    }
+                }
+
+                // Filter by age
+                let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
+                if let Some(min) = min_age {
+                    if age_days < min {
+                        return false;
+                    }
+                }
+                if let Some(max) = max_age {
+                    if age_days > max {
+                        return false;
+                    }
+                }
+
+                // Filter by draft status
+                if drafts_only && !r.draft {
+                    return false;
+                }
+                if no_drafts && r.draft {
+                    return false;
+                }
+
+                true
+            }).cloned().collect();
+
+            if filtered.is_empty() {
+                println!("\n🔍 No reviews match the specified filters.\n");
+                return Ok(());
+            }
+
+            if json {
+                let json_output = serde_json::to_string_pretty(&filtered)?;
+                println!("{}", json_output);
+            } else {
+                println!(
+                    "\n🔍 {} review(s) match your filters\n",
+                    filtered.len().to_string().yellow().bold()
+                );
+                logger::print_reviews(&filtered, priority);
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
