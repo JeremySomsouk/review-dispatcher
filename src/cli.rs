@@ -434,6 +434,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Export pending reviews to CSV or Markdown table format
+    Export {
+        /// Export format: csv or markdown (default: csv)
+        #[arg(long, short = 'f', value_name = "FORMAT")]
+        format: Option<String>,
+        /// Output file path (stdout if not specified)
+        #[arg(long, short = 'o')]
+        output: Option<PathBuf>,
+        /// Include only these columns (comma-separated): repo,number,title,author,size,age,draft,url
+        #[arg(long, short = 'c')]
+        columns: Option<String>,
+        /// Export all pending reviews (not just current session)
+        #[arg(long, short = 'a')]
+        all: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

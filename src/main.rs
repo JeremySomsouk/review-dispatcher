@@ -4714,6 +4714,135 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+
+        Commands::Export { format, output, columns, all } => {
+            use chrono::Utc;
+
+            let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
+            let reviews_to_export = if all {
+                // Fetch fresh data for all pending reviews
+                github::fetch_pending_reviews(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    &cfg.github_username,
+                    &cfg.github_teams,
+                    cli.include_mine,
+                    cli.include_drafts,
+                    &cli.exclude_prefix,
+                    &cfg.crew_members,
+                )
+                .await?
+            } else {
+                reviews.clone()
+            };
+
+            if reviews_to_export.is_empty() {
+                println!("No reviews to export.");
+                return Ok(());
+            }
+
+            // Parse columns (default: all)
+            let default_cols = vec!["repo", "number", "title", "author", "size", "age", "draft", "url"];
+            let cols: Vec<&str> = if let Some(ref c) = columns {
+                c.split(',').map(|s| s.trim()).collect()
+            } else {
+                default_cols
+            };
+
+            let now = Utc::now();
+            let mut output_content = String::new();
+
+            if export_format == "markdown" || export_format == "md" {
+                // Markdown table format
+                // Header
+                output_content.push_str("| ");
+                for col in &cols {
+                    output_content.push_str(&match *col {
+                        "repo" => "Repo",
+                        "number" => "#",
+                        "title" => "Title",
+                        "author" => "Author",
+                        "size" => "Size",
+                        "age" => "Age",
+                        "draft" => "Draft",
+                        "url" => "URL",
+                        _ => *col,
+                    });
+                    output_content.push_str(" | ");
+                }
+                output_content.push_str("\n| ");
+                for _ in &cols {
+                    output_content.push_str("---|");
+                }
+                output_content.push('\n');
+
+                // Rows
+                for r in &reviews_to_export {
+                    output_content.push_str("| ");
+                    for col in &cols {
+                        match *col {
+                            "repo" => output_content.push_str(&format!("`{}` | ", r.repo)),
+                            "number" => output_content.push_str(&format!("#{} | ", r.pr_number)),
+                            "title" => output_content.push_str(&format!("{} | ", r.pr_title)),
+                            "author" => output_content.push_str(&format!("{} | ", r.pr_author)),
+                            "size" => output_content.push_str(&format!("+{}/-{} | ", r.additions, r.deletions)),
+                            "age" => {
+                                let age = r.created_at.signed_duration_since(now);
+                                let age_days = age.num_days().abs();
+                                output_content.push_str(&format!("{}d | ", age_days));
+                            }
+                            "draft" => output_content.push_str(&format!("{} | ", if r.draft { "yes" } else { "no" })),
+                            "url" => output_content.push_str(&format!("[link]({}) | ", r.pr_url)),
+                            _ => output_content.push_str(&format!("{} | ", col)),
+                        }
+                    }
+                    output_content.push('\n');
+                }
+            } else {
+                // CSV format (default)
+                // Header
+                output_content.push_str(&cols.join(","));
+                output_content.push('\n');
+
+                // Rows
+                for r in &reviews_to_export {
+                    for (i, col) in cols.iter().enumerate() {
+                        if i > 0 {
+                            output_content.push(',');
+                        }
+                        match *col {
+                            "repo" => output_content.push_str(&r.repo),
+                            "number" => output_content.push_str(&r.pr_number.to_string()),
+                            "title" => {
+                                // Escape quotes in title
+                                let escaped = r.pr_title.replace('"', "\"\"");
+                                output_content.push_str(&format!("\"{}\"", escaped));
+                            }
+                            "author" => output_content.push_str(&r.pr_author),
+                            "size" => output_content.push_str(&format!("+{}/-{}", r.additions, r.deletions)),
+                            "age" => {
+                                let age = r.created_at.signed_duration_since(now);
+                                let age_days = age.num_days().abs();
+                                output_content.push_str(&format!("{}d", age_days));
+                            }
+                            "draft" => output_content.push_str(if r.draft { "yes" } else { "no" }),
+                            "url" => output_content.push_str(&r.pr_url),
+                            _ => output_content.push_str(col),
+                        }
+                    }
+                    output_content.push('\n');
+                }
+            }
+
+            // Write output
+            if let Some(ref path) = output {
+                std::fs::write(path, &output_content)?;
+                println!("✅ Exported {} reviews to {}", reviews_to_export.len(), path.display());
+            } else {
+                print!("{}", output_content);
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
