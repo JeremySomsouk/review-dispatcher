@@ -103,6 +103,15 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Claim multiple PRs for review at once
+    Claim {
+        /// Claim all pending reviews at once
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to claim (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+    },
     /// Open one or more PRs in your browser
     Browse {
         /// PR number(s) to open (comma-separated)

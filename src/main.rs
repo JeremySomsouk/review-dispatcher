@@ -484,6 +484,73 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Browse { pr_numbers } => {
+            let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+                // Parse comma-separated PR numbers
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                // Interactive: show list and let user pick
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to open [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            if targets.is_empty() {
+                println!("No PRs found to open.");
+                return Ok(());
+            }
+
+            println!("\n🌐 Opening {} PR(s) in browser...\n", targets.len());
+            for review in &targets {
+                match open::that(&review.pr_url) {
+                    Ok(_) => {
+                        println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                    }
+                    Err(e) => {
+                        println!("  ❌ Failed to open {}: {}", review.pr_url, e);
+                    }
+                }
+            }
+            println!();
+        }
+
         Commands::Assign { pr_number } => {
             let target_pr = cli.pr.or(pr_number);
 
@@ -560,9 +627,14 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Browse { pr_numbers } => {
-            let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
-                // Parse comma-separated PR numbers
+        Commands::Claim { all, pr_numbers } => {
+            let targets: Vec<_> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
                     if let Ok(num) = part.trim().parse::<u64>() {
@@ -573,7 +645,6 @@ async fn main() -> anyhow::Result<()> {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
                 }
-                // Fetch all specified PRs
                 let mut all_prs = Vec::new();
                 for num in &results {
                     let prs = github::fetch_pr_by_number(
@@ -587,7 +658,6 @@ async fn main() -> anyhow::Result<()> {
                 }
                 all_prs
             } else {
-                // Interactive: show list and let user pick
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
                     return Ok(());
@@ -595,7 +665,7 @@ async fn main() -> anyhow::Result<()> {
                 logger::print_reviews(&reviews, false);
                 print!(
                     "\n{} ",
-                    "Select PRs to open [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                    "Select PRs to claim [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
                 );
                 io::stdout().flush()?;
                 let mut input = String::new();
@@ -609,20 +679,62 @@ async fn main() -> anyhow::Result<()> {
             };
 
             if targets.is_empty() {
-                println!("No PRs found to open.");
+                println!("No PRs to claim.");
                 return Ok(());
             }
 
-            println!("\n🌐 Opening {} PR(s) in browser...\n", targets.len());
+            println!(
+                "\n🎯 Claiming {} PR(s) for review...\n",
+                targets.len().to_string().yellow().bold()
+            );
+
+            let mut success_count = 0u32;
+            let mut fail_count = 0u32;
+
             for review in &targets {
-                match open::that(&review.pr_url) {
+                print!(
+                    "  ⏳ #{} {}... ",
+                    review.pr_number,
+                    review.pr_title.dimmed()
+                );
+                io::stdout().flush()?;
+
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                match client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .request_reviews(
+                        review.pr_number,
+                        vec![cfg.github_username.clone()],
+                        Vec::<String>::new(),
+                    )
+                    .await
+                {
                     Ok(_) => {
-                        println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                        println!("{}", "✅ claimed".green());
+                        success_count += 1;
                     }
                     Err(e) => {
-                        println!("  ❌ Failed to open {}: {}", review.pr_url, e);
+                        println!("{}", "❌ failed".red());
+                        println!("     Error: {}", e.to_string().dimmed());
+                        fail_count += 1;
                     }
                 }
+            }
+
+            println!();
+            println!(
+                "📊 Claimed {}/{} PRs",
+                success_count.to_string().green(),
+                targets.len().to_string().yellow()
+            );
+            if fail_count > 0 {
+                println!(
+                    "⚠️  {} PR(s) failed - may already be assigned or inaccessible",
+                    fail_count.to_string().red()
+                );
             }
             println!();
         }
