@@ -205,4 +205,19 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Fetch and display a PR diff in the terminal with syntax highlighting
+    Review {
+        /// PR number to review
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Number of context lines around changes (default: 3)
+        #[arg(long, short = 'C', default_value_t = 3)]
+        context: u8,
+        /// Output diff to file instead of terminal
+        #[arg(long)]
+        output_file: Option<PathBuf>,
+        /// Language hint for syntax highlighting (auto-detected if not specified)
+        #[arg(long, short = 'l')]
+        language: Option<String>,
+    },
 }

@@ -290,3 +290,94 @@ pub async fn fetch_pr_labels(
 
     Ok(labels)
 }
+
+/// Represents a single file's diff with metadata.
+#[derive(Debug, Clone)]
+pub struct PullRequestDiff {
+    pub filename: String,
+    pub status: String, // "added", "removed", "modified", "renamed"
+    pub additions: u64,
+    pub deletions: u64,
+    pub patch: Option<String>,
+    pub language: Option<String>,
+}
+
+pub async fn fetch_pr_diff(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+) -> Result<Vec<PullRequestDiff>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let files: Vec<PullRequestDiff> = client
+        .pulls(org, repo)
+        .list_files(pr_number)
+        .await?
+        .into_iter()
+        .map(|f| {
+            let status_str = match f.status {
+                octocrab::models::repos::DiffEntryStatus::Added => "added",
+                octocrab::models::repos::DiffEntryStatus::Removed => "removed",
+                octocrab::models::repos::DiffEntryStatus::Modified => "modified",
+                octocrab::models::repos::DiffEntryStatus::Renamed => "renamed",
+                octocrab::models::repos::DiffEntryStatus::Copied => "copied",
+                octocrab::models::repos::DiffEntryStatus::Changed => "changed",
+                octocrab::models::repos::DiffEntryStatus::Unchanged => "unchanged",
+                _ => "unknown",
+            };
+            // Extract language from filename extension
+            let language = f.filename.split('.').last().map(|ext| {
+                match ext {
+                    "ts" | "tsx" => "typescript",
+                    "js" | "jsx" | "mjs" | "cjs" => "javascript",
+                    "py" => "python",
+                    "go" => "go",
+                    "java" => "java",
+                    "rb" => "ruby",
+                    "cs" => "csharp",
+                    "cpp" | "cc" | "cxx" => "cpp",
+                    "c" | "h" => "c",
+                    "swift" => "swift",
+                    "kt" | "kts" => "kotlin",
+                    "scala" => "scala",
+                    "rs" => "rust",
+                    "php" => "php",
+                    "ex" | "exs" => "elixir",
+                    "erl" => "erlang",
+                    "hs" => "haskell",
+                    "ml" | "mli" => "ocaml",
+                    "fs" | "fsx" => "fsharp",
+                    "lua" => "lua",
+                    "r" => "r",
+                    "sql" => "sql",
+                    "sh" | "bash" | "zsh" => "bash",
+                    "ps1" => "powershell",
+                    "yml" | "yaml" => "yaml",
+                    "toml" => "toml",
+                    "json" => "json",
+                    "xml" => "xml",
+                    "html" | "htm" => "html",
+                    "css" | "scss" | "sass" | "less" => "css",
+                    "md" | "markdown" => "markdown",
+                    "dockerfile" => "dockerfile",
+                    "tf" => "hcl",
+                    "proto" => "protobuf",
+                    _ => ext,
+                }.to_string()
+            });
+            PullRequestDiff {
+                filename: f.filename,
+                status: status_str.to_string(),
+                additions: f.additions,
+                deletions: f.deletions,
+                patch: f.patch,
+                language,
+            }
+        })
+        .collect();
+
+    Ok(files)
+}
