@@ -530,6 +530,29 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Watch PRs for status changes (CI passing, approved, conflicts resolved, etc.)
+    Follow {
+        /// Follow action: add, list, remove, clear, or status
+        #[command(subcommand)]
+        action: FollowAction,
+        /// PR number(s) to follow (comma-separated, for add/remove)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum FollowAction {
+    /// Add PR(s) to your follow list
+    Add,
+    /// List currently followed PRs and their last known status
+    List,
+    /// Remove PR(s) from your follow list
+    Remove,
+    /// Clear all followed PRs
+    Clear,
+    /// Check for status changes since last check
+    Status,
 }
 
 #[derive(Subcommand, Debug)]

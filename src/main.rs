@@ -3306,6 +3306,388 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
+        Commands::Follow { action, pr_numbers } => {
+            use serde::{Deserialize, Serialize};
+
+            // Follow storage file
+            let follow_file = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"))
+                .join(".followed.json");
+
+            #[derive(Debug, Clone, Serialize, Deserialize)]
+            struct FollowedPr {
+                pub repo: String,
+                pub pr_number: u64,
+                pub pr_title: String,
+                pub pr_url: String,
+                pub followed_at: String,
+                pub last_check: String,
+                pub last_known_state: String,      // open, merged, closed
+                pub last_ci_status: String,         // success, failure, pending, unknown
+                pub last_review_state: String,      // none, approved, changes_requested, commented
+                pub last_commit_sha: String,
+                pub additions: u64,
+                pub deletions: u64,
+                pub author: String,
+                pub draft: bool,
+            }
+
+            // Load existing followed PRs
+            let mut followed: Vec<FollowedPr> = if follow_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&follow_file) {
+                    serde_json::from_str(&content).unwrap_or_default()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            match action {
+                cli::FollowAction::Add => {
+                    // If no PR numbers provided, show interactive picker
+                    let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+                        let mut results = Vec::new();
+                        for part in nums.split(',') {
+                            if let Ok(num) = part.trim().parse::<u64>() {
+                                results.push(num);
+                            }
+                        }
+                        if results.is_empty() {
+                            println!("❌ No valid PR numbers provided.");
+                            return Ok(());
+                        }
+                        let mut all_prs = Vec::new();
+                        for num in &results {
+                            let prs = github::fetch_pr_by_number(
+                                &cfg.github_token,
+                                &cfg.github_org,
+                                &cfg.github_repos,
+                                *num,
+                            )
+                            .await?;
+                            all_prs.extend(prs);
+                        }
+                        all_prs
+                    } else {
+                        if reviews.is_empty() {
+                            println!("No pending reviews found to follow. Use --pr flag or specify PR numbers.");
+                            return Ok(());
+                        }
+                        logger::print_reviews(&reviews, false);
+                        print!(
+                            "\n{} ",
+                            "Select PRs to follow [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                        );
+                        io::stdout().flush()?;
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        match parse_selection(input.trim(), reviews.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                indices.into_iter().map(|i| reviews[i].clone()).collect()
+                            }
+                        }
+                    };
+
+                    if targets.is_empty() {
+                        println!("No PRs to follow.");
+                        return Ok(());
+                    }
+
+                    println!(
+                        "\n👁️  Following {} PR(s)...\n",
+                        targets.len().to_string().yellow().bold()
+                    );
+
+                    let now = chrono::Utc::now().to_rfc3339();
+                    for review in &targets {
+                        // Remove existing entry if present (re-follow with updated state)
+                        followed.retain(|e| !(e.repo == review.repo && e.pr_number == review.pr_number));
+
+                        followed.push(FollowedPr {
+                            repo: review.repo.clone(),
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title.clone(),
+                            pr_url: review.pr_url.clone(),
+                            followed_at: now.clone(),
+                            last_check: now.clone(),
+                            last_known_state: if review.draft { "draft".to_string() } else { "open".to_string() },
+                            last_ci_status: "unknown".to_string(),
+                            last_review_state: "none".to_string(),
+                            last_commit_sha: review.branch.clone(),
+                            additions: review.additions,
+                            deletions: review.deletions,
+                            author: review.pr_author.clone(),
+                            draft: review.draft,
+                        });
+
+                        println!(
+                            "  👁️  {} ({})",
+                            review.pr_title.dimmed(),
+                            format!("#{}", review.pr_number).dimmed()
+                        );
+                    }
+
+                    // Save follow data
+                    if let Some(ref dir) = output_dir {
+                        std::fs::create_dir_all(dir).ok();
+                    }
+                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                        println!("  ⚠️ Failed to save follow data: {}", e);
+                    } else {
+                        println!("\n✅ Following {} PR(s)", followed.len());
+                    }
+                    println!();
+                }
+
+                cli::FollowAction::List => {
+                    if followed.is_empty() {
+                        println!("\n👁️  Not following any PRs.\n");
+                        println!("  Use `review-dispatcher follow add <PR_NUMBER>` to start following.");
+                        return Ok(());
+                    }
+
+                    println!(
+                        "\n👁️  Following {} PR(s)\n{}",
+                        followed.len(),
+                        "─".repeat(50)
+                    );
+
+                    for pr in &followed {
+                        let state_icon = match pr.last_known_state.as_str() {
+                            "merged" => "🔀",
+                            "closed" => "❌",
+                            "draft" => "📝",
+                            _ => "🟢",
+                        };
+                        let ci_icon = match pr.last_ci_status.as_str() {
+                            "success" => "✅",
+                            "failure" => "❌",
+                            "pending" => "⏳",
+                            _ => "❓",
+                        };
+                        let review_icon = match pr.last_review_state.as_str() {
+                            "approved" => "✅",
+                            "changes_requested" => "🔁",
+                            "commented" => "💬",
+                            _ => "─",
+                        };
+
+                        println!(
+                            "  {} {} #{} — {}",
+                            state_icon,
+                            pr.repo.bold(),
+                            pr.pr_number,
+                            pr.pr_title
+                        );
+                        println!(
+                            "      📊 +{}/-{} lines  |  CI: {}  |  Review: {}  |  Author: {}",
+                            pr.additions,
+                            pr.deletions,
+                            ci_icon,
+                            review_icon,
+                            pr.author.dimmed()
+                        );
+                    }
+                    println!();
+                }
+
+                cli::FollowAction::Remove => {
+                    if followed.is_empty() {
+                        println!("\n👁️  Not following any PRs.\n");
+                        return Ok(());
+                    }
+
+                    let to_remove: Vec<(String, u64)> = if let Some(ref nums) = pr_numbers {
+                        nums.split(',')
+                            .filter_map(|part| {
+                                let part = part.trim();
+                                if let Ok(num) = part.parse::<u64>() {
+                                    // Try to find in first repo
+                                    Some((cfg.github_repos.first().cloned().unwrap_or_default(), num))
+                                } else if part.contains('#') {
+                                    let parts: Vec<&str> = part.split('#').collect();
+                                    if parts.len() == 2 {
+                                        let repo = parts[0].trim().to_string();
+                                        let num = parts[1].trim().parse::<u64>().ok()?;
+                                        Some((repo, num))
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect()
+                    } else {
+                        // Interactive removal
+                        println!("\n👁️  Following {} PR(s) — select to remove:\n", followed.len());
+                        for (i, pr) in followed.iter().enumerate() {
+                            println!("  {}: {} #{}", i + 1, pr.repo, pr.pr_number);
+                        }
+                        print!("\n{} ", "Select PRs to unfollow [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold());
+                        io::stdout().flush()?;
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        match parse_selection(input.trim(), followed.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                indices.into_iter()
+                                    .map(|i| (followed[i].repo.clone(), followed[i].pr_number))
+                                    .collect()
+                            }
+                        }
+                    };
+
+                    let original_len = followed.len();
+                    followed.retain(|e| !to_remove.contains(&(e.repo.clone(), e.pr_number)));
+                    let removed = original_len - followed.len();
+
+                    // Save updated list
+                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                        println!("  ⚠️ Failed to save follow data: {}", e);
+                    } else {
+                        println!("\n👁️  Unfollowed {} PR(s) (now following {}).", removed, followed.len());
+                    }
+                }
+
+                cli::FollowAction::Clear => {
+                    if followed.is_empty() {
+                        println!("\n👁️  Not following any PRs.\n");
+                        return Ok(());
+                    }
+                    followed.clear();
+                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                        println!("  ⚠️ Failed to clear follow data: {}", e);
+                    } else {
+                        println!("\n👁️  Cleared all followed PRs.\n");
+                    }
+                }
+
+                cli::FollowAction::Status => {
+                    if followed.is_empty() {
+                        println!("\n👁️  Not following any PRs. Run `follow add` first.\n");
+                        return Ok(());
+                    }
+
+                    println!(
+                        "\n🔍 Checking status of {} followed PR(s)...\n",
+                        followed.len().to_string().yellow().bold()
+                    );
+
+                    let client = octocrab::Octocrab::builder()
+                        .personal_token(cfg.github_token.clone())
+                        .build()?;
+
+                    let now = chrono::Utc::now().to_rfc3339();
+                    let mut has_changes = false;
+
+                    for pr in followed.iter_mut() {
+                        // Fetch current PR state
+                        #[derive(serde::Deserialize)]
+                        struct PrResponse {
+                            merged: Option<bool>,
+                            state: Option<octocrab::models::IssueState>,
+                            draft: Option<bool>,
+                            head: PrHead,
+                        }
+                        #[derive(serde::Deserialize)]
+                        struct PrHead {
+                            sha: String,
+                        }
+
+                        if let Ok(current) = client.pulls(&cfg.github_org, &pr.repo)
+                            .get(pr.pr_number).await {
+                            
+                            let current_state = if current.merged.unwrap_or(false) {
+                                "merged"
+                            } else {
+                                match current.state.as_ref() {
+                                    Some(octocrab::models::IssueState::Open) => "open",
+                                    Some(octocrab::models::IssueState::Closed) => "closed",
+                                    _ => "unknown",
+                                }
+                            };
+
+                            let current_commit = current.head.sha.clone();
+                            
+                            // Fetch combined CI status for this commit via GitHub status API
+                            #[derive(serde::Deserialize)]
+                            struct CombinedStatus {
+                                state: String,
+                            }
+
+                            let combined_status_url = format!(
+                                "/repos/{}/{}/commits/{}/status",
+                                cfg.github_org, pr.repo, current_commit
+                            );
+
+                            let current_ci: String = client
+                                .get(&combined_status_url, None::<&str>)
+                                .await
+                                .map(|s: CombinedStatus| s.state)
+                                .unwrap_or_else(|_| "unknown".to_string());
+
+                            // Check for changes
+                            let state_changed = pr.last_known_state != current_state;
+                            let ci_changed = pr.last_ci_status != current_ci;
+                            let new_commit = pr.last_commit_sha != current_commit;
+
+                            if state_changed || ci_changed || new_commit {
+                                has_changes = true;
+                                println!(
+                                    "  🔔 {} #{} — {}",
+                                    pr.repo.bold(),
+                                    pr.pr_number,
+                                    pr.pr_title
+                                );
+                                
+                                if state_changed {
+                                    println!(
+                                        "      Status: {} → {}",
+                                        pr.last_known_state.yellow(),
+                                        current_state.green()
+                                    );
+                                }
+                                if new_commit {
+                                    println!(
+                                        "      Commit: {} → {}",
+                                        &pr.last_commit_sha[..7.min(pr.last_commit_sha.len())].yellow(),
+                                        &current_commit[..7.min(current_commit.len())].green()
+                                    );
+                                }
+                                if ci_changed {
+                                    println!(
+                                        "      CI: {} → {}",
+                                        pr.last_ci_status.yellow(),
+                                        current_ci.green()
+                                    );
+                                }
+                                println!();
+
+                                // Update stored state
+                                pr.last_known_state = current_state.to_string();
+                                pr.last_ci_status = current_ci;
+                                pr.last_commit_sha = current_commit;
+                                pr.last_check = now.clone();
+                            }
+                        }
+                    }
+
+                    if !has_changes {
+                        println!("  ✅ No changes detected in followed PRs.\n");
+                    }
+
+                    // Save updated status
+                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                        println!("  ⚠️ Failed to update follow data: {}", e);
+                    }
+                }
+            }
+        }
+
         Commands::Chase { min_age, send, message, json } => {
             use chrono::{Duration, Utc};
 
