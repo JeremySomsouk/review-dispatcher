@@ -59,6 +59,8 @@ pub enum Commands {
     },
     /// List your own open PRs (draft or not)
     Mine,
+    /// Show review statistics (pending count, avg wait time, breakdown by repo)
+    Stats,
     /// Remove all past review files from the output directory
     Clean,
     /// Monitor for new PRs and send macOS notifications

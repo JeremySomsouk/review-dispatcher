@@ -206,6 +206,51 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Stats => {
+            use std::collections::HashMap;
+            use chrono::Duration;
+
+            let mut repo_counts: HashMap<String, usize> = HashMap::new();
+            let mut total_additions = 0u64;
+            let mut total_deletions = 0u64;
+
+            for review in &reviews {
+                *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
+                total_additions += review.additions;
+                total_deletions += review.deletions;
+            }
+
+            println!("\n📊 Review Statistics\n{}", "─".repeat(40));
+            println!("  Total pending reviews: {}", reviews.len());
+            println!("  Total lines changed:   +{} / -{}", total_additions, total_deletions);
+
+            if !reviews.is_empty() {
+                // Average wait time
+                let now = chrono::Utc::now();
+                let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
+                let avg_wait = total_wait / reviews.len() as i32;
+                println!("  Avg time waiting:      {} days",
+                    (avg_wait.num_hours() as f64 / 24.0).round());
+
+                // Oldest PR
+                if let Some(oldest) = reviews.first() {
+                    let age = now - oldest.created_at;
+                    println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
+                        format_duration(age));
+                }
+
+                // Breakdown by repo
+                println!("\n  By repository:");
+                let mut repo_vec: Vec<_> = repo_counts.iter().collect();
+                repo_vec.sort_by(|a, b| b.1.cmp(a.1));
+                for (repo, count) in repo_vec {
+                    println!("    {}: {}", repo, count);
+                }
+            }
+
+            println!();
+        }
+
         Commands::Clean => {
             if let Some(ref dir) = output_dir {
                 if dir.exists() {
@@ -296,6 +341,21 @@ async fn main() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+fn format_duration(d: chrono::Duration) -> String {
+    let total_hours = d.num_hours();
+    if total_hours < 24 {
+        format!("{}h", total_hours)
+    } else {
+        let days = d.num_days();
+        if days < 7 {
+            format!("{}d", days)
+        } else {
+            let weeks = days / 7;
+            format!("{}w", weeks)
+        }
+    }
 }
 
 enum Selection {
