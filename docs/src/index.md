@@ -1,110 +1,216 @@
 # Review Dispatcher
 
-Review Dispatcher is a terminal-native CLI tool that monitors GitHub PRs, sends you smart macOS notifications, and helps you review smarter.
+**Stop drowning in PR notifications. Let AI triage your reviews.**
 
-## Features
+Review Dispatcher is your terminal-native PR companion. It watches your GitHub PRs, notifies you when action is needed, and helps you review smarter with AI-powered triage.
 
-- Smart Notifications - Native macOS alerts with crab branding
-- AI Triage - Delegate PR review to Claude Code
-- 30+ Commands - From listing PRs to viewing CI status
-- Blazing Fast - Built in Rust
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🔔 PR #4821: feat: add CSV export                        │
+│  Review Dispatcher                                         │
+│  👤 alice • +120 lines • opened 2 days ago                 │
+│                                                             │
+│  ✅ Chrome opens automatically → PR ready for review       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Why Review Dispatcher?
+
+- **No more tab switching** — Everything in your terminal
+- **AI-powered triage** — Let Claude analyze PRs for you
+- **Smart notifications** — macOS native alerts, auto-opens PRs
+- **30+ commands** — From quick glances to deep dive analysis
+
+## Installation
+
+```bash
+cargo install --git https://github.com/JeremySomsouk/review-dispatcher
+```
 
 ## Quick Start
 
 ```bash
-# Install
-cargo install --git https://github.com/JeremySomsouk/review-dispatcher
-
-# Configure
+# 1. Configure your GitHub credentials
 cp .env.example .env
-# Edit .env with your GitHub token and org
+nano .env  # Add your GITHUB_TOKEN, GITHUB_ORG, etc.
 
-# List pending reviews
+# 2. See what needs your attention
 review-dispatcher list
 
-# Monitor in background
-review-dispatcher monitor
+# 3. Let AI triage the important ones
+review-dispatcher delegate
+
+# 4. Monitor in background (get notified of new PRs)
+review-dispatcher monitor &
+```
+
+## Your First Review Workflow
+
+```bash
+# See all PRs waiting for you
+review-dispatcher list
+
+# Output:
+# 🔍 3 pending review(s)
+#   [1] feat: add CSV export        #4821 (frontend)  👤 alice +120 - 2 days
+#   [2] fix: flaky CI              #312 (backend)    👤 bob   +45  - 4 days
+#   [3] chore: update deps         #891 (deps)       👤 carol +890 - 1 day
+
+# Want to focus on important stuff only?
+review-dispatcher quick --max-lines 200
+
+# Search for a specific PR?
+review-dispatcher search "security"
+
+# Let Claude decide what's important?
+review-dispatcher delegate
+```
+
+## Common Workflows
+
+### Morning Check (5 seconds)
+
+```bash
+review-dispatcher summary
+# Output: "📊 12 PRs pending • Oldest: 5 days • 3 urgent • 2 quick wins"
+```
+
+### Before a Meeting
+
+```bash
+# Grab the essentials
+review-dispatcher top --limit 5
+
+# Check if any have failing CI
+review-dispatcher ci --failed-only
+```
+
+### Deep Work Session
+
+```bash
+# Start monitoring (you'll be notified of new PRs)
+review-dispatcher monitor --interval 300 &
+
+# When you get a notification...
+review-dispatcher review --pr 4821  # Read the diff without leaving terminal
+review-dispatcher diff --pr 4821     # See stats
+
+# Approve directly from CLI
+review-dispatcher approve --pr 4821 -m "LGTM! Good tests."
+```
+
+### End of Week
+
+```bash
+# Generate a report of what you reviewed
+review-dispatcher report --days 7
+
+# See your activity
+review-dispatcher activity --days 7
 ```
 
 ## Configuration
 
 ### Environment Variables
 
+Create a `.env` file based on `.env.example`:
+
 ```bash
 # Required
-GITHUB_TOKEN=ghp_xxxxxxxxxxxx  # GitHub personal access token
-GITHUB_ORG=my-org              # GitHub organization
-GITHUB_REPOS=repo1,repo2       # Comma-separated repos
-GITHUB_USERNAME=my-username    # Your GitHub username
+GITHUB_TOKEN=ghp_xxxxxxxxxxxx    # GitHub Personal Access Token
+GITHUB_ORG=my-company            # Your GitHub organization
+GITHUB_REPOS=frontend,backend    # Repos to monitor (comma-separated)
+GITHUB_USERNAME=john_doe         # Your GitHub username
 
 # Optional
-GITHUB_TEAMS=team1,team2       # Teams to filter by
-CREW_MEMBERS=user1,user2       # Team members for crew mode
+GITHUB_TEAMS=platform,backend    # Filter by teams
+CREW_MEMBERS=alice,bob,carol      # For team lead perspective
 ```
 
-### Global Flags
+### Getting a GitHub Token
 
-- `-o, --output-dir` - Output folder (default: ./reviews)
-- `-i, --instruction-path` - Custom instruction file
-- `--open-terminal` - Open terminal in output dir
-- `-m, --include-mine` - Include PRs you authored
-- `-d, --include-drafts` - Include draft PRs
-- `-c, --crew` - Only show crew member PRs
-- `-p, --pr` - Target specific PR number
-- `--exclude-prefix` - Exclude PR titles (comma-separated)
+1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens
+2. Generate New Token (Classic)
+3. Select scopes: `repo`, `read:user`, `notifications`
+4. Copy the token to your `.env`
 
-## Commands
+## All Commands
 
 ### Core Commands
 
-- `list` - List all PRs waiting for your review
-- `delegate` - Ask Claude to triage each pending review
-- `mine` - List your own open PRs
-- `stats` - Show review statistics
-- `team-summary` - Show team review summary
+| Command | Description |
+|---------|-------------|
+| [list](./commands/list.md) | List all PRs waiting for your review |
+| [delegate](./commands/delegate.md) | Ask Claude to triage each PR |
+| [mine](./commands/mine.md) | List your own open PRs |
+| [stats](./commands/stats.md) | See your review statistics |
+| [team-summary](./commands/team-summary.md) | Team-wide pending PR view |
 
-### PR Actions
+### Taking Action
 
-- `assign` - Assign yourself as a reviewer
-- `approve` - Approve a PR
-- `claim` - Claim PRs for review
-- `comment` - Post a comment
-- `review` - Fetch and display PR diff
+| Command | Description |
+|---------|-------------|
+| [assign](./commands/assign.md) | Assign yourself to a PR |
+| [approve](./commands/approve.md) | Approve a PR |
+| [claim](./commands/claim.md) | Claim PRs for review |
+| [comment](./commands/comment.md) | Post a comment |
+| [review](./commands/review.md) | Full diff review in terminal |
 
-### Filtering and Search
+### Finding PRs
 
-- `search` - Search by title keyword
-- `filter` - Filter by repo/author/size/age
-- `top` - Show highest priority PRs
-- `quick` - Show quick-win PRs (small, non-draft)
-- `catchup` - Show oldest, ignored PRs
-- `age` - Categorize PRs by age brackets
-
-### Monitoring
-
-- `monitor` - Monitor for new PRs + notifications
-- `monitor-stop` - Stop the monitor process
-- `monitor-status` - Check if monitor is running
+| Command | Description |
+|---------|-------------|
+| [search](./commands/search.md) | Search by keyword in title |
+| [filter](./commands/filter.md) | Filter by repo/author/size/age |
+| [top](./commands/top.md) | Highest priority PRs |
+| [quick](./commands/quick.md) | Small PRs you can knock out fast |
+| [catchup](./commands/catchup.md) | Oldest, most-ignored PRs |
+| [age](./commands/age.md) | PRs grouped by age bracket |
 
 ### Information
 
-- `diff` - Show diff/stats for a PR
-- `files` - Show changed files
-- `ci` - Show CI/CD pipeline status
-- `conflicts` - Show PRs with merge conflicts
-- `labels` - Show PR labels
-- `activity` - Show your recent review activity
-- `mentions` - Show GitHub notifications
-- `summary` - One-line pending review summary
-- `health` - Show GitHub API status
+| Command | Description |
+|---------|-------------|
+| [diff](./commands/diff.md) | Stats and changes for a PR |
+| [files](./commands/files.md) | List changed files |
+| [ci](./commands/ci.md) | CI/CD pipeline status |
+| [conflicts](./commands/conflicts.md) | PRs with merge conflicts |
+| [labels](./commands/labels.md) | PR labels |
+| [summary](./commands/summary.md) | One-line overview |
+| [health](./commands/health.md) | GitHub API status & rate limits |
+
+### Background Monitoring
+
+| Command | Description |
+|---------|-------------|
+| [monitor](./commands/monitor.md) | Watch for new PRs + notify |
+| [monitor-stop](./commands/monitor-stop.md) | Stop monitoring |
+| [monitor-status](./commands/monitor-status.md) | Check if running |
 
 ### Utilities
 
-- `browse` - Open PRs in browser
-- `snooze` - Temporarily hide PRs
-- `report` - Generate weekly review report
-- `clean` - Remove past review files
+| Command | Description |
+|---------|-------------|
+| [browse](./commands/browse.md) | Open PRs in browser |
+| [snooze](./commands/snooze.md) | Hide PRs temporarily |
+| [report](./commands/report.md) | Weekly review report |
+| [clean](./commands/clean.md) | Clear cached review files |
+| [activity](./commands/activity.md) | Your recent review history |
+| [mentions](./commands/mentions.md) | GitHub notifications |
+
+## Global Flags
+
+These work with most commands:
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output-dir <DIR>` | Output folder (default: `./reviews`) |
+| `-p, --pr <NUMBER>` | Target specific PR |
+| `-m, --include-mine` | Include your own PRs |
+| `-d, --include-drafts` | Include draft PRs |
+| `-c, --crew` | Only show team member PRs |
+| `--json` | Output as JSON for scripting |
 
 ## License
 
-MIT - Jeremy Somsouk
+MIT — Jeremy Somsouk
