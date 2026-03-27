@@ -133,12 +133,18 @@ pub enum Commands {
         /// PR number to assign yourself to
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Remove yourself as a reviewer from a PR
     Unassign {
         /// PR number to unassign yourself from
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Post a comment on a PR directly from the CLI
     Comment {

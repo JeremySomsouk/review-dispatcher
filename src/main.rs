@@ -1201,7 +1201,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Assign { pr_number } => {
+        Commands::Assign { pr_number, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1241,13 +1241,27 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for review in prs {
-                print!(
-                    "\n⏳ Requesting review on #{} {}... ",
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
+            #[derive(serde::Serialize)]
+            struct AssignResult<'a> {
+                pr_number: u64,
+                pr_title: &'a str,
+                repo: &'a str,
+                url: &'a str,
+                success: bool,
+                error: Option<String>,
+            }
+
+            let mut results: Vec<AssignResult> = Vec::new();
+
+            for review in &prs {
+                if !json {
+                    print!(
+                        "\n⏳ Requesting review on #{} {}... ",
+                        review.pr_number,
+                        review.pr_title
+                    );
+                    io::stdout().flush()?;
+                }
 
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
@@ -1264,20 +1278,47 @@ async fn main() -> anyhow::Result<()> {
 
                 match result {
                     Ok(_) => {
-                        println!("{}", "✅ Assigned".green());
-                        println!("   👤 You're now a reviewer on {} ({})", review.pr_title, review.repo);
-                        println!("   🔗 {}", review.pr_url.blue().underline());
+                        if json {
+                            results.push(AssignResult {
+                                pr_number: review.pr_number,
+                                pr_title: &review.pr_title,
+                                repo: &review.repo,
+                                url: &review.pr_url,
+                                success: true,
+                                error: None,
+                            });
+                        } else {
+                            println!("{}", "✅ Assigned".green());
+                            println!("   👤 You're now a reviewer on {} ({})", review.pr_title, review.repo);
+                            println!("   🔗 {}", review.pr_url.blue().underline());
+                        }
                     }
                     Err(e) => {
-                        println!("{}", "❌ Failed".red());
-                        println!("   Error: {}", e);
+                        if json {
+                            results.push(AssignResult {
+                                pr_number: review.pr_number,
+                                pr_title: &review.pr_title,
+                                repo: &review.repo,
+                                url: &review.pr_url,
+                                success: false,
+                                error: Some(e.to_string()),
+                            });
+                        } else {
+                            println!("{}", "❌ Failed".red());
+                            println!("   Error: {}", e);
+                        }
                     }
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            }
+
             println!();
         }
 
-        Commands::Unassign { pr_number } => {
+        Commands::Unassign { pr_number, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1317,40 +1358,80 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for review in prs {
-                print!(
-                    "\n⏳ Removing yourself from review on #{} {}... ",
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
+            #[derive(serde::Serialize)]
+            struct UnassignResult<'a> {
+                pr_number: u64,
+                pr_title: &'a str,
+                repo: &'a str,
+                url: &'a str,
+                success: bool,
+                error: Option<String>,
+            }
+
+            let mut results: Vec<UnassignResult> = Vec::new();
+
+            for review in &prs {
+                if !json {
+                    print!(
+                        "\n⏳ Removing yourself from review on #{} {}... ",
+                        review.pr_number,
+                        review.pr_title
+                    );
+                    io::stdout().flush()?;
+                }
 
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
                     .build()?;
 
-                // Unassign uses the same request_reviews but with reviewers_to_remove
                 let result = client
                     .pulls(&cfg.github_org, &review.repo)
                     .request_reviews(
                         review.pr_number,
-                        Vec::<String>::new(), // empty reviewers_to_request
-                        vec![cfg.github_username.clone()], // reviewers_to_remove
+                        Vec::<String>::new(),
+                        vec![cfg.github_username.clone()],
                     )
                     .await;
 
                 match result {
                     Ok(_) => {
-                        println!("{}", "✅ Unassigned".green());
-                        println!("   👤 You're no longer a reviewer on {} ({})", review.pr_title, review.repo);
-                        println!("   🔗 {}", review.pr_url.blue().underline());
+                        if json {
+                            results.push(UnassignResult {
+                                pr_number: review.pr_number,
+                                pr_title: &review.pr_title,
+                                repo: &review.repo,
+                                url: &review.pr_url,
+                                success: true,
+                                error: None,
+                            });
+                        } else {
+                            println!("{}", "✅ Unassigned".green());
+                            println!("   👤 You're no longer a reviewer on {} ({})", review.pr_title, review.repo);
+                            println!("   🔗 {}", review.pr_url.blue().underline());
+                        }
                     }
                     Err(e) => {
-                        println!("{}", "❌ Failed".red());
-                        println!("   Error: {}", e);
+                        if json {
+                            results.push(UnassignResult {
+                                pr_number: review.pr_number,
+                                pr_title: &review.pr_title,
+                                repo: &review.repo,
+                                url: &review.pr_url,
+                                success: false,
+                                error: Some(e.to_string()),
+                            });
+                        } else {
+                            println!("{}", "❌ Failed".red());
+                            println!("   Error: {}", e);
+                        }
                     }
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            }
+
             println!();
         }
 
