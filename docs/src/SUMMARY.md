@@ -29,6 +29,7 @@
 - [activity](commands/activity.md)
 - [mentions](commands/mentions.md)
 - [summary](commands/summary.md)
+- [attention](commands/attention.md)
 - [health](commands/health.md)
 - [browse](commands/browse.md)
 - [snooze](commands/snooze.md)

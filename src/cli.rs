@@ -287,6 +287,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Analyze which PRs demand your immediate attention based on multiple urgency factors
+    Attention {
+        /// Only show PRs with attention score >= threshold (1-10, default: 5)
+        #[arg(long, short = 't')]
+        threshold: Option<u8>,
+        /// Show detailed breakdown of why each PR scored high
+        #[arg(long, short = 'd')]
+        detailed: bool,
+        /// Limit the number of results shown (default: 10)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Show the ONE PR you should focus on right now — the most urgent by priority score
     Focus {
         /// Open the focused PR in your browser instead of printing details

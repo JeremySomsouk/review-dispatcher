@@ -4665,6 +4665,149 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Attention { threshold, detailed, limit, json } => {
+            use chrono::Utc;
+            use crate::github::PendingReview;
+
+            if reviews.is_empty() {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                        "total": 0,
+                        "high_attention": [],
+                        "message": "No pending reviews — nothing demands attention!"
+                    }))?);
+                } else {
+                    println!("✅ No pending reviews. Nothing demands your attention!");
+                }
+                return Ok(());
+            }
+
+            let threshold = threshold.unwrap_or(5).min(10);
+            let limit = limit.unwrap_or(10);
+
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct AttentionPR {
+                repo: String,
+                pr_number: u64,
+                pr_title: String,
+                pr_author: String,
+                pr_url: String,
+                age_days: i64,
+                size: u64,
+                draft: bool,
+                attention_score: u8,
+                factors: AttentionFactors,
+            }
+
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct AttentionFactors {
+                age_score: u8,
+                size_score: u8,
+                draft_score: u8,
+                staleness_bonus: u8,
+            }
+
+            fn calc_attention_score(review: &PendingReview) -> (u8, AttentionFactors) {
+                let now = Utc::now();
+                let age_days = (now - review.created_at).num_days() as f64;
+                let size = review.additions + review.deletions;
+                
+                // Age score (0-3): 0-3 days=1, 3-7=2, 7-14=3, 14-30=4, 30+=5
+                let age_score = if age_days <= 3.0 { 1 }
+                    else if age_days <= 7.0 { 2 }
+                    else if age_days <= 14.0 { 3 }
+                    else if age_days <= 30.0 { 4 }
+                    else { 5 };
+                
+                // Size score (0-2): <100=1, 100-500=2, 500+=3
+                let size_score = if size < 100 { 1 }
+                    else if size < 500 { 2 }
+                    else { 3 };
+                
+                // Draft penalty (drafts are less urgent)
+                let draft_score = if review.draft { 1 } else { 2 };
+                
+                // Staleness bonus: if waiting >7 days, add urgency
+                let staleness_bonus = if age_days > 14.0 { 2 }
+                    else if age_days > 7.0 { 1 }
+                    else { 0 };
+                
+                let total = (age_score + size_score + draft_score + staleness_bonus).min(10) as u8;
+                
+                (total, AttentionFactors { age_score, size_score, draft_score, staleness_bonus })
+            }
+
+            let mut attention_list: Vec<AttentionPR> = reviews.iter().map(|r| {
+                let (attention_score, factors) = calc_attention_score(r);
+                AttentionPR {
+                    repo: r.repo.clone(),
+                    pr_number: r.pr_number,
+                    pr_title: r.pr_title.clone(),
+                    pr_author: r.pr_author.clone(),
+                    pr_url: r.pr_url.clone(),
+                    age_days: (Utc::now() - r.created_at).num_days(),
+                    size: r.additions + r.deletions,
+                    draft: r.draft,
+                    attention_score,
+                    factors,
+                }
+            }).collect();
+
+            // Sort by attention score descending
+            attention_list.sort_by(|a, b| b.attention_score.cmp(&a.attention_score));
+
+            // Filter by threshold
+            let filtered: Vec<&AttentionPR> = attention_list.iter()
+                .filter(|p| p.attention_score >= threshold)
+                .take(limit)
+                .collect();
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct AttentionOutput {
+                    threshold: u8,
+                    total_matching: usize,
+                    high_attention: Vec<AttentionPR>,
+                }
+                let output = AttentionOutput {
+                    threshold,
+                    total_matching: attention_list.iter().filter(|p| p.attention_score >= threshold).count(),
+                    high_attention: filtered.into_iter().cloned().collect(),
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                if filtered.is_empty() {
+                    println!("✅ No PRs above attention threshold {} — you're in good shape!", threshold);
+                    return Ok(());
+                }
+
+                println!("\n🎯 {} PR(s) demand your attention (score >= {})\n", 
+                    filtered.len(), threshold);
+
+                for pr in filtered {
+                    let age_label = if pr.age_days == 0 { "today".green().to_string() }
+                        else if pr.age_days == 1 { "1d".yellow().to_string() }
+                        else if pr.age_days <= 3 { format!("{}d", pr.age_days).yellow().to_string() }
+                        else if pr.age_days <= 7 { format!("{}d", pr.age_days).red().to_string() }
+                        else { format!("{}d!!", pr.age_days).red().bold().to_string() };
+
+                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let stars = "🔥".repeat((pr.attention_score / 2).min(5) as usize);
+
+                    println!("  {}  {} {} ({}){}", stars, pr.pr_title.bold(), format!("#{}", pr.pr_number).dimmed(), pr.repo.dimmed(), draft_label);
+                    println!("      👤 {}  •  {} lines  •  opened {}", 
+                        pr.pr_author.cyan(), pr.size, age_label);
+                    
+                    if detailed {
+                        println!("      📊 breakdown: age={} size={} draft={} stale_bonus={}", 
+                            pr.factors.age_score, pr.factors.size_score, 
+                            pr.factors.draft_score, pr.factors.staleness_bonus);
+                    }
+                    println!("      🔗 {}\n", pr.pr_url.blue().underline());
+                }
+            }
+        }
+
         Commands::Focus { open, json } => {
             use chrono::Utc;
 
