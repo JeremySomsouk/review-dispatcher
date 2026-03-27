@@ -63,7 +63,11 @@ pub enum Commands {
     /// List your own open PRs (draft or not)
     Mine,
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
-    Stats,
+    Stats {
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary,
     /// Remove all past review files from the output directory

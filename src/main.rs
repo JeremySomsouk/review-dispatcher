@@ -252,49 +252,110 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats => {
+        Commands::Stats { json } => {
             use std::collections::HashMap;
             use chrono::Duration;
 
             let mut repo_counts: HashMap<String, usize> = HashMap::new();
+            let mut author_counts: HashMap<String, usize> = HashMap::new();
             let mut total_additions = 0u64;
             let mut total_deletions = 0u64;
 
             for review in &reviews {
                 *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
+                if !review.pr_author.is_empty() {
+                    *author_counts.entry(review.pr_author.clone()).or_insert(0) += 1;
+                }
                 total_additions += review.additions;
                 total_deletions += review.deletions;
             }
 
-            println!("\n📊 Review Statistics\n{}", "─".repeat(40));
-            println!("  Total pending reviews: {}", reviews.len());
-            println!("  Total lines changed:   +{} / -{}", total_additions, total_deletions);
+            if json {
+                #[derive(serde::Serialize)]
+                struct StatsOutput<'a> {
+                    total: usize,
+                    total_additions: u64,
+                    total_deletions: u64,
+                    avg_wait_days: f64,
+                    oldest_pr_number: Option<u64>,
+                    oldest_pr_age_days: Option<i64>,
+                    by_repository: &'a HashMap<String, usize>,
+                    by_author: &'a HashMap<String, usize>,
+                }
 
-            if !reviews.is_empty() {
-                // Average wait time
                 let now = chrono::Utc::now();
-                let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
-                let avg_wait = total_wait / reviews.len() as i32;
-                println!("  Avg time waiting:      {} days",
-                    (avg_wait.num_hours() as f64 / 24.0).round());
+                let avg_wait_days = if reviews.is_empty() {
+                    0.0
+                } else {
+                    let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
+                    (total_wait / reviews.len() as i32).num_hours() as f64 / 24.0
+                };
 
-                // Oldest PR
-                if let Some(oldest) = reviews.first() {
-                    let age = now - oldest.created_at;
-                    println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
-                        format_duration(age));
+                let oldest_pr = reviews.first().map(|r| {
+                    let age = (now - r.created_at).num_days();
+                    (r.pr_number, age)
+                });
+
+                let output = StatsOutput {
+                    total: reviews.len(),
+                    total_additions,
+                    total_deletions,
+                    avg_wait_days: avg_wait_days.round(),
+                    oldest_pr_number: oldest_pr.map(|(n, _)| n),
+                    oldest_pr_age_days: oldest_pr.map(|(_, a)| a),
+                    by_repository: &repo_counts,
+                    by_author: &author_counts,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("\n📊 Review Statistics\n{}", "─".repeat(40));
+                println!("  Total pending reviews: {}", reviews.len());
+                println!("  Total lines changed:   +{} / -{}",
+                    total_additions.to_string().green(),
+                    total_deletions.to_string().red()
+                );
+
+                if !reviews.is_empty() {
+                    // Average wait time
+                    let now = chrono::Utc::now();
+                    let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
+                    let avg_wait = total_wait / reviews.len() as i32;
+                    println!("  Avg time waiting:      {} days",
+                        (avg_wait.num_hours() as f64 / 24.0).round());
+
+                    // Oldest PR
+                    if let Some(oldest) = reviews.first() {
+                        let age = now - oldest.created_at;
+                        println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
+                            format_duration(age));
+                    }
+
+                    // Breakdown by repo
+                    if !repo_counts.is_empty() {
+                        println!("\n  By repository:");
+                        let mut repo_vec: Vec<_> = repo_counts.iter().collect();
+                        repo_vec.sort_by(|a, b| b.1.cmp(a.1));
+                        for (repo, count) in repo_vec {
+                            println!("    {}: {}", repo, count);
+                        }
+                    }
+
+                    // Breakdown by author
+                    if !author_counts.is_empty() {
+                        println!("\n  By author:");
+                        let mut author_vec: Vec<_> = author_counts.iter().collect();
+                        author_vec.sort_by(|a, b| b.1.cmp(a.1));
+                        for (author, count) in author_vec {
+                            let bar = "█".repeat(*count).cyan();
+                            println!("    {}  {}", author.bold(), bar);
+                        }
+                    }
+                } else {
+                    println!("\n  😴 No pending reviews. You're all clear!");
                 }
 
-                // Breakdown by repo
-                println!("\n  By repository:");
-                let mut repo_vec: Vec<_> = repo_counts.iter().collect();
-                repo_vec.sort_by(|a, b| b.1.cmp(a.1));
-                for (repo, count) in repo_vec {
-                    println!("    {}: {}", repo, count);
-                }
+                println!();
             }
-
-            println!();
         }
 
         Commands::TeamSummary => {
