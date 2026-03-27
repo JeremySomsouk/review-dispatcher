@@ -627,6 +627,102 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Approve { pr_number, message } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to approve [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found to approve.");
+                return Ok(());
+            }
+
+            for review in prs {
+                print!(
+                    "\n⏳ Approving #{} {}... ",
+                    review.pr_number,
+                    review.pr_title
+                );
+                io::stdout().flush()?;
+
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                // Get the latest commit SHA for this PR
+                let pr_details = client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .get(review.pr_number)
+                    .await;
+
+                let commit_id = match pr_details {
+                    Ok(pr) => pr.head.sha.clone(),
+                    Err(e) => {
+                        println!("{}", "❌ Failed".red());
+                        println!("   Error getting PR details: {}", e);
+                        continue;
+                    }
+                };
+
+                // Use the pull request review API to approve
+                #[allow(deprecated)]
+                let result = client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .pull_number(review.pr_number)
+                    .reviews()
+                    .create_review(
+                        commit_id,
+                        message.clone().unwrap_or_else(|| "LGTM!".to_string()),
+                        octocrab::models::pulls::ReviewAction::Approve,
+                        Vec::new(),
+                    )
+                    .await;
+
+                match result {
+                    Ok(_) => {
+                        println!("{}", "✅ Approved".green());
+                        println!("   👍 You approved {} ({})", review.pr_title, review.repo);
+                        println!("   🔗 {}", review.pr_url.blue().underline());
+                    }
+                    Err(e) => {
+                        println!("{}", "❌ Failed".red());
+                        println!("   Error: {}", e);
+                    }
+                }
+            }
+            println!();
+        }
+
         Commands::Claim { all, pr_numbers } => {
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {

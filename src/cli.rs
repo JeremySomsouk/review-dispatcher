@@ -103,6 +103,15 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Approve a PR directly from the CLI
+    Approve {
+        /// PR number to approve
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Approve with a custom comment
+        #[arg(long, short = 'm')]
+        message: Option<String>,
+    },
     /// Claim multiple PRs for review at once
     Claim {
         /// Claim all pending reviews at once
