@@ -254,3 +254,39 @@ pub async fn fetch_pr_files(
 
     Ok(files)
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PullRequestLabel {
+    pub id: String,
+    pub name: String,
+    pub color: String,
+    pub description: Option<String>,
+}
+
+pub async fn fetch_pr_labels(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+) -> Result<Vec<PullRequestLabel>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let labels: Vec<PullRequestLabel> = client
+        .pulls(org, repo)
+        .get(pr_number)
+        .await?
+        .labels
+        .unwrap_or_default()
+        .into_iter()
+        .map(|l| PullRequestLabel {
+            id: l.id.to_string(),
+            name: l.name,
+            color: l.color,
+            description: l.description,
+        })
+        .collect();
+
+    Ok(labels)
+}

@@ -190,4 +190,19 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show labels for one or more PRs
+    Labels {
+        /// PR number(s) to show labels for (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Show labels for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Filter pending reviews by label name (partial match, case-insensitive)
+        #[arg(long, short = 'l')]
+        filter_by: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }

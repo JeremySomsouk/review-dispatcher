@@ -1049,6 +1049,175 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Labels { pr_numbers, all, filter_by, json } => {
+            let targets: Vec<_> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to show labels [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            if targets.is_empty() {
+                println!("No PRs found.");
+                return Ok(());
+            }
+
+            // Collect all labels with their PRs
+            let mut all_labels_data: Vec<(github::PendingReview, Vec<github::PullRequestLabel>)> = Vec::new();
+            let mut total_labels_count = 0usize;
+
+            for review in &targets {
+                print!("\n⏳ Fetching labels for #{} {}... ", review.pr_number, review.pr_title);
+                io::stdout().flush()?;
+
+                match github::fetch_pr_labels(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &review.repo,
+                    review.pr_number,
+                )
+                .await
+                {
+                    Ok(labels) => {
+                        println!("{}", "done".green());
+                        total_labels_count += labels.len();
+                        all_labels_data.push((review.clone(), labels));
+                    }
+                    Err(e) => {
+                        println!("{}", "failed".red());
+                        println!("  ❌ Error fetching labels: {}", e);
+                    }
+                }
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct LabelOutput<'a> {
+                    pr_number: u64,
+                    pr_title: &'a str,
+                    repo: &'a str,
+                    pr_url: &'a str,
+                    labels: &'a [github::PullRequestLabel],
+                }
+                let json_output: Vec<LabelOutput> = all_labels_data
+                    .iter()
+                    .map(|(r, l)| LabelOutput {
+                        pr_number: r.pr_number,
+                        pr_title: &r.pr_title,
+                        repo: &r.repo,
+                        pr_url: &r.pr_url,
+                        labels: l,
+                    })
+                    .collect();
+                println!("{}", serde_json::to_string_pretty(&json_output).unwrap_or_default());
+            } else {
+                println!("\n🏷️  Labels Summary\n{}", "─".repeat(45));
+
+                // If filter_by is specified, show only matching labels
+                if let Some(ref filter) = filter_by {
+                    let filter_lower = filter.to_lowercase();
+                    let mut found_any = false;
+                    for (review, labels) in &all_labels_data {
+                        for label in labels {
+                            if label.name.to_lowercase().contains(&filter_lower) {
+                                found_any = true;
+                                let _color_hex = format!("#{}", label.color);
+                                println!(
+                                    "  {}  {}  (on #{} - {})",
+                                    colorize_label(&label.name, &label.color),
+                                    review.pr_title.bold(),
+                                    review.pr_number,
+                                    review.repo.dimmed()
+                                );
+                            }
+                        }
+                    }
+                    if !found_any {
+                        println!("  No labels matching '{}' found.", filter.yellow());
+                    }
+                } else {
+                    // Show all labels grouped by PR
+                    for (review, labels) in &all_labels_data {
+                        println!("\n📄 #{} {} ({})", review.pr_number, review.pr_title.bold(), review.repo);
+                        if labels.is_empty() {
+                            println!("  (no labels)");
+                        } else {
+                            for label in labels {
+                                println!(
+                                    "  {}  {}",
+                                    colorize_label(&label.name, &label.color),
+                                    label.description.as_ref().map(|d| d.as_str()).unwrap_or("").dimmed()
+                                );
+                            }
+                        }
+                    }
+
+                    // Show label frequency summary
+                    if total_labels_count > 0 {
+                        use std::collections::HashMap;
+                        let mut label_counts: HashMap<String, (String, usize)> = HashMap::new();
+                        for (_, labels) in &all_labels_data {
+                            for label in labels {
+                                let entry = label_counts.entry(label.name.clone()).or_insert_with(|| (label.color.clone(), 0));
+                                entry.1 += 1;
+                            }
+                        }
+                        println!("\n📊 Label Frequency:");
+                        let mut sorted: Vec<_> = label_counts.iter().collect();
+                        sorted.sort_by(|a, b| b.1.1.cmp(&a.1.1));
+                        for (name, (color, count)) in sorted.iter().take(10) {
+                            let bar = "█".repeat(*count).cyan();
+                            println!("  {}  {}  {}", colorize_label(name, color), bar, count);
+                        }
+                    }
+                }
+                println!("{}", "─".repeat(45));
+            }
+        }
+
         Commands::Report { days, json } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
@@ -1215,6 +1384,23 @@ fn format_duration(d: chrono::Duration) -> String {
             format!("{}w", weeks)
         }
     }
+}
+
+fn colorize_label(name: &str, color: &str) -> colored::ColoredString {
+    // Parse hex color (GitHub label colors are 6-char hex without #)
+    if color.len() == 6 {
+        if let (Ok(r), Ok(g), Ok(b)) = (
+            u8::from_str_radix(&color[0..2], 16),
+            u8::from_str_radix(&color[2..4], 16),
+            u8::from_str_radix(&color[4..6], 16),
+        ) {
+            // Use the hex color for the text
+            let label_with_bg = format!(" {} ", name);
+            return label_with_bg.color(colored::Color::TrueColor { r, g, b });
+        }
+    }
+    // Fallback: return name with cyan color
+    name.cyan()
 }
 
 enum Selection {
