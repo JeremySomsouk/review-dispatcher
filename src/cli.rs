@@ -103,4 +103,10 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Open one or more PRs in your browser
+    Browse {
+        /// PR number(s) to open (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+    },
 }

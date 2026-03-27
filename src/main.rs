@@ -10,6 +10,7 @@ mod writer;
 use clap::Parser;
 use cli::{Cli, Commands};
 use colored::*;
+use open;
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{self, Write};
@@ -553,6 +554,73 @@ async fn main() -> anyhow::Result<()> {
                     Err(e) => {
                         println!("{}", "❌ Failed".red());
                         println!("   Error: {}", e);
+                    }
+                }
+            }
+            println!();
+        }
+
+        Commands::Browse { pr_numbers } => {
+            let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+                // Parse comma-separated PR numbers
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                // Interactive: show list and let user pick
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to open [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            if targets.is_empty() {
+                println!("No PRs found to open.");
+                return Ok(());
+            }
+
+            println!("\n🌐 Opening {} PR(s) in browser...\n", targets.len());
+            for review in &targets {
+                match open::that(&review.pr_url) {
+                    Ok(_) => {
+                        println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                    }
+                    Err(e) => {
+                        println!("  ❌ Failed to open {}: {}", review.pr_url, e);
                     }
                 }
             }
