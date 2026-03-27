@@ -590,6 +590,157 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Info { pr_number, json } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    // Show all pending reviews and let user pick
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found.");
+                return Ok(());
+            }
+
+            for review in prs {
+                // Fetch full PR details including description
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                let full_pr = client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .get(review.pr_number)
+                    .await?;
+
+                let body = full_pr.body.clone().unwrap_or_else(|| "No description provided.".to_string());
+                let mut lines: Vec<&str> = body.lines().collect();
+                if lines.len() > 50 {
+                    lines.truncate(50);
+                    lines.push("... (truncated)");
+                }
+                let body_preview = lines.join("\n");
+
+                let requested_reviewers = full_pr
+                    .requested_reviewers
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|r| r.login.clone())
+                    .collect::<Vec<_>>();
+                let requested_teams = full_pr
+                    .requested_teams
+                    .as_deref()
+                    .unwrap_or(&[])
+                    .iter()
+                    .map(|t| t.slug.clone())
+                    .collect::<Vec<_>>();
+
+                let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                let created_str = review.created_at.format("%Y-%m-%d %H:%M UTC").to_string();
+                let updated_str = full_pr
+                    .updated_at
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M UTC").to_string())
+                    .unwrap_or_else(|| "Unknown".to_string());
+
+                let info = serde_json::json!({
+                    "number": review.pr_number,
+                    "title": review.pr_title,
+                    "author": review.pr_author,
+                    "body": body,
+                    "repo": review.repo,
+                    "url": review.pr_url,
+                    "branch": review.branch,
+                    "state": if review.draft { "draft" } else { "open" },
+                    "created_at": created_str,
+                    "updated_at": updated_str,
+                    "additions": review.additions,
+                    "deletions": review.deletions,
+                    "requested_reviewers": requested_reviewers,
+                    "requested_teams": requested_teams,
+                    "labels": full_pr.labels.as_ref().map(|l| l.iter().map(|label| label.name.clone()).collect::<Vec<_>>()).unwrap_or_default(),
+                    "assignees": full_pr.assignees.as_ref().map(|a| a.iter().map(|u| u.login.clone()).collect::<Vec<_>>()).unwrap_or_default(),
+                });
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&info)?);
+                } else {
+                    println!("\n{}", "═".repeat(60));
+                    println!("📋 PR #{} — {}", review.pr_number, review.pr_title.bold());
+                    println!("{}", "═".repeat(60));
+                    println!();
+                    println!("  👤 Author:     {}", review.pr_author.cyan());
+                    println!("  📅 Created:   {}", created_str);
+                    println!("  🔄 Updated:   {}", updated_str);
+                    println!("  🌿 Branch:    {}", review.branch.dimmed());
+                    println!("  📊 State:     {}", if review.draft { "DRAFT".yellow() } else { "OPEN".green() });
+                    println!("  📁 Repository: {}", review.repo);
+                    println!();
+                    println!("  👥 Requested Reviewers:");
+                    if requested_reviewers.is_empty() && requested_teams.is_empty() {
+                        println!("     (none)");
+                    } else {
+                        for reviewer in &requested_reviewers {
+                            println!("     @{}", reviewer.cyan());
+                        }
+                        for team in &requested_teams {
+                            println!("     @{}", team.yellow());
+                        }
+                    }
+                    println!();
+                    println!("  🏷️  Labels:");
+                    let labels = full_pr.labels.as_ref().map(|l| l.iter().map(|label| label.name.clone()).collect::<Vec<_>>()).unwrap_or_default();
+                    if labels.is_empty() {
+                        println!("     (none)");
+                    } else {
+                        for label in &labels {
+                            println!("     • {}", label);
+                        }
+                    }
+                    println!();
+                    println!("  📝 Description:");
+                    println!("{}", "─".repeat(60));
+                    for line in body_preview.lines() {
+                        println!("  {}", line);
+                    }
+                    println!("{}", "─".repeat(60));
+                    println!();
+                    println!("  🔗 {}", review.pr_url.blue().underline());
+                    println!("{}", "═".repeat(60));
+                    println!();
+                }
+            }
+        }
+
         Commands::Browse { pr_numbers } => {
             let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
                 // Parse comma-separated PR numbers

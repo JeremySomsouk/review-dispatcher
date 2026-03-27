@@ -101,6 +101,15 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Show full PR information including description, reviewers, and metadata
+    Info {
+        /// PR number to show info for
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Assign yourself as a reviewer on a PR
     Assign {
         /// PR number to assign yourself to
