@@ -2840,6 +2840,146 @@ async fn main() -> anyhow::Result<()> {
                     }
                     println!();
                 }
+
+                cli::SnoozeAction::Extend => {
+                    let duration_days = days.unwrap_or(3) as i64;
+                    let new_snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
+                        .to_rfc3339();
+
+                    if let Some(ref nums) = pr_numbers {
+                        let to_extend: Vec<u64> = nums
+                            .split(',')
+                            .filter_map(|p| p.trim().parse().ok())
+                            .collect();
+
+                        if to_extend.is_empty() {
+                            println!("❌ No valid PR numbers provided.");
+                            return Ok(());
+                        }
+
+                        let mut extended_count = 0;
+                        let mut not_found_count = 0;
+
+                        for entry in &mut snoozed {
+                            if to_extend.contains(&entry.pr_number) {
+                                entry.snoozed_until = new_snooze_until.clone();
+                                extended_count += 1;
+                            }
+                        }
+
+                        // Also handle entries that may not be in the list yet but are in the pr_numbers
+                        // If a PR is specified but not in snoozed list, offer to add it
+                        for num in &to_extend {
+                            if !snoozed.iter().any(|e| e.pr_number == *num) {
+                                not_found_count += 1;
+                            }
+                        }
+
+                        if extended_count > 0 {
+                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                                println!("  ⚠️ Failed to save snooze data: {}", e);
+                            } else {
+                                println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                    extended_count.to_string().green().bold(),
+                                    &new_snooze_until[..10].cyan(),
+                                    duration_days
+                                );
+                            }
+                        }
+
+                        if not_found_count > 0 {
+                            println!("  ⚠️ {} PR(s) were not in the snooze list — use `snooze add` to snooze them first", not_found_count);
+                        }
+
+                        if extended_count == 0 && not_found_count == 0 {
+                            println!("\n😶 No matching snoozed PRs found.");
+                        }
+                    } else {
+                        // Interactive: show snoozed list and let user pick
+                        let now = chrono::Utc::now();
+                        let mut active: Vec<_> = snoozed
+                            .iter()
+                            .filter(|e| {
+                                if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                                    until.with_timezone(&chrono::Utc) > now
+                                } else {
+                                    false
+                                }
+                            })
+                            .collect();
+
+                        if active.is_empty() {
+                            println!("\n😴 No currently snoozed PRs to extend.\n");
+                            return Ok(());
+                        }
+
+                        println!(
+                            "\n📋 Currently snoozed PRs (select to extend):\n{}",
+                            "─".repeat(50)
+                        );
+                        for (i, entry) in active.iter().enumerate() {
+                            let until = chrono::DateTime::parse_from_rfc3339(&entry.snoozed_until)
+                                .map(|t| t.with_timezone(&chrono::Utc))
+                                .unwrap_or(now);
+                            let remaining = (until - now).num_hours();
+                            let remaining_label = if remaining < 24 {
+                                format!("{}h left", remaining).red()
+                            } else {
+                                format!("{}d left", remaining / 24).yellow()
+                            };
+                            println!("  [{}] {}  #{} ({}) - {}",
+                                i + 1,
+                                entry.pr_title.bold(),
+                                entry.pr_number,
+                                entry.repo.dimmed(),
+                                remaining_label
+                            );
+                        }
+                        println!("{}", "─".repeat(50));
+
+                        print!(
+                            "\n{} ",
+                            "Select PRs to extend [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                        );
+                        io::stdout().flush()?;
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        let input = input.trim();
+
+                        match parse_selection(input, active.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                let indices_count = indices.len();
+                                let prs_to_extend: Vec<(String, u64)> = indices
+                                    .iter()
+                                    .filter_map(|idx| {
+                                        active.get(*idx).map(|e| (e.repo.clone(), e.pr_number))
+                                    })
+                                    .collect();
+
+                                for (repo, pr_number) in &prs_to_extend {
+                                    for e in &mut snoozed {
+                                        if e.repo == *repo && e.pr_number == *pr_number {
+                                            e.snoozed_until = new_snooze_until.clone();
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                                    println!("  ⚠️ Failed to save snooze data: {}", e);
+                                } else {
+                                    println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                        indices_count.to_string().green().bold(),
+                                        &new_snooze_until[..10].cyan(),
+                                        duration_days
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    println!();
+                }
             }
 
             // If listing/showing reviews, filter out snoozed PRs
