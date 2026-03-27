@@ -103,6 +103,15 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Post a comment on a PR directly from the CLI
+    Comment {
+        /// PR number to comment on
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Comment text (supports markdown)
+        #[arg(long, short = 't', value_name = "TEXT")]
+        text: String,
+    },
     /// Approve a PR directly from the CLI
     Approve {
         /// PR number to approve

@@ -672,6 +672,79 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Comment { pr_number, text } => {
+            let target_pr = cli.pr.or(pr_number.clone());
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to comment on [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found to comment on.");
+                return Ok(());
+            }
+
+            for review in &prs {
+                print!(
+                    "\n💬 Posting comment on #{} {}... ",
+                    review.pr_number,
+                    review.pr_title
+                );
+                io::stdout().flush()?;
+
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                let result = client
+                    .issues(&cfg.github_org, &review.repo)
+                    .create_comment(review.pr_number, &text)
+                    .await;
+
+                match result {
+                    Ok(_) => {
+                        println!("{}", "✅ Commented".green());
+                        println!("   📝 {} ({})", review.pr_title, review.repo);
+                        println!("   💬 \"{}\"", text.yellow());
+                        println!("   🔗 {}", review.pr_url.blue().underline());
+                    }
+                    Err(e) => {
+                        println!("{}", "❌ Failed".red());
+                        println!("   Error: {}", e);
+                    }
+                }
+            }
+            println!();
+        }
+
         Commands::Approve { pr_number, message } => {
             let target_pr = cli.pr.or(pr_number);
 
