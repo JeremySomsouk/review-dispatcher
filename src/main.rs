@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(PathBuf::from("./reviews")));
 
     match cli.command {
-        Commands::List { json, since_days } => {
+        Commands::List { json, since_days, priority } => {
             // --pr on list: filter the review list to that PR
             let filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
                 let json = serde_json::to_string_pretty(&filtered)?;
                 println!("{}", json);
             } else {
-                logger::print_reviews(&filtered);
+                logger::print_reviews(&filtered, priority);
             }
 
             // Write files only in non-JSON mode (JSON is typically for scripting)
@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            logger::print_reviews(&my_prs);
+            logger::print_reviews(&my_prs, false);
 
             if let Some(ref dir) = output_dir {
                 let index_path = writer::write_index(dir, &my_prs)?;
@@ -156,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
-                    logger::print_reviews(&reviews);
+                    logger::print_reviews(&reviews, false);
 
                     print!(
                         "\n{} ",
