@@ -1492,6 +1492,7 @@ dependencies = [
  "ctrlc",
  "dirs",
  "dotenvy",
+ "futures",
  "octocrab",
  "open",
  "serde",

@@ -169,14 +169,20 @@ pub enum Commands {
     },
     /// Open one or more PRs in your browser
     Browse {
+        /// PR number to open (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// PR number(s) to open (comma-separated)
-        #[arg(value_name = "PR_NUMBERS")]
+        #[arg(long, short = 'p')]
         pr_numbers: Option<String>,
     },
     /// Show changed files for one or more PRs
     Files {
+        /// PR number to show files for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// PR number(s) to show files for (comma-separated)
-        #[arg(value_name = "PR_NUMBERS")]
+        #[arg(long, short = 'p')]
         pr_numbers: Option<String>,
         /// Show files for all pending reviews
         #[arg(long, short = 'a')]

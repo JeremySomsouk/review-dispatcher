@@ -1121,8 +1121,20 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_numbers } => {
-            let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+        Commands::Browse { pr_number, pr_numbers } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let targets: Vec<_> = if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                let prs = github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?;
+                prs
+            } else if let Some(ref nums) = pr_numbers {
                 // Parse comma-separated PR numbers
                 let mut results = Vec::new();
                 for part in nums.split(',') {
@@ -1622,7 +1634,9 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Files { pr_numbers, all } => {
+        Commands::Files { pr_number, pr_numbers, all } => {
+            let target_pr = cli.pr.or(pr_number);
+
             let targets: Vec<_> = if all {
                 // Show files for all pending reviews
                 if reviews.is_empty() {
@@ -1630,6 +1644,16 @@ async fn main() -> anyhow::Result<()> {
                     return Ok(());
                 }
                 reviews.clone()
+            } else if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                let prs = github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?;
+                prs
             } else if let Some(ref nums) = pr_numbers {
                 // Parse comma-separated PR numbers
                 let mut results = Vec::new();

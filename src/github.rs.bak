@@ -1,6 +1,6 @@
 use anyhow::Result;
-use futures::future::join_all;
 use chrono::{DateTime, Utc};
+use futures::future::join_all;
 use octocrab::Octocrab;
 use serde::Serialize;
 

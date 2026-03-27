@@ -12,18 +12,20 @@ Jump straight to GitHub without switching windows or copying URLs.
 ## Synopsis
 
 ```bash
-review-dispatcher browse [OPTIONS] [PR_NUMBERS]
+review-dispatcher browse [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBERS` | PR number(s) to open (comma-separated) | - |
+| `PR_NUMBER` | PR number to open (shorthand) | - |
+| `-p, --pr <PR_NUMBERS>` | PR number(s) to open (comma-separated) | - |
 
 ## Examples
 
 ```bash
 review-dispatcher browse 4821
-review-dispatcher browse 4821,3156,2890
+review-dispatcher browse --pr 4821
+review-dispatcher browse --pr 4821,3156,2890
 ```
