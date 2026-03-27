@@ -1964,16 +1964,6 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await?;
                 prs
-            } else if let Some(num) = target_pr {
-                // Single PR via --pr or positional
-                let prs = github::fetch_pr_by_number(
-                    &cfg.github_token,
-                    &cfg.github_org,
-                    &cfg.github_repos,
-                    num,
-                )
-                .await?;
-                prs
             } else if let Some(ref nums) = pr_numbers {
                 // Parse comma-separated PR numbers
                 let mut results = Vec::new();
@@ -1986,17 +1976,17 @@ async fn main() -> anyhow::Result<()> {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
                 }
-                let mut all_prs = Vec::new();
-                for num in &results {
-                    let prs = github::fetch_pr_by_number(
+                // Parallel fetch for all specified PRs
+                let futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
                         *num,
                     )
-                    .await?;
-                    all_prs.extend(prs);
-                }
+                });
+                let all_results = futures::future::join_all(futures).await;
+                let all_prs: Vec<_> = all_results.into_iter().filter_map(|r| r.ok()).flatten().collect();
                 all_prs
             } else {
                 if reviews.is_empty() {
