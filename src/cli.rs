@@ -271,8 +271,11 @@ pub enum Commands {
     },
     /// Show labels for one or more PRs
     Labels {
+        /// PR number to show labels for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// PR number(s) to show labels for (comma-separated)
-        #[arg(value_name = "PR_NUMBERS")]
+        #[arg(long, short = 'p')]
         pr_numbers: Option<String>,
         /// Show labels for all pending reviews
         #[arg(long, short = 'a')]

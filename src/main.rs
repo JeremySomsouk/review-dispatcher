@@ -1864,14 +1864,37 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Labels { pr_numbers, all, filter_by, json } => {
+        Commands::Labels { pr_number, pr_numbers, all, filter_by, json } => {
+            let target_pr = cli.pr.or(pr_number);
+
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
                     return Ok(());
                 }
                 reviews.clone()
+            } else if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                let prs = github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?;
+                prs
+            } else if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                let prs = github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?;
+                prs
             } else if let Some(ref nums) = pr_numbers {
+                // Parse comma-separated PR numbers
                 let mut results = Vec::new();
                 for part in nums.split(',') {
                     if let Ok(num) = part.trim().parse::<u64>() {
@@ -1920,30 +1943,34 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Collect all labels with their PRs
-            let mut all_labels_data: Vec<(github::PendingReview, Vec<github::PullRequestLabel>)> = Vec::new();
-            let mut total_labels_count = 0usize;
-
-            for review in &targets {
-                print!("\n⏳ Fetching labels for #{} {}... ", review.pr_number, review.pr_title);
-                io::stdout().flush()?;
-
-                match github::fetch_pr_labels(
+            // Fetch labels in parallel
+            let label_futures = targets.iter().map(|review| {
+                github::fetch_pr_labels(
                     &cfg.github_token,
                     &cfg.github_org,
                     &review.repo,
                     review.pr_number,
                 )
-                .await
-                {
+            });
+
+            let label_results: Vec<(github::PendingReview, Result<Vec<github::PullRequestLabel>, anyhow::Error>)> = targets
+                .iter()
+                .cloned()
+                .zip(join_all(label_futures).await)
+                .collect();
+
+            // Collect labels for display
+            let mut all_labels_data: Vec<(github::PendingReview, Vec<github::PullRequestLabel>)> = Vec::new();
+            let mut total_labels_count = 0usize;
+
+            for (review, result) in label_results {
+                match result {
                     Ok(labels) => {
-                        println!("{}", "done".green());
                         total_labels_count += labels.len();
-                        all_labels_data.push((review.clone(), labels));
+                        all_labels_data.push((review, labels));
                     }
                     Err(e) => {
-                        println!("{}", "failed".red());
-                        println!("  ❌ Error fetching labels: {}", e);
+                        println!("\n❌ Failed to fetch labels for #{}: {}", review.pr_number, e);
                     }
                 }
             }
@@ -4184,21 +4211,34 @@ async fn main() -> anyhow::Result<()> {
             }
 
             if send {
-                println!("\n📤 Sending {} chase comment(s)...\n", chase_entries.len());
+                println!("\n📤 Sending {} chase comment(s) in parallel...\n", chase_entries.len());
                 
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+
+                // Send all comments in parallel
+                let send_futures = chase_entries.iter().map(|entry| {
+                    let token = token.clone();
+                    let org = org.clone();
+                    let repo = entry.repo.clone();
+                    let message = entry.message.clone();
+                    let pr_number = entry.pr_number;
+                    async move {
+                        let client = octocrab::Octocrab::builder()
+                            .personal_token(token)
+                            .build()?;
+                        client.issues(&org, &repo)
+                            .create_comment(pr_number, &message)
+                            .await
+                    }
+                });
+                let results = join_all(send_futures).await;
 
                 let mut sent = 0;
                 let mut failed = 0;
 
-                for entry in &chase_entries {
-                    match client
-                        .issues(&cfg.github_org, &entry.repo)
-                        .create_comment(entry.pr_number, &entry.message)
-                        .await
-                    {
+                for (entry, result) in chase_entries.iter().zip(results.into_iter()) {
+                    match result {
                         Ok(_) => {
                             println!("  ✅ Sent: #{} - {}", entry.pr_number, entry.pr_title.dimmed());
                             sent += 1;
