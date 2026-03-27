@@ -41,25 +41,45 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(PathBuf::from("./reviews")));
 
     match cli.command {
-        Commands::List => {
+        Commands::List { json, since_days } => {
             // --pr on list: filter the review list to that PR
             let filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                 None => reviews.clone(),
             };
 
-            logger::print_reviews(&filtered);
-
-            if let Some(ref dir) = output_dir {
-                let index_path = writer::write_index(dir, &filtered)?;
-                for review in &filtered {
-                    writer::write_review(dir, review, None)?;
+            // Apply --since filter
+            let filtered: Vec<_> = match since_days {
+                Some(days) => {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.created_at >= cutoff)
+                        .collect()
                 }
-                println!(
-                    "\n📁 Written to {}  (index: {})",
-                    dir.display().to_string().cyan(),
-                    index_path.file_name().unwrap().to_string_lossy().dimmed()
-                );
+                None => filtered,
+            };
+
+            if json {
+                let json = serde_json::to_string_pretty(&filtered)?;
+                println!("{}", json);
+            } else {
+                logger::print_reviews(&filtered);
+            }
+
+            // Write files only in non-JSON mode (JSON is typically for scripting)
+            if !json {
+                if let Some(ref dir) = output_dir {
+                    let index_path = writer::write_index(dir, &filtered)?;
+                    for review in &filtered {
+                        writer::write_review(dir, review, None)?;
+                    }
+                    println!(
+                        "\n📁 Written to {}  (index: {})",
+                        dir.display().to_string().cyan(),
+                        index_path.file_name().unwrap().to_string_lossy().dimmed()
+                    );
+                }
             }
         }
 

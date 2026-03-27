@@ -43,7 +43,14 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// List all PRs waiting for your review
-    List,
+    List {
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
+    },
     /// Ask Claude to triage each pending review
     Delegate {
         /// PR number (shorthand for --pr)
