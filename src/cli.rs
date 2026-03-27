@@ -232,4 +232,28 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Temporarily hide PRs from the pending list (snooze them)
+    Snooze {
+        /// Snooze action: add, list, remove, or clear
+        #[command(subcommand)]
+        action: SnoozeAction,
+        /// PR number(s) to snooze (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Snooze duration in days (default: 3)
+        #[arg(long, short = 'd')]
+        days: Option<u32>,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum SnoozeAction {
+    /// Add PR(s) to the snooze list
+    Add,
+    /// List currently snoozed PRs
+    List,
+    /// Remove PR(s) from the snooze list
+    Remove,
+    /// Clear all snoozed PRs
+    Clear,
 }

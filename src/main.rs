@@ -61,6 +61,51 @@ async fn main() -> anyhow::Result<()> {
                 None => filtered,
             };
 
+            // Filter out snoozed PRs (unless --pr is specified)
+            let filtered: Vec<_> = if cli.pr.is_none() {
+                let snooze_file = output_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("./reviews"))
+                    .join(".snoozed.json");
+
+                let now = chrono::Utc::now();
+                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            entries
+                                .into_iter()
+                                .filter_map(|e| {
+                                    let repo = e.get("repo")?.as_str()?.to_string();
+                                    let pr_number = e.get("pr_number")?.as_u64()?;
+                                    let until_str = e.get("snoozed_until")?.as_str()?;
+                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if until.with_timezone(&chrono::Utc) > now {
+                                            return Some((repo, pr_number));
+                                        }
+                                    }
+                                    None
+                                })
+                                .collect()
+                        } else {
+                            Vec::new()
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                let _snoozed_count = snoozed_prs.len();
+                filtered
+                    .into_iter()
+                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .inspect(|_| ())
+                    .collect()
+            } else {
+                filtered
+            };
+
             if json {
                 let json = serde_json::to_string_pretty(&filtered)?;
                 println!("{}", json);
@@ -1522,6 +1567,230 @@ async fn main() -> anyhow::Result<()> {
                 println!("  💡 Use `--min-score 4` for only critical PRs");
                 println!("  💡 Use `--json` for scripting\n");
             }
+        }
+
+        Commands::Snooze { action, pr_numbers, days } => {
+            use serde::{Deserialize, Serialize};
+
+            // Snooze storage file
+            let snooze_file = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"))
+                .join(".snoozed.json");
+
+            #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+            struct SnoozeEntry {
+                pub repo: String,
+                pub pr_number: u64,
+                pub pr_title: String,
+                pub snoozed_until: String, // ISO 8601 timestamp
+            }
+
+            // Load existing snooze data
+            let mut snoozed: Vec<SnoozeEntry> = if snooze_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                    serde_json::from_str(&content).unwrap_or_default()
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            match action {
+                cli::SnoozeAction::Add => {
+                    let duration_days = days.unwrap_or(3) as i64;
+                    let snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
+                        .to_rfc3339();
+
+                    // If no PR numbers provided, show interactive picker
+                    let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+                        let mut results = Vec::new();
+                        for part in nums.split(',') {
+                            if let Ok(num) = part.trim().parse::<u64>() {
+                                results.push(num);
+                            }
+                        }
+                        if results.is_empty() {
+                            println!("❌ No valid PR numbers provided.");
+                            return Ok(());
+                        }
+                        let mut all_prs = Vec::new();
+                        for num in &results {
+                            let prs = github::fetch_pr_by_number(
+                                &cfg.github_token,
+                                &cfg.github_org,
+                                &cfg.github_repos,
+                                *num,
+                            )
+                            .await?;
+                            all_prs.extend(prs);
+                        }
+                        all_prs
+                    } else {
+                        if reviews.is_empty() {
+                            println!("No pending reviews found to snooze.");
+                            return Ok(());
+                        }
+                        logger::print_reviews(&reviews, false);
+                        print!(
+                            "\n{} ",
+                            "Select PRs to snooze [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                        );
+                        io::stdout().flush()?;
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        match parse_selection(input.trim(), reviews.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                indices.into_iter().map(|i| reviews[i].clone()).collect()
+                            }
+                        }
+                    };
+
+                    if targets.is_empty() {
+                        println!("No PRs to snooze.");
+                        return Ok(());
+                    }
+
+                    println!(
+                        "\n😴 Snoozing {} PR(s) for {} day(s)...\n",
+                        targets.len().to_string().yellow().bold(),
+                        duration_days.to_string().cyan()
+                    );
+
+                    for review in &targets {
+                        // Remove existing entry if present (to update snooze time)
+                        snoozed.retain(|e| !(e.repo == review.repo && e.pr_number == review.pr_number));
+
+                        snoozed.push(SnoozeEntry {
+                            repo: review.repo.clone(),
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title.clone(),
+                            snoozed_until: snooze_until.clone(),
+                        });
+
+                        println!(
+                            "  😴 {} ({}) - until {}",
+                            review.pr_title.dimmed(),
+                            format!("#{}", review.pr_number).dimmed(),
+                            snooze_until[..10].dimmed()
+                        );
+                    }
+
+                    // Save snooze data
+                    if let Some(ref dir) = output_dir {
+                        std::fs::create_dir_all(dir).ok();
+                    }
+                    if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                        println!("  ⚠️ Failed to save snooze data: {}", e);
+                    } else {
+                        println!("\n✅ Snooze list saved ({} PRs snoozed)", snoozed.len());
+                    }
+                    println!();
+                }
+
+                cli::SnoozeAction::List => {
+                    let now = chrono::Utc::now();
+                    let mut active: Vec<_> = snoozed
+                        .iter()
+                        .filter(|e| {
+                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                                until.with_timezone(&chrono::Utc) > now
+                            } else {
+                                false
+                            }
+                        })
+                        .collect();
+
+                    if active.is_empty() {
+                        println!("\n😴 No currently snoozed PRs.\n");
+                        return Ok(());
+                    }
+
+                    println!(
+                        "\n😴 Currently Snoozed PRs ({} total)\n{}",
+                        active.len(),
+                        "─".repeat(50)
+                    );
+
+                    // Sort by expiry time
+                    active.sort_by(|a, b| {
+                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        a_time.cmp(&b_time)
+                    });
+
+                    for entry in &active {
+                        let until = chrono::DateTime::parse_from_rfc3339(&entry.snoozed_until)
+                            .map(|t| t.with_timezone(&chrono::Utc))
+                            .unwrap_or(now);
+                        let remaining = (until - now).num_hours();
+                        let remaining_label = if remaining < 24 {
+                            format!("{}h left", remaining).red()
+                        } else {
+                            format!("{}d left", remaining / 24).yellow()
+                        };
+
+                        println!(
+                            "  😴 {}  #{} ({}) - {}",
+                            entry.pr_title.bold(),
+                            entry.pr_number,
+                            entry.repo.dimmed(),
+                            remaining_label
+                        );
+                    }
+                    println!("{}", "─".repeat(50));
+                    println!("\n💡 Use `snooze remove --pr 123` to wake a PR early\n");
+                }
+
+                cli::SnoozeAction::Remove => {
+                    if let Some(ref nums) = pr_numbers {
+                        let to_remove: Vec<u64> = nums
+                            .split(',')
+                            .filter_map(|p| p.trim().parse().ok())
+                            .collect();
+
+                        if to_remove.is_empty() {
+                            println!("❌ No valid PR numbers provided.");
+                            return Ok(());
+                        }
+
+                        let initial_len = snoozed.len();
+                        snoozed.retain(|e| !to_remove.contains(&e.pr_number));
+
+                        let removed = initial_len - snoozed.len();
+                        if removed > 0 {
+                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                                println!("  ⚠️ Failed to save snooze data: {}", e);
+                            } else {
+                                println!("\n✅ Removed {} PR(s) from snooze list ({} remaining)", removed, snoozed.len());
+                            }
+                        } else {
+                            println!("\n😶 No matching snoozed PRs found.");
+                        }
+                    } else {
+                        println!("\n❌ Please specify PR numbers to remove: `snooze remove --pr 123,456`\n");
+                    }
+                }
+
+                cli::SnoozeAction::Clear => {
+                    if snoozed.is_empty() {
+                        println!("\n😴 Snooze list is already empty.\n");
+                        return Ok(());
+                    }
+
+                    let count = snoozed.len();
+                    snoozed.clear();
+                    if snooze_file.exists() {
+                        std::fs::remove_file(&snooze_file).ok();
+                    }
+                    println!("\n🧹 Cleared {} snoozed PR(s) from the list.\n", count);
+                }
+            }
+
+            // If listing/showing reviews, filter out snoozed PRs
+            // (The actual filtering happens in the List command below via a shared helper)
         }
 
         Commands::Report { days, json } => {
