@@ -21,7 +21,8 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | PR number to unassign yourself from | Required if no global `--pr` |
+| `PR_NUMBER` | PR number to unassign yourself from (shorthand for `--pr`) | Required if no `--pr` |
+| `-p, --pr` | Global flag: target a specific PR number | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples

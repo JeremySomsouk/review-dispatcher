@@ -130,7 +130,7 @@ pub enum Commands {
     },
     /// Assign yourself as a reviewer on a PR
     Assign {
-        /// PR number to assign yourself to
+        /// PR number to assign yourself to (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// Output as JSON
@@ -139,7 +139,7 @@ pub enum Commands {
     },
     /// Remove yourself as a reviewer from a PR
     Unassign {
-        /// PR number to unassign yourself from
+        /// PR number to unassign yourself from (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// Output as JSON

@@ -20,7 +20,8 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | PR number to assign yourself to | Required if no global `--pr` |
+| `PR_NUMBER` | PR number to assign yourself to (shorthand for `--pr`) | Required if no `--pr` |
+| `-p, --pr` | Global flag: target a specific PR number | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
