@@ -2863,9 +2863,9 @@ async fn main() -> anyhow::Result<()> {
                     } else if age_days == 1 {
                         "1 day ago".yellow().to_string()
                     } else if age_days <= 3 {
-                        format!("{} days ago", age_days).yellow()
+                        format!("{} days ago", age_days).yellow().to_string()
                     } else if age_days <= 7 {
-                        format!("{} days ago", age_days).red()
+                        format!("{} days ago", age_days).red().to_string()
                     } else {
                         format!("{} days ago!!", age_days).red().bold().to_string()
                     };
@@ -2896,7 +2896,7 @@ async fn main() -> anyhow::Result<()> {
                     println!();
 
                     if open {
-                        opener::open(&pr.pr_url)?;
+                        open::that(&pr.pr_url)?;
                         println!("🖥️  Opening PR in browser...");
                     }
                 }

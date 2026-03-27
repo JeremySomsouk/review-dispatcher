@@ -1,0 +1,86 @@
+/* Catppuccin Mocha Theme for mdbook */
+:root {
+    /* Catppuccin Mocha colors */
+    --ctp-rosewater: #f5e0dc;
+    --ctp-flamingo: #f2cdcd;
+    --ctp-pink: #f5c2e7;
+    --ctp-mauve: #cba6f7;
+    --ctp-red: #f38ba8;
+    --ctp-maroon: #eba0ac;
+    --ctp-peach: #fab387;
+    --ctp-yellow: #f9e2af;
+    --ctp-green: #a6e3a1;
+    --ctp-teal: #94e2d5;
+    --ctp-sky: #89dceb;
+    --ctp-sapphire: #74c7ec;
+    --ctp-blue: #89b4fa;
+    --ctp-lavender: #b4befe;
+    
+    /* Base colors */
+    --ctp-text: #cdd6f4;
+    --ctp-subtext: #a6adc8;
+    --ctp-surface0: #313244;
+    --ctp-surface1: #45475a;
+    --ctp-surface2: #585b70;
+    --ctp-overlay0: #6c7086;
+    --ctp-overlay1: #7f849c;
+    --ctp-overlay2: #9399b2;
+    
+    /* Foundations */
+    --ctp-base: #1e1e2e;
+    --ctp-mantle: #181825;
+    --ctp-crust: #11111b;
+    
+    /* Generated mdbook variables */
+    --bg: var(--ctp-mantle);
+    --fg: var(--ctp-text);
+    --fg-light: var(--ctp-subtext);
+    --heading-color: var(--ctp-mauve);
+    --link-color: var(--ctp-blue);
+    --link-hover-color: var(--ctp-sapphire);
+    --code-bg: var(--ctp-surface0);
+    --code-fg: var(--ctp-text);
+    --header-bg: var(--ctp-crust);
+    --table-header-bg: var(--ctp-surface0);
+    --table-border-color: var(--ctp-surface1);
+    --blockquote-border-color: var(--ctp-surface2);
+    --blockquote-bg: var(--ctp-surface0);
+    --blockquote-fg: var(--ctp-subtext);
+    --button-bg: var(--ctp-surface0);
+    --button-fg: var(--ctp-text);
+    --scrollbar-color: var(--ctp-surface1);
+    --search-bg: var(--ctp-surface0);
+    --search-border-color: var(--ctp-surface1);
+    --search-fg: var(--ctp-text);
+    --search-hover-bg: var(--ctp-surface1);
+    --sidebar-bg: var(--ctp-mantle);
+    --sidebar-fg: var(--ctp-text);
+    --sidebar-hover-bg: var(--ctp-surface0);
+    --sidebar-active-bg: var(--ctp-surface0);
+    --page-nav-bg: var(--ctp-crust);
+    --page-nav-fg: var(--ctp-subtext);
+    --metadata-fg: var(--ctp-overlay1);
+    --divider-color: var(--ctp-surface0);
+}
+
+/* Dark scrollbars */
+::-webkit-scrollbar {
+    background: var(--ctp-mantle);
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--ctp-surface1);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--ctp-surface2);
+}
+
+/* Selection */
+::selection {
+    background: var(--ctp-mauve);
+    color: var(--ctp-crust);
+}
