@@ -666,99 +666,102 @@ pub async fn fetch_ci_status(
         .personal_token(token.to_string())
         .build()?;
 
-    let mut results = Vec::new();
+    // Fetch PR info + combined status + check runs for each PR in parallel
+    let futures = reviews.iter().map(|review| {
+        let client = client.clone();
+        let org = org.to_string();
+        let repo = review.repo.clone();
+        let pr_number = review.pr_number;
 
-    // Group by repo to fetch combined status per repo
-    use std::collections::HashMap;
-    let mut by_repo: HashMap<String, Vec<&PendingReview>> = HashMap::new();
-    for review in reviews {
-        by_repo.entry(review.repo.clone())
-            .or_insert_with(Vec::new)
-            .push(review);
-    }
+        async move {
+            // Step 1: Get PR head SHA
+            let pr = client.pulls(&org, &repo).get(pr_number).await?;
+            let head_sha = pr.head.sha.clone();
+            let pr_title = pr.title.clone().unwrap_or_default();
 
-    for (repo, reviews_in_repo) in by_repo {
-        // Get the head SHAs for all PRs in this repo
-        for review in reviews_in_repo {
-            match client.pulls(org, &repo).get(review.pr_number).await {
-                Ok(pr) => {
-                    let head_sha = pr.head.sha.clone();
-                    let pr_title = pr.title.clone().unwrap_or_default();
+            // Step 2 & 3: Fetch combined status and check runs in parallel
+            let status_url = format!(
+                "/repos/{}/{}/commits/{}/status",
+                org, repo, head_sha
+            );
+            let check_runs_url = format!(
+                "/repos/{}/{}/commits/{}/check-runs",
+                org, repo, head_sha
+            );
 
-                    // Fetch combined status for this commit via GitHub status API
-                    #[derive(serde::Deserialize)]
-                    struct CombinedStatus {
-                        state: String,
-                    }
+            #[derive(serde::Deserialize)]
+            struct CombinedStatus {
+                state: String,
+            }
 
-                    let combined_status_url = format!(
-                        "/repos/{}/{}/commits/{}/status",
-                        org, repo, head_sha
-                    );
+            #[derive(serde::Deserialize)]
+            struct CheckRunsResponse {
+                #[allow(dead_code)]
+                total_count: u32,
+                check_runs: Vec<CheckRunDto>,
+            }
 
-                    let overall_status: String = client
-                        .get(&combined_status_url, None::<&str>)
-                        .await
-                        .map(|s: CombinedStatus| s.state)
-                        .unwrap_or_else(|_| "unknown".to_string());
+            #[derive(serde::Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct CheckRunDto {
+                name: String,
+                status: String,
+                conclusion: Option<String>,
+                app_name: String,
+                started_at: Option<String>,
+                completed_at: Option<String>,
+            }
 
-                    // Fetch check runs (GitHub Actions, etc.) via check-runs endpoint
-                    #[derive(serde::Deserialize)]
-                    struct CheckRunsResponse {
-                        total_count: u32,
-                        check_runs: Vec<CheckRunDto>,
-                    }
+            // Fetch status and check runs concurrently
+            let (overall_status, check_runs_result) = tokio::join!(
+                client.get::<CombinedStatus, _, _>(&status_url, None::<&str>),
+                client.get::<CheckRunsResponse, _, _>(&check_runs_url, None::<&str>),
+            );
 
-                    #[derive(serde::Deserialize)]
-                    #[serde(rename_all = "camelCase")]
-                    struct CheckRunDto {
-                        name: String,
-                        status: String,
-                        conclusion: Option<String>,
-                        app_name: String,
-                        started_at: Option<String>,
-                        completed_at: Option<String>,
-                    }
+            let overall_status = overall_status
+                .map(|s: CombinedStatus| s.state)
+                .unwrap_or_else(|_| "unknown".to_string());
 
-                    let check_runs_url = format!(
-                        "/repos/{}/{}/commits/{}/check-runs",
-                        org, repo, head_sha
-                    );
+            let checks: Vec<CiCheck> = check_runs_result
+                .map(|response: CheckRunsResponse| {
+                    response.check_runs.into_iter().map(|cr| {
+                        CiCheck {
+                            name: cr.name,
+                            status: cr.status,
+                            conclusion: cr.conclusion,
+                            app_name: cr.app_name,
+                            started_at: cr.started_at,
+                            completed_at: cr.completed_at,
+                        }
+                    }).collect()
+                })
+                .unwrap_or_default();
 
-                    let checks: Vec<CiCheck> = client
-                        .get(&check_runs_url, None::<&str>)
-                        .await
-                        .map(|response: CheckRunsResponse| {
-                            response.check_runs.into_iter().map(|cr| {
-                                CiCheck {
-                                    name: cr.name,
-                                    status: cr.status,
-                                    conclusion: cr.conclusion,
-                                    app_name: cr.app_name,
-                                    started_at: cr.started_at,
-                                    completed_at: cr.completed_at,
-                                }
-                            }).collect()
-                        })
-                        .unwrap_or_default();
+            Ok::<CiStatus, anyhow::Error>(CiStatus {
+                repo: repo.clone(),
+                pr_number,
+                pr_title,
+                head_sha,
+                overall_status,
+                checks,
+            })
+        }
+    });
 
-                    results.push(CiStatus {
-                        repo: repo.clone(),
-                        pr_number: review.pr_number,
-                        pr_title,
-                        head_sha,
-                        overall_status,
-                        checks,
-                    });
-                }
-                Err(e) => {
-                    eprintln!("Warning: Failed to fetch PR #{} in {}: {}", review.pr_number, repo, e);
-                }
+    let results: Vec<Result<CiStatus>> = join_all(futures).await;
+
+    // Collect successes, log failures
+    let mut ci_statuses = Vec::new();
+    for (review, result) in reviews.iter().zip(results.into_iter()) {
+        match result {
+            Ok(status) => ci_statuses.push(status),
+            Err(e) => {
+                eprintln!("Warning: Failed to fetch CI status for #{} in {}: {}", review.pr_number, review.repo, e);
             }
         }
     }
 
-    Ok(results)
+    Ok(ci_statuses)
 }
 
 /// Represents a GitHub notification/mention for the current user.
