@@ -280,6 +280,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show PRs you should catch up on — oldest, longest-ignored, sorted by neglect
+    Catchup {
+        /// Minimum age in days to be considered "catchup" (default: 3)
+        #[arg(long, short = 'a', default_value_t = 3)]
+        min_age: u32,
+        /// Limit the number of results shown (default: 10)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

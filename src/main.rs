@@ -1650,6 +1650,144 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Catchup { min_age, limit, json } => {
+            let min_age = min_age as i64;
+            let limit = limit.unwrap_or(10);
+
+            let now = chrono::Utc::now();
+            let cutoff = now - chrono::Duration::days(min_age);
+
+            // Filter: only PRs older than min_age, sorted oldest-first
+            let mut neglected: Vec<_> = reviews
+                .iter()
+                .filter(|r| r.created_at <= cutoff)
+                .cloned()
+                .collect();
+            neglected.sort_by_key(|r| r.created_at); // oldest first
+
+            let shown: Vec<_> = neglected.iter().take(limit).cloned().collect();
+
+            if shown.is_empty() {
+                println!("\n🎯 No neglected PRs found (all younger than {} days)\n", min_age);
+                return Ok(());
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct CatchupItem<'a> {
+                    repo: &'a str,
+                    pr_number: u64,
+                    pr_title: &'a str,
+                    pr_author: &'a str,
+                    pr_url: &'a str,
+                    age_days: i64,
+                    additions: u64,
+                    deletions: u64,
+                    draft: bool,
+                    neglect_score: u8,
+                }
+                let output: Vec<CatchupItem> = shown
+                    .iter()
+                    .map(|r| {
+                        let age_days = (now - r.created_at).num_days();
+                        let neglect_score = logger::calculate_priority_score(r);
+                        CatchupItem {
+                            repo: &r.repo,
+                            pr_number: r.pr_number,
+                            pr_title: &r.pr_title,
+                            pr_author: &r.pr_author,
+                            pr_url: &r.pr_url,
+                            age_days,
+                            additions: r.additions,
+                            deletions: r.deletions,
+                            draft: r.draft,
+                            neglect_score,
+                        }
+                    })
+                    .collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                let total_neglected = neglected.len();
+                println!(
+                    "\n🎯 Catchup — {} PR(s) older than {} days, showing {} oldest\n{}",
+                    total_neglected.to_string().yellow().bold(),
+                    min_age,
+                    limit,
+                    "─".repeat(50)
+                );
+
+                for r in &shown {
+                    let age_days = (now - r.created_at).num_days();
+                    let neglect_score = logger::calculate_priority_score(r);
+
+                    // Visual urgency bar
+                    let bar_len = (neglect_score as usize).min(5);
+                    let urgency_bar: String = (0..5)
+                        .map(|i| {
+                            if i < bar_len {
+                                if i < 2 { "🔵" } else if i < 4 { "🟡" } else { "🔴" }
+                            } else {
+                                "⚪"
+                            }
+                        })
+                        .collect();
+
+                    let age_label = if age_days == 0 {
+                        "today".green()
+                    } else if age_days == 1 {
+                        "1 day".normal()
+                    } else if age_days <= 7 {
+                        format!("{} days", age_days).yellow()
+                    } else {
+                        format!("{} days!", age_days).red()
+                    };
+
+                    let total = r.additions + r.deletions;
+                    let size_label = if total < 50 {
+                        "XS".to_string()
+                    } else if total < 200 {
+                        "S".to_string()
+                    } else if total < 500 {
+                        "M".to_string()
+                    } else if total < 1000 {
+                        "L".to_string()
+                    } else {
+                        "XL".to_string()
+                    };
+
+                    let draft_str = if r.draft { " 📝 DRAFT" } else { "" };
+
+                    println!(
+                        "  {}  {} #{} ({}){}\n      👤 {}  •  📦 {} ({} lines)  •  ⏱️ {} old",
+                        urgency_bar,
+                        r.pr_title.bold(),
+                        r.pr_number,
+                        r.repo.dimmed(),
+                        draft_str.yellow(),
+                        r.pr_author.cyan(),
+                        size_label,
+                        total,
+                        age_label
+                    );
+                    println!(
+                        "      🔗 {}",
+                        r.pr_url.blue().underline()
+                    );
+                    println!();
+                }
+
+                if total_neglected > limit {
+                    println!(
+                        "  ...and {} more. Use `--limit 20` to see additional.\n",
+                        total_neglected - limit
+                    );
+                }
+                println!("{}", "─".repeat(50));
+                println!("  💡 Use `--min-age 7` to focus on week-old+ PRs");
+                println!("  💡 Use `--json` for scripting\n");
+            }
+        }
+
         Commands::Snooze { action, pr_numbers, days } => {
             use serde::{Deserialize, Serialize};
 
