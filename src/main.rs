@@ -2011,6 +2011,111 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Activity { days, json } => {
+            println!("\n📈 Fetching your review activity (last {} days)...\n", days);
+
+            match github::fetch_my_review_activity(
+                &cfg.github_token,
+                &cfg.github_org,
+                &cfg.github_repos,
+                &cfg.github_username,
+                days,
+            )
+            .await
+            {
+                Ok(activities) => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&activities)?);
+                    } else {
+                        println!("📊 Your Review Activity  (last {} days)\n{}", days, "─".repeat(45));
+                        println!("  Total PRs reviewed:  {}", activities.len());
+
+                        if activities.is_empty() {
+                            println!("\n  😴 No review activity found in this period.\n");
+                        } else {
+                            // Group by day
+                            use std::collections::HashMap;
+                            let mut by_day: HashMap<String, Vec<_>> = HashMap::new();
+                            for activity in &activities {
+                                let day = activity.reviewed_at.format("%Y-%m-%d").to_string();
+                                by_day.entry(day).or_insert_with(Vec::new).push(activity);
+                            }
+
+                            // Show by-day breakdown
+                            let mut days_sorted: Vec<_> = by_day.keys().collect();
+                            days_sorted.sort_by(|a, b| b.cmp(a)); // newest first
+
+                            for day in days_sorted {
+                                let items = by_day.get(day).unwrap();
+
+                                // Count by state
+                                let approved = items.iter().filter(|a| a.state.contains("APPROVED")).count();
+                                let changes_req = items.iter().filter(|a| a.state.contains("CHANGES_REQUESTED")).count();
+                                let commented = items.iter().filter(|a| a.state.contains("COMMENT")).count();
+
+                                let day_label = if *day == chrono::Utc::now().format("%Y-%m-%d").to_string() {
+                                    "today".green().bold()
+                                } else if *day == (chrono::Utc::now() - chrono::Duration::days(1)).format("%Y-%m-%d").to_string() {
+                                    "yesterday".normal().bold()
+                                } else {
+                                    day.yellow()
+                                };
+
+                                println!("\n  📅 {}  ({} PRs)", day_label, items.len());
+                                if approved > 0 { print!("    ✅ {} approved", approved); }
+                                if changes_req > 0 { print!("    🔁 {} changes requested", changes_req); }
+                                if commented > 0 { print!("    💬 {} commented", commented); }
+                                println!();
+
+                                for activity in items.iter().take(5) {
+                                    let state_icon = if activity.state.contains("APPROVED") {
+                                        "✅".to_string()
+                                    } else if activity.state.contains("CHANGES_REQUESTED") {
+                                        "🔁".to_string()
+                                    } else {
+                                        "💬".to_string()
+                                    };
+                                    let title = if activity.pr_title.len() > 50 {
+                                        format!("{}...", &activity.pr_title[..47])
+                                    } else {
+                                        activity.pr_title.clone()
+                                    };
+                                    println!(
+                                        "    {}  #{}  {} ({})",
+                                        state_icon,
+                                        activity.pr_number,
+                                        title.dimmed(),
+                                        activity.repo.dimmed()
+                                    );
+                                }
+                                if items.len() > 5 {
+                                    println!("    ... and {} more", items.len() - 5);
+                                }
+                            }
+
+                            // Summary by repo
+                            let mut by_repo: HashMap<String, usize> = HashMap::new();
+                            for activity in &activities {
+                                *by_repo.entry(activity.repo.clone()).or_insert(0) += 1;
+                            }
+                            println!("\n  📁 By repository:");
+                            let mut sorted: Vec<_> = by_repo.iter().collect();
+                            sorted.sort_by(|a, b| b.1.cmp(a.1));
+                            for (repo, count) in sorted.iter().take(5) {
+                                println!("    {}: {}", repo, count);
+                            }
+                        }
+                        println!("{}", "─".repeat(45));
+                        println!("\n  💡 Use `--json` for machine-readable output\n");
+                    }
+                }
+                Err(e) => {
+                    println!("{}", "❌ Failed to fetch activity".red());
+                    println!("   Error: {}", e);
+                }
+            }
+        }
+
         Commands::Conflicts { only_conflicts, json } => {
             println!("\n🔍 Checking merge conflict status for {} PRs...\n", reviews.len());
             io::stdout().flush()?;

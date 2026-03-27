@@ -214,6 +214,15 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show your recent review activity (PRs you reviewed in the last N days)
+    Activity {
+        /// Number of days to look back (default: 7)
+        #[arg(long, short = 'd', default_value_t = 7)]
+        days: u32,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Fetch and display a PR diff in the terminal with syntax highlighting
     Review {
         /// PR number to review

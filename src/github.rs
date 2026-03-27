@@ -393,6 +393,104 @@ pub async fn fetch_pr_diff(
     Ok(files)
 }
 
+/// Represents a review event from GitHub history
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ReviewActivity {
+    pub repo: String,
+    pub pr_number: u64,
+    pub pr_title: String,
+    pub author: String,
+    pub reviewed_at: chrono::DateTime<chrono::Utc>,
+    pub state: String, // "APPROVED", "CHANGES_REQUESTED", "COMMENTED"
+}
+
+pub async fn fetch_my_review_activity(
+    token: &str,
+    org: &str,
+    repos: &[String],
+    username: &str,
+    days: u32,
+) -> Result<Vec<ReviewActivity>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let since = chrono::Utc::now() - chrono::Duration::days(days as i64);
+    let mut all_reviews = vec![];
+
+    for repo in repos {
+        // List all PRs (open + closed) and check if the user reviewed them
+        let prs = client
+            .pulls(org, repo)
+            .list()
+            .state(octocrab::params::State::All)
+            .per_page(100)
+            .send()
+            .await?;
+
+        for pr in prs.items {
+            // Check if this PR was updated within our window
+            let updated_at = pr.updated_at
+                .unwrap_or_else(|| pr.created_at.unwrap_or_else(chrono::Utc::now));
+            if updated_at < since {
+                continue;
+            }
+
+            // Get the timeline (includes reviews) for this PR
+            let timeline: Vec<serde_json::Value> = client
+                .get(
+                    format!(
+                        "/repos/{}/{}/issues/{}/timeline",
+                        org, repo, pr.number
+                    ),
+                    None::<&str>,
+                )
+                .await
+                .unwrap_or_default();
+
+            for event in timeline {
+                // Look for "PullRequestReview" events by our username
+                if event.get("event").and_then(|e| e.as_str()) == Some("pull_request_review") {
+                    if let Some(user_obj) = event.get("user") {
+                        if user_obj.get("login").and_then(|l| l.as_str()) == Some(username) {
+                            let reviewed_at = event
+                                .get("submitted_at")
+                                .and_then(|t| t.as_str())
+                                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                                .map(|dt| dt.with_timezone(&chrono::Utc))
+                                .unwrap_or(updated_at);
+
+                            let state = event
+                                .get("state")
+                                .and_then(|s| s.as_str())
+                                .unwrap_or("COMMENTED")
+                                .to_string();
+
+                            let author = pr.user.as_ref()
+                                .map(|u| u.login.clone())
+                                .unwrap_or_default();
+
+                            all_reviews.push(ReviewActivity {
+                                repo: repo.clone(),
+                                pr_number: pr.number,
+                                pr_title: pr.title.clone().unwrap_or_default(),
+                                author,
+                                reviewed_at,
+                                state,
+                            });
+                            break; // one review per user per PR
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by most recent first
+    all_reviews.sort_by(|a, b| b.reviewed_at.cmp(&a.reviewed_at));
+    Ok(all_reviews)
+}
+
 /// Fetch merge conflict status for a list of pending reviews
 pub async fn fetch_merge_conflict_status(
     token: &str,
