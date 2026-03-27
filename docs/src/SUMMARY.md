@@ -24,6 +24,7 @@
 - [diff](commands/diff.md)
 - [files](commands/files.md)
 - [ci](commands/ci.md)
+- [blocked](commands/blocked.md)
 - [conflicts](commands/conflicts.md)
 - [labels](commands/labels.md)
 - [activity](commands/activity.md)

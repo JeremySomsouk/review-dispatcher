@@ -539,6 +539,24 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
     },
+    /// Show PRs that are blocked from merging (CI failures, conflicts, or other issues)
+    Blocked {
+        /// Filter to specific repository
+        #[arg(long, short = 'r')]
+        repo: Option<String>,
+        /// Only show PRs with failing CI
+        #[arg(long, short = 'c')]
+        ci_only: bool,
+        /// Only show PRs with merge conflicts
+        #[arg(long, short = 'm')]
+        conflicts_only: bool,
+        /// Limit the number of results shown (default: 20)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

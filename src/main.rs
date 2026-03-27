@@ -6142,6 +6142,183 @@ async fn main() -> anyhow::Result<()> {
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
+
+        Commands::Blocked { repo, ci_only, conflicts_only, limit, json } => {
+            let limit = limit.unwrap_or(20);
+
+            #[derive(Clone, serde::Serialize)]
+            struct BlockedPr {
+                repo: String,
+                pr_number: u64,
+                pr_title: String,
+                pr_author: String,
+                pr_url: String,
+                additions: u64,
+                deletions: u64,
+                age_days: i64,
+                draft: bool,
+                ci_status: String,
+                has_conflicts: bool,
+                mergeable: bool,
+                blockers: Vec<String>,
+            }
+
+            let mut blocked_prs: Vec<BlockedPr> = Vec::new();
+
+            // Filter reviews by repo if specified
+            let filtered_reviews: Vec<_> = if let Some(ref repo_filter) = repo {
+                reviews.iter().filter(|r| r.repo.to_lowercase().contains(&repo_filter.to_lowercase())).cloned().collect()
+            } else {
+                reviews.clone()
+            };
+
+            for review in &filtered_reviews {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                let pr_details = client
+                    .pulls(&cfg.github_org, &review.repo)
+                    .get(review.pr_number)
+                    .await
+                    .ok();
+
+                let (ci_status, has_conflicts, mergeable, blockers) = if let Some(pr) = pr_details {
+                    let mut block_list = Vec::new();
+
+                    // Check CI status
+                    #[derive(serde::Deserialize)]
+                    struct CombinedStatus { state: String }
+                    let ci_state: String = client
+                        .get(
+                            format!(
+                                "/repos/{}/{}/commits/{}/status",
+                                cfg.github_org,
+                                review.repo,
+                                pr.head.sha
+                            ),
+                            None::<&str>,
+                        )
+                        .await
+                        .map(|s: CombinedStatus| s.state)
+                        .unwrap_or_else(|_| "unknown".to_string());
+
+                    if ci_state == "failure" || ci_state == "error" {
+                        block_list.push("CI failing".to_string());
+                    }
+
+                    // Check conflicts
+                    let conflicts = pr.mergeable == Some(false);
+                    if conflicts {
+                        block_list.push("Merge conflict".to_string());
+                    }
+
+                    // Check mergeable status
+                    let can_merge = pr.mergeable == Some(true);
+                    if !can_merge && !conflicts {
+                        block_list.push("Not mergeable".to_string());
+                    }
+
+                    // Check if draft
+                    if pr.draft.unwrap_or(false) {
+                        block_list.push("Draft PR".to_string());
+                    }
+
+                    (ci_state, conflicts, can_merge, block_list)
+                } else {
+                    (String::from("unknown"), false, false, vec!["Unable to fetch PR details".to_string()])
+                };
+
+                // A PR is "blocked" if it has any blockers
+                let is_blocked = !blockers.is_empty();
+
+                // Apply filters
+                if ci_only && !blockers.iter().any(|b| b.contains("CI")) {
+                    continue;
+                }
+                if conflicts_only && !blockers.iter().any(|b| b.contains("conflict")) {
+                    continue;
+                }
+
+                if is_blocked {
+                    let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                    blocked_prs.push(BlockedPr {
+                        repo: review.repo.clone(),
+                        pr_number: review.pr_number,
+                        pr_title: review.pr_title.clone(),
+                        pr_author: review.pr_author.clone(),
+                        pr_url: review.pr_url.clone(),
+                        additions: review.additions,
+                        deletions: review.deletions,
+                        age_days,
+                        draft: review.draft,
+                        ci_status,
+                        has_conflicts,
+                        mergeable,
+                        blockers,
+                    });
+                }
+            }
+
+            // Sort by blockers count (most blocked first), then by age
+            blocked_prs.sort_by(|a, b| {
+                let blk_cmp = b.blockers.len().cmp(&a.blockers.len());
+                if blk_cmp == std::cmp::Ordering::Equal {
+                    b.age_days.cmp(&a.age_days)
+                } else {
+                    blk_cmp
+                }
+            });
+
+            let shown_prs: Vec<_> = blocked_prs.iter().take(limit).cloned().collect();
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&shown_prs)?);
+            } else {
+                println!("\n🚧 Blocked PRs — {} total\n{}",
+                    blocked_prs.len(),
+                    "─".repeat(50)
+                );
+
+                if shown_prs.is_empty() {
+                    println!("  🎉 No blocked PRs found! All clear.");
+                } else {
+                    for pr in &shown_prs {
+                        let total = pr.additions + pr.deletions;
+                        let blocker_tags: String = pr.blockers.iter()
+                            .map(|b: &String| {
+                                if b.contains("CI") {
+                                    "🔴 CI".red().to_string()
+                                } else if b.contains("conflict") {
+                                    "⚠️ Conflict".yellow().to_string()
+                                } else if b.contains("Draft") {
+                                    "📝 Draft".yellow().to_string()
+                                } else {
+                                    format!("❌ {}", b)
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                            .join("  ");
+
+                        println!("  🚫 #{} {}  ({})", pr.pr_number, pr.pr_title.bold(), pr.repo.dimmed());
+                        println!("     👤 {}  •  📦 {} lines  •  ⏱️ {} days", pr.pr_author.cyan(), total, pr.age_days);
+                        println!("     {}", blocker_tags);
+                        println!("     🔗 {}", pr.pr_url.blue().underline());
+                        println!();
+                    }
+
+                    if blocked_prs.len() > limit {
+                        println!("  ...and {} more. Use `--limit 30` to see additional.", blocked_prs.len() - limit);
+                    }
+                }
+
+                println!("{}", "─".repeat(50));
+                println!("  💡 Use `--ci-only` to show only CI failures");
+                println!("  💡 Use `--conflicts-only` to show only merge conflicts");
+                println!("  💡 Use `--json` for scripting\n");
+            }
+        }
+
         Commands::Compare { pr1, pr2, detailed, json } => {
             // Parse PR identifiers (format: "repo#123" or just "123")
             fn parse_pr_id(s: &str, repos: &[String]) -> Option<(String, u64)> {
