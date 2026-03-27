@@ -172,6 +172,9 @@ pub enum Commands {
         /// PR number(s) to claim (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Open one or more PRs in your browser
     Browse {

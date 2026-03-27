@@ -20,6 +20,7 @@ review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-a, --all` | Claim all pending reviews | `false` |
+| `--json` | Output results as JSON | `false` |
 | `PR_NUMBERS` | PR number(s) to claim (comma-separated) | - |
 
 ## Examples

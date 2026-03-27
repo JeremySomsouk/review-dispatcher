@@ -1604,7 +1604,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Claim { all, pr_numbers } => {
+        Commands::Claim { all, pr_numbers, json } => {
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
@@ -1660,60 +1660,108 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            println!(
-                "\n🎯 Claiming {} PR(s) for review...\n",
-                targets.len().to_string().yellow().bold()
-            );
+            #[derive(serde::Serialize)]
+            struct ClaimResult {
+                pr_number: u64,
+                pr_title: String,
+                repo: String,
+                url: String,
+                success: bool,
+                error: Option<String>,
+            }
 
-            let mut success_count = 0u32;
-            let mut fail_count = 0u32;
+            let mut results: Vec<ClaimResult> = Vec::new();
 
-            for review in &targets {
-                print!(
-                    "  ⏳ #{} {}... ",
-                    review.pr_number,
-                    review.pr_title.dimmed()
+            if !json {
+                println!(
+                    "\n🎯 Claiming {} PR(s) for review...\n",
+                    targets.len().to_string().yellow().bold()
                 );
-                io::stdout().flush()?;
+            }
 
+            // Parallelize claim requests
+            let claim_futures = targets.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()?;
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                let username = cfg.github_username.clone();
 
-                match client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .request_reviews(
-                        review.pr_number,
-                        vec![cfg.github_username.clone()],
-                        Vec::<String>::new(),
-                    )
-                    .await
-                {
+                async move {
+                    client
+                        .pulls(&org, &repo)
+                        .request_reviews(pr_number, vec![username], Vec::<String>::new())
+                        .await
+                }
+            });
+
+            let claim_results: Vec<Result<_, _>> = join_all(claim_futures).await;
+
+            let total = targets.len();
+            for (review, result) in targets.into_iter().zip(claim_results.into_iter()) {
+                match result {
                     Ok(_) => {
-                        println!("{}", "✅ claimed".green());
-                        success_count += 1;
+                        if !json {
+                            println!(
+                                "  {} #{} {}",
+                                "✅".green(),
+                                review.pr_number,
+                                review.pr_title.dimmed()
+                            );
+                        }
+                        results.push(ClaimResult {
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title,
+                            repo: review.repo,
+                            url: review.pr_url,
+                            success: true,
+                            error: None,
+                        });
                     }
                     Err(e) => {
-                        println!("{}", "❌ failed".red());
-                        println!("     Error: {}", e.to_string().dimmed());
-                        fail_count += 1;
+                        if !json {
+                            println!(
+                                "  {} #{} {}  ❌ {}",
+                                "❌".red(),
+                                review.pr_number,
+                                review.pr_title.dimmed(),
+                                e.to_string().dimmed()
+                            );
+                        }
+                        results.push(ClaimResult {
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title,
+                            repo: review.repo,
+                            url: review.pr_url,
+                            success: false,
+                            error: Some(e.to_string()),
+                        });
                     }
                 }
             }
 
-            println!();
-            println!(
-                "📊 Claimed {}/{} PRs",
-                success_count.to_string().green(),
-                targets.len().to_string().yellow()
-            );
-            if fail_count > 0 {
+            if json {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            } else {
+                let success_count = results.iter().filter(|r| r.success).count();
+                let fail_count = results.len() - success_count;
+                println!();
                 println!(
-                    "⚠️  {} PR(s) failed - may already be assigned or inaccessible",
-                    fail_count.to_string().red()
+                    "📊 Claimed {}/{} PRs",
+                    success_count.to_string().green(),
+                    total.to_string().yellow()
                 );
+                if fail_count > 0 {
+                    println!(
+                        "⚠️  {} PR(s) failed - may already be assigned or inaccessible",
+                        fail_count.to_string().red()
+                    );
+                }
+                println!();
             }
-            println!();
         }
 
         Commands::Files { pr_number, pr_numbers, all } => {
