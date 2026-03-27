@@ -2254,6 +2254,147 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Summary { json } => {
+            use chrono::Utc;
+
+            if reviews.is_empty() {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                        "total": 0,
+                        "total_additions": 0,
+                        "total_deletions": 0,
+                        "oldest_age_days": 0,
+                        "draft_count": 0,
+                        "by_urgency": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
+                        "by_repo": {},
+                    }))?);
+                } else {
+                    println!("✅ No pending reviews. You're all clear!");
+                }
+                return Ok(());
+            }
+
+            let now = Utc::now();
+            let total = reviews.len();
+            let total_additions: u64 = reviews.iter().map(|r| r.additions).sum();
+            let total_deletions: u64 = reviews.iter().map(|r| r.deletions).sum();
+            let draft_count = reviews.iter().filter(|r| r.draft).count();
+
+            // Find oldest PR age
+            let oldest_age_days = reviews
+                .iter()
+                .map(|r| (now - r.created_at).num_days())
+                .max()
+                .unwrap_or(0);
+
+            // Categorize by urgency (based on priority score)
+            let mut critical = 0usize; // score 5
+            let mut high = 0usize;     // score 4
+            let mut medium = 0usize;   // score 3
+            let mut low = 0usize;       // score 1-2
+
+            for r in &reviews {
+                let score = logger::calculate_priority_score(r);
+                match score {
+                    5 => critical += 1,
+                    4 => high += 1,
+                    3 => medium += 1,
+                    _ => low += 1,
+                }
+            }
+
+            // By repo breakdown
+            use std::collections::HashMap;
+            let mut by_repo: HashMap<String, usize> = HashMap::new();
+            for r in &reviews {
+                *by_repo.entry(r.repo.clone()).or_insert(0) += 1;
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct SummaryOutput {
+                    total: usize,
+                    total_additions: u64,
+                    total_deletions: u64,
+                    oldest_age_days: i64,
+                    draft_count: usize,
+                    by_urgency: UrgencyBreakdown,
+                    by_repo: HashMap<String, usize>,
+                }
+                #[derive(serde::Serialize)]
+                struct UrgencyBreakdown {
+                    critical: usize,
+                    high: usize,
+                    medium: usize,
+                    low: usize,
+                }
+                let output = SummaryOutput {
+                    total,
+                    total_additions,
+                    total_deletions,
+                    oldest_age_days,
+                    draft_count,
+                    by_urgency: UrgencyBreakdown { critical, high, medium, low },
+                    by_repo,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                // Single-line summary for quick status
+                let oldest_label = if oldest_age_days == 0 {
+                    "today".green()
+                } else if oldest_age_days == 1 {
+                    "1d".yellow()
+                } else if oldest_age_days <= 3 {
+                    format!("{}d", oldest_age_days).yellow()
+                } else if oldest_age_days <= 7 {
+                    format!("{}d", oldest_age_days).red()
+                } else {
+                    format!("{}d!!", oldest_age_days).red().bold()
+                };
+
+                let urgency_parts: Vec<String> = {
+                    let mut parts = Vec::new();
+                    if critical > 0 { parts.push(format!("🔥{}/", critical)); }
+                    if high > 0 { parts.push(format!("⚡{}/", high)); }
+                    if medium > 0 { parts.push(format!("📅{}/", medium)); }
+                    if low > 0 { parts.push(format!("💤{}/", low)); }
+                    parts
+                };
+                let urgency_str = if urgency_parts.is_empty() {
+                    "".to_string()
+                } else {
+                    let mut s = urgency_parts.join("");
+                    s.pop(); // remove trailing slash
+                    format!(" [{}]", s)
+                };
+
+                let draft_str = if draft_count > 0 {
+                    format!(" ({} draft)", draft_count).yellow().to_string()
+                } else {
+                    String::new()
+                };
+
+                println!(
+                    "📋 {} PRs  ⏱️ oldest:{}  +{}/-{} lines{}{}",
+                    total.to_string().cyan().bold(),
+                    oldest_label,
+                    total_additions.to_string().green(),
+                    total_deletions.to_string().red(),
+                    urgency_str,
+                    draft_str
+                );
+
+                // Compact repo breakdown
+                if !by_repo.is_empty() {
+                    let mut repo_parts: Vec<String> = by_repo.iter()
+                        .map(|(repo, count)| format!("{}:{}", repo.split('/').last().unwrap_or(repo), count))
+                        .collect();
+                    repo_parts.sort();
+                    println!("   📁 {}", repo_parts.join(" • "));
+                }
+            }
+        }
+
         Commands::Conflicts { only_conflicts, json } => {
             println!("\n🔍 Checking merge conflict status for {} PRs...\n", reviews.len());
             io::stdout().flush()?;

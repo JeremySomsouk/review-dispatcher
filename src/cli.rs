@@ -241,6 +241,12 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show a quick one-line summary of pending reviews (total, oldest age, lines, urgency breakdown)
+    Summary {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Fetch and display a PR diff in the terminal with syntax highlighting
     Review {
         /// PR number to review
