@@ -5,6 +5,7 @@ description = "CLI tool for GitHub PR review management"
 src = "src"
 
 [output.html]
-default-theme = "catppuccin"
-theme = "."
+default-theme = "mocha"
+preferred-dark-theme = "mocha"
+additional-css = ["./theme/catppuccin.css"]
 site-url = "https://jeremysomsouk.github.io/review-dispatcher/"
