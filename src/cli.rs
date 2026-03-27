@@ -470,6 +470,27 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
     },
+    /// Search and filter your review history from processed files
+    History {
+        /// Filter by repository name (partial match)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match)
+        #[arg(long)]
+        author: Option<String>,
+        /// Filter by review state (APPROVED, CHANGES_REQUESTED, COMMENTED)
+        #[arg(long, short = 's')]
+        state: Option<String>,
+        /// Number of days to look back (default: 30)
+        #[arg(long, short = 'd', default_value_t = 30)]
+        days: u32,
+        /// Limit the number of results shown (default: 50)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Show PRs that are ready to merge (approved, CI passing, no conflicts)
     Ready {
         /// Show PRs ready for specific repo

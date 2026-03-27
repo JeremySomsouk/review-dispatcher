@@ -5273,6 +5273,158 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::History { repo, author, state, days, limit, json } => {
+            use std::collections::HashMap;
+
+            let history_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+
+            if !history_output_dir.exists() {
+                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", history_output_dir.display());
+                return Ok(());
+            }
+
+            #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+            struct HistoryEntry {
+                pub repo: String,
+                pub pr_number: u64,
+                pub pr_title: String,
+                pub author: String,
+                pub reviewed_at: String,
+                pub state: String,
+                pub lines_added: u64,
+                pub lines_deleted: u64,
+            }
+
+            let mut all_entries: Vec<HistoryEntry> = Vec::new();
+            let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+
+            if let Ok(entries) = std::fs::read_dir(&history_output_dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            let lines: Vec<&str> = content.lines().collect();
+                            if lines.len() >= 4 {
+                                let pr_title = lines.first().unwrap_or(&"").trim().to_string();
+                                let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
+                                let reviewed_at = date_line
+                                    .and_then(|l| l.strip_prefix("Reviewed on "))
+                                    .unwrap_or("")
+                                    .trim();
+
+                                if let Ok(date) = chrono::DateTime::parse_from_rfc3339(reviewed_at) {
+                                    if date.with_timezone(&chrono::Utc) < cutoff {
+                                        continue;
+                                    }
+
+                                    let repo = lines.get(1).unwrap_or(&"").replace("Repository: ", "").trim().to_string();
+                                    let author = lines.get(2).unwrap_or(&"").replace("Author: ", "").trim().to_string();
+                                    let state = lines.get(3).unwrap_or(&"").replace("Review state: ", "").trim().to_string();
+
+                                    // Try to extract lines added/deleted
+                                    let lines_added: u64 = lines.iter()
+                                        .find(|l| l.contains("+") && l.contains("additions"))
+                                        .and_then(|l| l.split('+').nth(1))
+                                        .and_then(|s| s.split('/').next())
+                                        .and_then(|s| s.parse().ok())
+                                        .unwrap_or(0);
+                                    let lines_deleted: u64 = lines.iter()
+                                        .find(|l| l.contains("-") && l.contains("deletions"))
+                                        .and_then(|l| l.split('-').nth(1))
+                                        .and_then(|s| s.split('/').next())
+                                        .and_then(|s| s.trim().parse().ok())
+                                        .unwrap_or(0);
+
+                                    all_entries.push(HistoryEntry {
+                                        repo,
+                                        pr_number: 0, // Will be extracted from content if needed
+                                        pr_title,
+                                        author,
+                                        reviewed_at: reviewed_at.to_string(),
+                                        state,
+                                        lines_added,
+                                        lines_deleted,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Filter entries
+            if let Some(ref repo_filter) = repo {
+                all_entries.retain(|e| e.repo.to_lowercase().contains(&repo_filter.to_lowercase()));
+            }
+            if let Some(ref author_filter) = author {
+                all_entries.retain(|e| e.author.to_lowercase().contains(&author_filter.to_lowercase()));
+            }
+            if let Some(ref state_filter) = state {
+                all_entries.retain(|e| e.state.to_uppercase().contains(&state_filter.to_uppercase()));
+            }
+
+            // Sort by most recent
+            all_entries.sort_by(|a, b| b.reviewed_at.cmp(&a.reviewed_at));
+
+            let total = all_entries.len();
+            let display_limit = limit.unwrap_or(50);
+            all_entries.truncate(display_limit);
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&all_entries)?);
+            } else {
+                println!("\n📜 Review History (last {} days)\n{}", days, "─".repeat(50));
+                println!("  Total matching entries: {}", total);
+
+                if all_entries.is_empty() {
+                    println!("\n  😴 No review history found.\n");
+                    return Ok(());
+                }
+
+                // Group by state
+                let mut by_state: HashMap<String, Vec<_>> = HashMap::new();
+                for entry in &all_entries {
+                    by_state.entry(entry.state.clone()).or_insert_with(Vec::new).push(entry);
+                }
+
+                for (state_name, entries) in &by_state {
+                    let icon = if state_name.contains("APPROVED") {
+                        "✅"
+                    } else if state_name.contains("CHANGES") {
+                        "🔁"
+                    } else {
+                        "💬"
+                    };
+                    println!("\n  {} {} ({} PRs)", icon, state_name, entries.len());
+
+                    for entry in entries.iter().take(10) {
+                        if let Ok(date) = chrono::DateTime::parse_from_rfc3339(&entry.reviewed_at) {
+                            let age = chrono::Utc::now() - date.with_timezone(&chrono::Utc);
+                            let age_str = if age.num_days() > 0 {
+                                format!("{}d ago", age.num_days())
+                            } else if age.num_hours() > 0 {
+                                format!("{}h ago", age.num_hours())
+                            } else {
+                                "just now".to_string()
+                            };
+                            println!("    #{}  {}  {}  ({})",
+                                entry.pr_number,
+                                entry.pr_title.chars().take(40).collect::<String>(),
+                                entry.repo.dimmed(),
+                                age_str
+                            );
+                        }
+                    }
+                    if entries.len() > 10 {
+                        println!("    ... and {} more", entries.len() - 10);
+                    }
+                }
+
+                println!("\n{}", "─".repeat(50));
+                println!("  💡 Use `--json` for scripting | `--repo`, `--author`, `--state` to filter\n");
+            }
+        }
+
         Commands::Ready { repo, json } => {
             use std::collections::HashMap;
 
