@@ -190,6 +190,15 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show which pending PRs have merge conflicts
+    Conflicts {
+        /// Only show PRs with conflicts (hide clean PRs)
+        #[arg(long, short = 'c')]
+        only_conflicts: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Show labels for one or more PRs
     Labels {
         /// PR number(s) to show labels for (comma-separated)

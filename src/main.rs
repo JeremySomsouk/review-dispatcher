@@ -1929,6 +1929,115 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", "─".repeat(45));
             }
         }
+
+        Commands::Conflicts { only_conflicts, json } => {
+            println!("\n🔍 Checking merge conflict status for {} PRs...\n", reviews.len());
+            io::stdout().flush()?;
+
+            match github::fetch_merge_conflict_status(
+                &cfg.github_token,
+                &cfg.github_org,
+                &reviews,
+            )
+            .await
+            {
+                Ok(statuses) => {
+                    let conflict_count = statuses.iter().filter(|s| s.has_conflicts).count();
+                    let clean_count = statuses.len() - conflict_count;
+
+                    if json {
+                        #[derive(serde::Serialize)]
+                        struct ConflictOutput<'a> {
+                            repo: &'a str,
+                            pr_number: u64,
+                            pr_title: &'a str,
+                            has_conflicts: bool,
+                            mergeable: Option<bool>,
+                            rebaseable: Option<bool>,
+                        }
+                        let output: Vec<ConflictOutput> = statuses
+                            .iter()
+                            .map(|s| ConflictOutput {
+                                repo: &s.repo,
+                                pr_number: s.pr_number,
+                                pr_title: &s.pr_title,
+                                has_conflicts: s.has_conflicts,
+                                mergeable: s.mergeable,
+                                rebaseable: s.rebaseable,
+                            })
+                            .collect();
+                        println!("{}", serde_json::to_string_pretty(&output)?);
+                    } else {
+                        println!("\n⚠️  Merge Conflict Report\n{}", "─".repeat(50));
+                        println!("  ❌ PRs with conflicts: {}", conflict_count.to_string().red().bold());
+                        println!("  ✅ Clean PRs:           {}", clean_count.to_string().green().bold());
+                        println!("{}", "─".repeat(50));
+
+                        // Sort: conflicts first, then by repo
+                        let mut sorted = statuses.clone();
+                        sorted.sort_by(|a, b| {
+                            let a_conflict = if a.has_conflicts { 0 } else { 1 };
+                            let b_conflict = if b.has_conflicts { 0 } else { 1 };
+                            if a_conflict != b_conflict {
+                                a_conflict.cmp(&b_conflict)
+                            } else {
+                                a.repo.cmp(&b.repo)
+                            }
+                        });
+
+                        let mut shown_any = false;
+                        for status in sorted {
+                            if only_conflicts && !status.has_conflicts {
+                                continue;
+                            }
+                            shown_any = true;
+
+                            if status.has_conflicts {
+                                let rebase_label = if status.rebaseable == Some(true) {
+                                    " [rebaseable]".yellow()
+                                } else {
+                                    "".normal()
+                                };
+                                println!(
+                                    "\n  ❌ #{} {} ({}){}",
+                                    status.pr_number,
+                                    status.pr_title.bold().red(),
+                                    status.repo.dimmed(),
+                                    rebase_label
+                                );
+                                println!("      ⚠️  Cannot merge - has merge conflicts");
+                                println!("      🔗 {}", format!("{}/pull/{}", status.repo, status.pr_number).blue().underline());
+                            } else {
+                                println!(
+                                    "\n  ✅ #{} {} ({})",
+                                    status.pr_number,
+                                    status.pr_title.bold().green(),
+                                    status.repo.dimmed()
+                                );
+                            }
+                        }
+
+                        if !shown_any {
+                            if only_conflicts {
+                                println!("\n  🎉 No PRs with conflicts found!\n");
+                            } else {
+                                println!("\n  No PRs to display.\n");
+                            }
+                        }
+
+                        println!("{}", "─".repeat(50));
+                        if !only_conflicts {
+                            println!("\n💡 Use `--only-conflicts` or `-c` to show only PRs with conflicts");
+                        }
+                        println!();
+                    }
+                }
+                Err(e) => {
+                    println!("{}", "❌ Failed to check conflicts".red());
+                    println!("   Error: {}", e);
+                }
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written

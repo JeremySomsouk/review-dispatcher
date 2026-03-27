@@ -302,6 +302,17 @@ pub struct PullRequestDiff {
     pub language: Option<String>,
 }
 
+/// Represents merge conflict status for a PR
+#[derive(Debug, Clone, Serialize)]
+pub struct MergeConflictStatus {
+    pub repo: String,
+    pub pr_number: u64,
+    pub pr_title: String,
+    pub has_conflicts: bool,
+    pub mergeable: Option<bool>,
+    pub rebaseable: Option<bool>,
+}
+
 pub async fn fetch_pr_diff(
     token: &str,
     org: &str,
@@ -380,4 +391,52 @@ pub async fn fetch_pr_diff(
         .collect();
 
     Ok(files)
+}
+
+/// Fetch merge conflict status for a list of pending reviews
+pub async fn fetch_merge_conflict_status(
+    token: &str,
+    org: &str,
+    reviews: &[PendingReview],
+) -> Result<Vec<MergeConflictStatus>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let mut results = Vec::new();
+
+    // Fetch PR details to get mergeable status
+    // Group by repo to minimize API calls per repo
+    use std::collections::HashMap;
+    let mut by_repo: HashMap<String, Vec<u64>> = HashMap::new();
+    for review in reviews {
+        by_repo.entry(review.repo.clone())
+            .or_insert_with(Vec::new)
+            .push(review.pr_number);
+    }
+
+    for (repo, pr_numbers) in by_repo {
+        for pr_number in pr_numbers {
+            match client.pulls(org, &repo).get(pr_number).await {
+                Ok(pr) => {
+                    let has_conflicts = pr.mergeable == Some(false);
+                    let mergeable_status = MergeConflictStatus {
+                        repo: repo.clone(),
+                        pr_number,
+                        pr_title: pr.title.unwrap_or_default(),
+                        has_conflicts,
+                        mergeable: pr.mergeable,
+                        rebaseable: pr.rebaseable,
+                    };
+                    results.push(mergeable_status);
+                }
+                Err(e) => {
+                    // Log but don't fail - just skip this PR
+                    eprintln!("Warning: Failed to fetch PR #{} in {}: {}", pr_number, repo, e);
+                }
+            }
+        }
+    }
+
+    Ok(results)
 }
