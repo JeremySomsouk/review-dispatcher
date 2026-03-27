@@ -803,3 +803,139 @@ pub async fn fetch_mentions(
 
     Ok(mentions)
 }
+
+/// Represents GitHub API rate limit information.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RateLimitInfo {
+    /// Resource type (e.g., "core", "search", "graphql")
+    pub resource: String,
+    /// Current limit
+    pub limit: u32,
+    /// Remaining requests in current window
+    pub remaining: u32,
+    /// Reset timestamp
+    pub reset: chrono::DateTime<chrono::Utc>,
+    /// Seconds until reset
+    pub reset_in_seconds: i64,
+}
+
+/// Represents overall GitHub API health status.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct HealthStatus {
+    /// API rate limits
+    pub rate_limits: Vec<RateLimitInfo>,
+    /// GitHub API server current time
+    pub server_time: chrono::DateTime<chrono::Utc>,
+    /// Whether the authenticated user has a valid token
+    pub authenticated: bool,
+    /// GitHub username (if authenticated)
+    pub username: Option<String>,
+    /// Whether the rate limit is being hit (remaining < 10% of limit)
+    pub rate_limit_warning: bool,
+}
+
+/// Fetch GitHub API rate limits and health status.
+pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
+    let client = octocrab::Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    #[derive(serde::Deserialize)]
+    struct RateLimitResponse {
+        resources: RateResources,
+        rate: RateLimitEntry,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct RateResources {
+        #[serde(rename = "core")]
+        core: RateLimitEntry,
+        #[serde(rename = "search")]
+        search: RateLimitEntry,
+        #[serde(rename = "graphql")]
+        graphql: Option<RateLimitEntry>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct RateLimitEntry {
+        limit: u32,
+        remaining: u32,
+        reset: u64,
+        #[serde(rename = "used")]
+        used: u32,
+        #[serde(rename = "resource")]
+        resource: Option<String>,
+    }
+
+    let rate_limits: Vec<RateLimitInfo> = client
+        .get("rate_limit", None::<&str>)
+        .await
+        .map(|response: RateLimitResponse| {
+            let now = chrono::Utc::now();
+            let mut limits = vec![];
+
+            // Core API
+            let reset_core = chrono::DateTime::from_timestamp(response.rate.reset as i64, 0)
+                .unwrap_or(now);
+            limits.push(RateLimitInfo {
+                resource: "core".to_string(),
+                limit: response.rate.limit,
+                remaining: response.rate.remaining,
+                reset: reset_core,
+                reset_in_seconds: (reset_core - now).num_seconds(),
+            });
+
+            // Search API
+            let reset_search = chrono::DateTime::from_timestamp(response.resources.search.reset as i64, 0)
+                .unwrap_or(now);
+            limits.push(RateLimitInfo {
+                resource: "search".to_string(),
+                limit: response.resources.search.limit,
+                remaining: response.resources.search.remaining,
+                reset: reset_search,
+                reset_in_seconds: (reset_search - now).num_seconds(),
+            });
+
+            // GraphQL (optional)
+            if let Some(graphql) = response.resources.graphql {
+                let reset_graphql = chrono::DateTime::from_timestamp(graphql.reset as i64, 0)
+                    .unwrap_or(now);
+                limits.push(RateLimitInfo {
+                    resource: "graphql".to_string(),
+                    limit: graphql.limit,
+                    remaining: graphql.remaining,
+                    reset: reset_graphql,
+                    reset_in_seconds: (reset_graphql - now).num_seconds(),
+                });
+            }
+
+            limits
+        })
+        .unwrap_or_default();
+
+    // Try to get authenticated user info
+    #[derive(serde::Deserialize)]
+    struct UserResponse {
+        login: String,
+    }
+
+    let (authenticated, username) = match client.get::<UserResponse, _, _>("user", None::<&str>).await {
+        Ok(user) => (true, Some(user.login)),
+        Err(_) => (false, None),
+    };
+
+    let server_time = chrono::Utc::now();
+
+    // Check if any rate limit is critically low (< 10%)
+    let rate_limit_warning = rate_limits.iter().any(|r| {
+        r.limit > 0 && (r.remaining as f64 / r.limit as f64) < 0.1
+    });
+
+    Ok(HealthStatus {
+        rate_limits,
+        server_time,
+        authenticated,
+        username,
+        rate_limit_warning,
+    })
+}

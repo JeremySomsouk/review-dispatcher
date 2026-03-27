@@ -268,6 +268,12 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show GitHub API health status and rate limits
+    Health {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Fetch and display a PR diff in the terminal with syntax highlighting
     Review {
         /// PR number to review

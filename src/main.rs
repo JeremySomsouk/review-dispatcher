@@ -3079,6 +3079,96 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
+
+        Commands::Health { json } => {
+            println!("\n🏥 Fetching GitHub API health status...\n");
+            io::stdout().flush()?;
+
+            match github::fetch_health_status(&cfg.github_token).await {
+                Ok(health) => {
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&health)?);
+                    } else {
+                        println!("🏥 GitHub API Health Status\n{}", "─".repeat(50));
+
+                        // Authentication status
+                        if health.authenticated {
+                            println!("  ✅ Authenticated as: {}", health.username.as_ref().unwrap_or(&"unknown".to_string()).cyan());
+                        } else {
+                            println!("  ❌ Not authenticated - check your GITHUB_TOKEN");
+                        }
+                        println!();
+
+                        // Rate limits
+                        for limit in &health.rate_limits {
+                            let usage_pct = if limit.limit > 0 {
+                                (limit.remaining as f64 / limit.limit as f64) * 100.0
+                            } else {
+                                100.0
+                            };
+
+                            let status_icon = if limit.remaining == 0 {
+                                "🔴".red()
+                            } else if usage_pct < 10.0 {
+                                "🟡".yellow()
+                            } else if usage_pct < 50.0 {
+                                "🟠".yellow()
+                            } else {
+                                "🟢".green()
+                            };
+
+                            let reset_formatted = if limit.reset_in_seconds > 0 {
+                                let hours = limit.reset_in_seconds / 3600;
+                                let mins = (limit.reset_in_seconds % 3600) / 60;
+                                if hours > 0 {
+                                    format!("resets in {}h {}m", hours, mins)
+                                } else {
+                                    format!("resets in {}m", mins)
+                                }
+                            } else {
+                                "already reset".to_string()
+                            };
+
+                            // Visual bar
+                            let bar_width = 20;
+                            let bar: String = if limit.limit > 0 {
+                                format!("{}{}", "█".green(), "░".truecolor(60, 60, 60))
+                            } else {
+                                "░".repeat(bar_width)
+                            };
+
+                            let usage_str = format!("{}/{}", limit.remaining, limit.limit);
+                            let reset_str = reset_formatted;
+
+                            println!(
+                                "  {} {:12} {} {} ({})",
+                                status_icon,
+                                limit.resource,
+                                bar,
+                                usage_str.dimmed(),
+                                reset_str.dimmed()
+                            );
+                        }
+
+                        if health.rate_limit_warning {
+                            println!();
+                            println!("  ⚠️  {}", "Rate limit warning: API quota is running low!".yellow().bold());
+                        }
+
+                        println!("{}", "─".repeat(50));
+                        let server_time_str = health.server_time.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+                        println!("  🕐 Server time: {}", server_time_str.dimmed());
+                        println!();
+                        println!("  💡 Use `--json` for scripting");
+                        println!("{}", "─".repeat(50));
+                    }
+                }
+                Err(e) => {
+                    println!("{}", "❌ Failed to fetch health status".red());
+                    println!("   Error: {}", e);
+                }
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written
