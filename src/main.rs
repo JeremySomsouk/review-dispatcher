@@ -3155,6 +3155,129 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
+        Commands::Chase { min_age, send, message, json } => {
+            use chrono::{Duration, Utc};
+
+            let min_age_days = min_age as i64;
+            let now = Utc::now();
+            let cutoff = now - Duration::days(min_age_days);
+
+            // Filter stale PRs (older than min_age)
+            let stale_prs: Vec<_> = reviews
+                .iter()
+                .filter(|r| r.created_at <= cutoff)
+                .cloned()
+                .collect();
+
+            if stale_prs.is_empty() {
+                println!("\n🎉 No stale PRs older than {} day(s) to chase!\n", min_age);
+                return Ok(());
+            }
+
+            // Default chase message template
+            let default_message = "👋 Hi @{author}! Just checking in on this PR — it's been waiting for review for {days} days. Could you please address any pending feedback or let us know if it's ready for another look? Thanks!";
+            
+            let message_template = message.as_deref().unwrap_or(default_message);
+
+            // Build chase entries
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct ChaseEntry {
+                pub repo: String,
+                pub pr_number: u64,
+                pub pr_title: String,
+                pub author: String,
+                pub days_waiting: i64,
+                pub message: String,
+                pub pr_url: String,
+            }
+
+            let chase_entries: Vec<ChaseEntry> = stale_prs
+                .iter()
+                .map(|r| {
+                    let days_waiting = (now - r.created_at).num_days();
+                    let msg = message_template
+                        .replace("{author}", &r.pr_author)
+                        .replace("{title}", &r.pr_title)
+                        .replace("{days}", &days_waiting.to_string())
+                        .replace("{repo}", &r.repo)
+                        .replace("{pr}", &format!("#{}", r.pr_number));
+                    
+                    ChaseEntry {
+                        repo: r.repo.clone(),
+                        pr_number: r.pr_number,
+                        pr_title: r.pr_title.clone(),
+                        author: r.pr_author.clone(),
+                        days_waiting,
+                        message: msg,
+                        pr_url: r.pr_url.clone(),
+                    }
+                })
+                .collect();
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&chase_entries)?);
+                return Ok(());
+            }
+
+            println!("\n🐢 Chasing {} stale PR(s) (older than {} days)...\n", 
+                chase_entries.len().to_string().yellow().bold(), 
+                min_age.to_string().cyan()
+            );
+
+            for entry in &chase_entries {
+                let age_label = if entry.days_waiting >= 14 {
+                    format!("{}d", entry.days_waiting).red().to_string()
+                } else if entry.days_waiting >= 7 {
+                    format!("{}d", entry.days_waiting).yellow().to_string()
+                } else {
+                    format!("{}d", entry.days_waiting).dimmed().to_string()
+                };
+
+                println!("  📬 {} {} (#{}) - {} old", 
+                    entry.pr_title.bold(),
+                    format!("by {}", entry.author.cyan()),
+                    entry.pr_number,
+                    age_label
+                );
+                println!("     💬 {}\n", entry.message.dimmed());
+            }
+
+            if send {
+                println!("\n📤 Sending {} chase comment(s)...\n", chase_entries.len());
+                
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()?;
+
+                let mut sent = 0;
+                let mut failed = 0;
+
+                for entry in &chase_entries {
+                    match client
+                        .issues(&cfg.github_org, &entry.repo)
+                        .create_comment(entry.pr_number, &entry.message)
+                        .await
+                    {
+                        Ok(_) => {
+                            println!("  ✅ Sent: #{} - {}", entry.pr_number, entry.pr_title.dimmed());
+                            sent += 1;
+                        }
+                        Err(e) => {
+                            println!("  ❌ Failed: #{} - {} ({})", entry.pr_number, entry.pr_title.dimmed(), e);
+                            failed += 1;
+                        }
+                    }
+                }
+
+                println!("\n📊 Sent: {}, Failed: {}\n", 
+                    sent.to_string().green(), 
+                    failed.to_string().red()
+                );
+            } else {
+                println!("  💡 Use --send to actually post these comments to GitHub\n");
+            }
+        }
+
         Commands::Report { days, json } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;

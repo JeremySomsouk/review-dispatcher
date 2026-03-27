@@ -407,6 +407,21 @@ pub enum Commands {
         #[arg(long, short = 'd')]
         days: Option<u32>,
     },
+    /// Send a follow-up reminder to authors of stale PRs to get their attention
+    Chase {
+        /// Minimum age in days to chase (default: 7)
+        #[arg(long, short = 'a', default_value_t = 7)]
+        min_age: u32,
+        /// Send actual comments instead of just previewing
+        #[arg(long, short = 's')]
+        send: bool,
+        /// Custom message template (use {author} and {title} as placeholders)
+        #[arg(long, short = 'm')]
+        message: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
