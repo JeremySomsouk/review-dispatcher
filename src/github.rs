@@ -665,3 +665,141 @@ pub async fn fetch_ci_status(
 
     Ok(results)
 }
+
+/// Represents a GitHub notification/mention for the current user.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Mention {
+    /// Repository name (e.g. "org/repo")
+    pub repo: String,
+    /// PR or issue number
+    pub pr_number: u64,
+    /// PR or issue title
+    pub pr_title: String,
+    /// URL to the PR/issue
+    pub pr_url: String,
+    /// Whether this notification is unread
+    pub unread: bool,
+    /// Why the user is receiving this notification (mention, review_requested, etc.)
+    pub reason: String,
+    /// When the notification was last updated
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    /// Preview of the last comment that triggered the mention (if available)
+    pub last_comment_preview: String,
+}
+
+/// Fetch GitHub notifications where the user was mentioned or directly involved.
+pub async fn fetch_mentions(
+    token: &str,
+    _username: &str,
+    unread_only: bool,
+    limit: usize,
+) -> Result<Vec<Mention>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    // Use GitHub's notifications API
+    #[derive(serde::Deserialize)]
+    struct Notification {
+        id: String,
+        unread: bool,
+        reason: String,
+        updated_at: String,
+        #[serde(rename = "subject")]
+        subject: NotificationSubject,
+        repository: NotificationRepo,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct NotificationSubject {
+        title: String,
+        #[serde(rename = "type")]
+        notification_type: String,
+        url: Option<String>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct NotificationRepo {
+        full_name: String,
+    }
+
+    let all_notifications: Vec<Notification> = client
+        .get("notifications", Some(&[("per_page", "50")]))
+        .await
+        .unwrap_or_default();
+
+    let mut mentions = Vec::new();
+
+    for notification in all_notifications {
+        // Filter: only PR/issue notifications (not repository, discussions, etc.)
+        if notification.subject.notification_type != "PullRequest"
+            && notification.subject.notification_type != "Issue" {
+            continue;
+        }
+
+        // Filter: only if it involves this user (mention, review_requested, assign, author, team_mention)
+        let relevant_reasons = ["mention", "review_requested", "assign", "author", "team_mention", "cm"];
+        if !relevant_reasons.contains(&notification.reason.as_str()) {
+            continue;
+        }
+
+        // Filter: unread only
+        if unread_only && !notification.unread {
+            continue;
+        }
+
+        // Parse the PR number from the subject URL
+        // URL format: https://api.github.com/repos/{org}/{repo}/pulls/{number}
+        let pr_number: u64 = notification
+            .subject
+            .url
+            .as_ref()
+            .and_then(|url| {
+                url.split('/')
+                    .last()
+                    .and_then(|s| s.parse().ok())
+            })
+            .unwrap_or(0);
+
+        // Convert API URL to web URL
+        let pr_url = notification
+            .subject
+            .url
+            .as_ref()
+            .map(|url| {
+                url.replace("https://api.github.com/repos/", "https://github.com/")
+                    .replace("/pulls/", "/pull/")
+            })
+            .unwrap_or_else(|| {
+                format!(
+                    "https://github.com/{}/pull/{}",
+                    notification.repository.full_name, pr_number
+                )
+            });
+
+        // Parse updated_at
+        let updated_at = chrono::DateTime::parse_from_rfc3339(&notification.updated_at)
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or_else(|_| chrono::Utc::now());
+
+        mentions.push(Mention {
+            repo: notification.repository.full_name,
+            pr_number,
+            pr_title: notification.subject.title,
+            pr_url,
+            unread: notification.unread,
+            reason: notification.reason,
+            updated_at,
+            last_comment_preview: String::new(),
+        });
+
+        if mentions.len() >= limit {
+            break;
+        }
+    }
+
+    // Sort by most recently updated
+    mentions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+
+    Ok(mentions)
+}

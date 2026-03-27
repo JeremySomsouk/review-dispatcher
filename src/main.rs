@@ -2477,6 +2477,112 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Mentions { unread_only, limit, json } => {
+            let limit = limit.unwrap_or(20);
+
+            println!("\n🔔 Fetching your GitHub notifications...\n");
+
+            match github::fetch_mentions(
+                &cfg.github_token,
+                &cfg.github_username,
+                unread_only,
+                limit,
+            )
+            .await
+            {
+                Ok(mentions) => {
+                    if mentions.is_empty() {
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(&serde_json::json!([]))?);
+                        } else {
+                            println!("  😴 No notifications found.");
+                            if unread_only {
+                                println!("  (showing all, not just unread — use `-u` to filter)");
+                            }
+                        }
+                        return Ok(());
+                    }
+
+                    let total = mentions.len();
+                    let unread_count = mentions.iter().filter(|m| m.unread).count();
+
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&mentions)?);
+                    } else {
+                        println!("🔔 Notifications  ({} total{} | showing top {})\n{}",
+                            total,
+                            if unread_count > 0 { format!(", {} unread", unread_count) } else { String::new() },
+                            limit,
+                            "─".repeat(50)
+                        );
+
+                        for (i, mention) in mentions.iter().enumerate() {
+                            let reason_label = match mention.reason.as_str() {
+                                "mention" => "🏷️ mentioned",
+                                "review_requested" => "👀 review requested",
+                                "assign" => "📌 assigned",
+                                "author" => "✍️ you authored",
+                                "team_mention" => "👥 team mentioned",
+                                "cm" => "💬 comment",
+                                "subscribed" => "📬 subscribed",
+                                _ => "📌 unknown",
+                            };
+
+                            let unread_marker = if mention.unread { " 🔵" } else { "" };
+                            let age_days = (chrono::Utc::now() - mention.updated_at).num_days();
+                            let age_label = if age_days == 0 {
+                                "today".green()
+                            } else if age_days == 1 {
+                                "1 day ago".normal()
+                            } else if age_days <= 7 {
+                                format!("{} days ago", age_days).yellow()
+                            } else {
+                                format!("{} days ago", age_days).red()
+                            };
+
+                            let title = if mention.pr_title.len() > 55 {
+                                format!("{}...", &mention.pr_title[..52])
+                            } else {
+                                mention.pr_title.clone()
+                            };
+
+                            println!("{}. {}  #{}  {}{}",
+                                i + 1,
+                                reason_label,
+                                mention.pr_number,
+                                title.bold(),
+                                unread_marker
+                            );
+                            println!("   📁 {}  •  ⏱️ {}  •  🔗 {}",
+                                mention.repo.dimmed(),
+                                age_label,
+                                mention.pr_url.blue().underline()
+                            );
+                            if !mention.last_comment_preview.is_empty() {
+                                let preview = if mention.last_comment_preview.len() > 80 {
+                                    format!("{}...", &mention.last_comment_preview[..77])
+                                } else {
+                                    mention.last_comment_preview.clone()
+                                };
+                                println!("   💬 \"{}\"", preview.dimmed());
+                            }
+                            if i < total - 1 {
+                                println!();
+                            }
+                        }
+
+                        println!("\n{}", "─".repeat(50));
+                        println!("  💡 Use `--unread-only` or `-u` to show only unread notifications");
+                        println!("  💡 Use `--json` for scripting\n");
+                    }
+                }
+                Err(e) => {
+                    println!("{}", "❌ Failed to fetch notifications".red());
+                    println!("   Error: {}", e);
+                }
+            }
+        }
+
         Commands::Summary { json } => {
             use chrono::Utc;
 

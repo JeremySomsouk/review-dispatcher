@@ -241,6 +241,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show GitHub notifications where you were mentioned or directly involved
+    Mentions {
+        /// Only show unread notifications
+        #[arg(long, short = 'u')]
+        unread_only: bool,
+        /// Limit the number of results shown (default: 20)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Show a quick one-line summary of pending reviews (total, oldest age, lines, urgency breakdown)
     Summary {
         /// Output as JSON
