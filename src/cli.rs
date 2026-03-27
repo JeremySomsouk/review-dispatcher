@@ -373,4 +373,6 @@ pub enum SnoozeAction {
     Remove,
     /// Clear all snoozed PRs
     Clear,
+    /// Remove expired snooze entries (PRs whose snooze time has passed)
+    Expire,
 }

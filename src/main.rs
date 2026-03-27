@@ -2302,6 +2302,61 @@ async fn main() -> anyhow::Result<()> {
                     }
                     println!("\n🧹 Cleared {} snoozed PR(s) from the list.\n", count);
                 }
+
+                cli::SnoozeAction::Expire => {
+                    let now = chrono::Utc::now();
+
+                    // Count expired entries first (without borrowing issues)
+                    let expired_count = snoozed
+                        .iter()
+                        .filter(|e| {
+                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                                until.with_timezone(&chrono::Utc) <= now
+                            } else {
+                                false
+                            }
+                        })
+                        .count();
+
+                    if expired_count == 0 {
+                        println!("\n✨ No expired snooze entries to clean up.\n");
+                        return Ok(());
+                    }
+
+                    // Retain non-expired entries (keep entries where snoozed_until > now)
+                    let _before_count = snoozed.len();
+                    snoozed.retain(|e| {
+                        if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                            until.with_timezone(&chrono::Utc) > now
+                        } else {
+                            true
+                        }
+                    });
+
+                    println!(
+                        "\n🧹 Cleaned up {} expired snooze entry(s):\n",
+                        expired_count.to_string().yellow().bold()
+                    );
+
+                    // Show what was cleaned (we know count, not individual items since we didn't store them)
+                    println!("  ✨ {} PR(s) have returned to your pending list.", expired_count);
+
+                    // Save updated snooze data
+                    if let Some(ref dir) = output_dir {
+                        std::fs::create_dir_all(dir).ok();
+                    }
+                    if snoozed.is_empty() {
+                        if snooze_file.exists() {
+                            std::fs::remove_file(&snooze_file).ok();
+                        }
+                        println!("\n✅ All snooze entries cleaned (list is now empty).");
+                    } else if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                        println!("  ⚠️ Failed to save snooze data: {}", e);
+                    } else {
+                        println!("\n✅ {} snoozed PR(s) remain in the list.", snoozed.len());
+                    }
+                    println!();
+                }
             }
 
             // If listing/showing reviews, filter out snoozed PRs
