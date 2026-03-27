@@ -10,6 +10,7 @@ mod writer;
 use clap::Parser;
 use cli::{Cli, Commands};
 use colored::*;
+use futures::future::join_all;
 use open;
 use std::collections::BTreeSet;
 use std::fs;
@@ -1706,21 +1707,25 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Show files for each selected PR
-            for review in &targets {
-                print!("\n⏳ Fetching files for #{} {}... ", review.pr_number, review.pr_title);
-                io::stdout().flush()?;
-
-                match github::fetch_pr_files(
+            // Fetch files for all PRs in parallel
+            let file_futures = targets.iter().map(|review| {
+                github::fetch_pr_files(
                     &cfg.github_token,
                     &cfg.github_org,
                     &review.repo,
                     review.pr_number,
                 )
-                .await
-                {
+            });
+            let file_results: Vec<(github::PendingReview, Result<Vec<github::PullRequestFile>, anyhow::Error>)> = targets
+                .iter()
+                .cloned()
+                .zip(join_all(file_futures).await)
+                .collect();
+
+            // Process and display results
+            for (review, result) in file_results {
+                match result {
                     Ok(files) => {
-                        println!("{}", "done".green());
                         println!("\n{}", "─".repeat(60));
                         println!("📄 {}  #{}  ({} files)", review.pr_title.bold(), review.pr_number, files.len());
                         println!("{}", "─".repeat(60));
@@ -1755,8 +1760,7 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", "─".repeat(60));
                     }
                     Err(e) => {
-                        println!("{}", "failed".red());
-                        println!("  ❌ Error fetching files: {}", e);
+                        println!("\n❌ Failed to fetch files for #{} {}: {}", review.pr_number, review.pr_title, e);
                     }
                 }
             }
