@@ -6529,6 +6529,100 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Ping { emoji, pr_numbers, all, send } => {
+            let targets: Vec<_> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let nums: Vec<u64> = nums
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                let nums_for_display = nums.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ");
+                let mut matched = Vec::new();
+                for num in nums {
+                    if let Some(review) = reviews.iter().find(|r| r.pr_number == num) {
+                        matched.push(review.clone());
+                    }
+                }
+                if matched.is_empty() {
+                    println!("No matching PRs found for: {}", nums_for_display);
+                    return Ok(());
+                }
+                matched
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PR(s) to ping [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            println!("\n👀 Ping Command");
+            println!("{}", "─".repeat(50));
+            println!("  Emoji: {}", emoji);
+            println!();
+
+            for review in &targets {
+                let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                println!(
+                    "  {} #{} — {} by @{} ({} days old)",
+                    if send { "📤 Sending" } else { "🔍 Would send" },
+                    review.pr_number,
+                    review.pr_title,
+                    review.pr_author.cyan(),
+                    if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
+                );
+
+                if send {
+                    print!("    ⏳ Reacting... ");
+                    io::stdout().flush()?;
+
+                    match github::add_pr_reaction(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &review.repo,
+                        review.pr_number,
+                        &emoji,
+                    ).await {
+                        Ok(_) => {
+                            println!("{}", "✅ Done!".green());
+                        }
+                        Err(e) => {
+                            println!("{}", "❌ Failed".red());
+                            println!("    Error: {}", e);
+                        }
+                    }
+                } else {
+                    println!("    Preview only — use `--send` to actually ping");
+                }
+            }
+
+            if !send {
+                println!();
+                println!("{}", "─".repeat(50));
+                println!("  💡 Use `--send` to actually send the emoji reactions");
+                println!("  💡 Available emojis: eyes (default), rocket, heart, +1, hooray");
+                println!("  💡 Use `-e rocket` or `-e heart` to change emoji\n");
+            }
+        }
+
         Commands::Compare { pr1, pr2, detailed, json } => {
             // Parse PR identifiers (format: "repo#123" or just "123")
             fn parse_pr_id(s: &str, repos: &[String]) -> Option<(String, u64)> {

@@ -1059,3 +1059,55 @@ pub async fn fetch_pr_timeline(
 
     Ok(timeline)
 }
+
+/// Send an emoji reaction to a PR/issue to get author's attention without leaving a comment.
+/// 
+/// GitHub supports these reaction emojis:
+/// - `+1` (thumbs up)
+/// - `-1` (thumbs down)
+/// - `laugh` (😂)
+/// - `confused` (😕)
+/// - `heart` (❤️)
+/// - `hooray` (🎉)
+/// - `rocket` (🚀)
+/// - `eyes` (👀)
+pub async fn add_pr_reaction(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+    reaction: &str,
+) -> Result<()> {
+    let client = octocrab::Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    // Map friendly names to GitHub content values
+    let content = match reaction {
+        "+1" | "thumbsup" | "thumbs_up" => "+1",
+        "-1" | "thumbsdown" | "thumbs_down" => "-1",
+        "laugh" | "laughed" | "lol" => "laugh",
+        "confused" | "unsure" => "confused",
+        "heart" | "love" => "heart",
+        "hooray" | "party" | "celebrate" => "hooray",
+        "rocket" | "rockets" => "rocket",
+        "eyes" | "looking" | "👀" => "eyes",
+        _ => reaction, // Use as-is if it doesn't match
+    };
+
+    let url = format!(
+        "/repos/{}/{}/issues/{}/reactions",
+        org, repo, pr_number
+    );
+
+    #[derive(serde::Serialize)]
+    struct ReactionPayload {
+        content: String,
+    }
+
+    let _: serde_json::Value = client
+        .post(&url, Some(&ReactionPayload { content: content.to_string() })) // Uses POST /repos/{owner}/{repo}/issues/{issue_number}/reactions
+        .await?;
+
+    Ok(())
+}

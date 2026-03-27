@@ -566,6 +566,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Send emoji reactions to PR authors to get their attention (non-intrusive nudge)
+    Ping {
+        /// Reaction emoji to send: eyes, rocket, heart, +1 (default: eyes)
+        #[arg(long, short = 'e', value_name = "EMOJI", default_value = "eyes")]
+        emoji: String,
+        /// PR number(s) to ping (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Ping all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Send actual pings instead of previewing
+        #[arg(long, short = 's')]
+        send: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
