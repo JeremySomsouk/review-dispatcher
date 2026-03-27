@@ -206,7 +206,20 @@ pub async fn fetch_my_open_prs(
         .personal_token(token.to_string())
         .build()?;
 
-    let mut my_prs = vec![];
+    // First pass: collect candidate PRs across all repos
+    #[derive(Clone)]
+    struct CandidatePr {
+        repo: String,
+        number: u64,
+        title: String,
+        author: String,
+        url: String,
+        created_at: DateTime<Utc>,
+        draft: bool,
+        branch: String,
+    }
+
+    let mut candidates: Vec<CandidatePr> = Vec::new();
 
     for repo in repos {
         let prs = client
@@ -232,21 +245,55 @@ pub async fn fetch_my_open_prs(
                 continue;
             }
 
-            // Fetch individual PR to get diff stats
-            let detail = client.pulls(org, repo).get(pr.number).await?;
-
-            my_prs.push(PendingReview {
+            candidates.push(CandidatePr {
                 repo: repo.clone(),
-                pr_number: pr.number,
-                pr_title: title.clone(),
-                pr_author: author.to_string(),
-                pr_url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                number: pr.number,
+                title,
+                author: author.to_string(),
+                url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
                 created_at: pr.created_at.unwrap_or_default(),
-                additions: detail.additions.unwrap_or(0) as u64,
-                deletions: detail.deletions.unwrap_or(0) as u64,
                 draft: pr.draft.unwrap_or(false),
                 branch: pr.head.label.clone().unwrap_or_default(),
             });
+        }
+    }
+
+    // Parallel fetch PR details for all candidates
+    let detail_futures = candidates.iter().map(|c| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = c.repo.clone();
+        let number = c.number;
+        async move {
+            client.pulls(org, &repo).get(number).await
+        }
+    });
+
+    let details: Vec<Result<_, _>> = join_all(detail_futures).await;
+
+    // Build final results
+    let mut my_prs: Vec<PendingReview> = Vec::new();
+    for (candidate, detail_result) in candidates.into_iter().zip(details) {
+        match detail_result {
+            Ok(detail) => {
+                my_prs.push(PendingReview {
+                    repo: candidate.repo,
+                    pr_number: candidate.number,
+                    pr_title: candidate.title,
+                    pr_author: candidate.author,
+                    pr_url: candidate.url,
+                    created_at: candidate.created_at,
+                    additions: detail.additions.unwrap_or(0) as u64,
+                    deletions: detail.deletions.unwrap_or(0) as u64,
+                    draft: candidate.draft,
+                    branch: candidate.branch,
+                });
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", candidate.number, candidate.repo, e);
+            }
         }
     }
 
