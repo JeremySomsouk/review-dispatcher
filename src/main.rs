@@ -3278,6 +3278,204 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::ReviewTime { pr_numbers, all, json } => {
+            let targets: Vec<_> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to estimate review time [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            if targets.is_empty() {
+                println!("No PRs to estimate review time for.");
+                return Ok(());
+            }
+
+            // Fetch file counts for each PR to improve estimates
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct ReviewTimeEstimate {
+                repo: String,
+                pr_number: u64,
+                pr_title: String,
+                author: String,
+                additions: u64,
+                deletions: u64,
+                total_lines: u64,
+                file_count: Option<u64>,
+                estimated_minutes: u32,
+                time_category: String,
+                size_category: String,
+                age_days: i64,
+                priority_score: u8,
+            }
+
+            let mut estimates: Vec<ReviewTimeEstimate> = Vec::new();
+            let now = chrono::Utc::now();
+
+            for review in &targets {
+                let total_lines = review.additions + review.deletions;
+                
+                // Estimate review time based on lines changed
+                // Baseline: ~2 min per 50 lines, adjusted by complexity
+                let base_minutes = (total_lines as f64 / 50.0 * 2.0) as u32;
+                
+                // Complexity multipliers:
+                // - XS (<50 lines): 0.8x (quick review)
+                // - S (50-200): 1.0x (standard)
+                // - M (200-500): 1.2x (moderate complexity)
+                // - L (500-1000): 1.5x (higher complexity)
+                // - XL (>1000): 2.0x (large change, likely complex)
+                let (complexity_mult, size_cat) = if total_lines < 50 {
+                    (0.8, "XS")
+                } else if total_lines < 200 {
+                    (1.0, "S")
+                } else if total_lines < 500 {
+                    (1.2, "M")
+                } else if total_lines < 1000 {
+                    (1.5, "L")
+                } else {
+                    (2.0, "XL")
+                };
+
+                // Age adjustment: older PRs take slightly less time (context lost)
+                let age_days = (now - review.created_at).num_days();
+                let age_factor = if age_days > 14 { 0.9 } else { 1.0 };
+
+                let estimated_minutes = ((base_minutes as f64 * complexity_mult * age_factor).ceil() as u32).max(5);
+                
+                // Time categories
+                let time_category = if estimated_minutes < 10 {
+                    "⚡ lightning".to_string()
+                } else if estimated_minutes < 20 {
+                    "🔵 quick".to_string()
+                } else if estimated_minutes < 45 {
+                    "🟡 moderate".to_string()
+                } else if estimated_minutes < 90 {
+                    "🟠 substantial".to_string()
+                } else {
+                    "🔴 lengthy".to_string()
+                };
+
+                let priority_score = logger::calculate_priority_score(review);
+
+                estimates.push(ReviewTimeEstimate {
+                    repo: review.repo.clone(),
+                    pr_number: review.pr_number,
+                    pr_title: review.pr_title.clone(),
+                    author: review.pr_author.clone(),
+                    additions: review.additions,
+                    deletions: review.deletions,
+                    total_lines,
+                    file_count: None,
+                    estimated_minutes,
+                    time_category,
+                    size_category: size_cat.to_string(),
+                    age_days,
+                    priority_score,
+                });
+            }
+
+            // Sort by estimated time (longest first for planning)
+            estimates.sort_by(|a, b| b.estimated_minutes.cmp(&a.estimated_minutes));
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&estimates)?);
+                return Ok(());
+            }
+
+            let total_minutes: u32 = estimates.iter().map(|e| e.estimated_minutes).sum();
+            let total_hours = total_minutes as f64 / 60.0;
+
+            println!(
+                "\n⏱️  Review Time Estimates — {} PRs, ~{:.1}h total\n{}",
+                estimates.len(),
+                total_hours,
+                "─".repeat(55)
+            );
+
+            for est in &estimates {
+                let size_color: colored::Color = match est.size_category.as_str() {
+                    "XS" | "S" => colored::Color::Green,
+                    "M" => colored::Color::Yellow,
+                    "L" => colored::Color::Red,
+                    _ => colored::Color::Magenta,
+                };
+
+                let time_str = if est.estimated_minutes < 60 {
+                    format!("{} min", est.estimated_minutes)
+                } else {
+                    let hours = est.estimated_minutes as f64 / 60.0;
+                    format!("{:.1}h", hours)
+                };
+
+                let stars = "★".repeat(est.priority_score as usize);
+
+                println!(
+                    "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}\n     {} ⭐{}",
+                    est.size_category.color(size_color),
+                    est.pr_title.bold(),
+                    est.pr_number,
+                    est.repo.dimmed(),
+                    est.author.cyan(),
+                    est.size_category,
+                    est.total_lines,
+                    time_str.green(),
+                    est.time_category,
+                    stars.red(),
+                    est.priority_score
+                );
+                println!();
+            }
+
+            println!("{}", "─".repeat(55));
+            println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
+            println!("  💡 Time estimates based on lines changed, adjusted for size complexity");
+            println!("  💡 Use `--json` for scripting\n");
+        }
+
         Commands::Report { days, json } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;

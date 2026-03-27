@@ -422,6 +422,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Estimate review time for pending PRs based on size and complexity
+    ReviewTime {
+        /// PR number(s) to estimate (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Show review time for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

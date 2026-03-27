@@ -33,6 +33,7 @@
 - [browse](commands/browse.md)
 - [snooze](commands/snooze.md)
 - [report](commands/report.md)
+- [review-time](commands/review-time.md)
 - [trends](commands/trends.md)
 - [digest](commands/digest.md)
 - [clean](commands/clean.md)
