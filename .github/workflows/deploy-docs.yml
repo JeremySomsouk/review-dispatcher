@@ -24,13 +24,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Install mdbook
-        uses: mbta/actions/install-mdbook@v2
-        with:
-          mdbook-version: '0.5.2'
+        run: |
+          cargo install mdbook
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

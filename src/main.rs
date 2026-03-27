@@ -2797,6 +2797,112 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Focus { open, json } => {
+            use chrono::Utc;
+
+            if reviews.is_empty() {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                        "focused": null,
+                        "total_pending": 0,
+                        "message": "No pending reviews — you're all clear!"
+                    }))?);
+                } else {
+                    println!("🎉 No pending reviews. You're all clear!");
+                    println!("   No PR needs your focus right now.");
+                }
+                return Ok(());
+            }
+
+            // Find the highest-priority PR (by score, then oldest by age)
+            let focused = reviews
+                .iter()
+                .max_by_key(|r| {
+                    let score = logger::calculate_priority_score(r);
+                    let age_days = (Utc::now() - r.created_at).num_days();
+                    (score, age_days)
+                })
+                .cloned();
+
+            if let Some(pr) = focused {
+                let score = logger::calculate_priority_score(&pr);
+                let age_days = (Utc::now() - pr.created_at).num_days();
+                let total_lines = pr.additions + pr.deletions;
+
+                if json {
+                    #[derive(serde::Serialize)]
+                    struct FocusOutput<'a> {
+                        repo: &'a str,
+                        pr_number: u64,
+                        pr_title: &'a str,
+                        pr_author: &'a str,
+                        pr_url: &'a str,
+                        score: u8,
+                        age_days: i64,
+                        additions: u64,
+                        deletions: u64,
+                        draft: bool,
+                    }
+                    let output = FocusOutput {
+                        repo: &pr.repo,
+                        pr_number: pr.pr_number,
+                        pr_title: &pr.pr_title,
+                        pr_author: &pr.pr_author,
+                        pr_url: &pr.pr_url,
+                        score,
+                        age_days,
+                        additions: pr.additions,
+                        deletions: pr.deletions,
+                        draft: pr.draft,
+                    };
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    let score_stars = "★".repeat(score as usize).to_string();
+                    let age_label = if age_days == 0 {
+                        "today".green().to_string()
+                    } else if age_days == 1 {
+                        "1 day ago".yellow().to_string()
+                    } else if age_days <= 3 {
+                        format!("{} days ago", age_days).yellow()
+                    } else if age_days <= 7 {
+                        format!("{} days ago", age_days).red()
+                    } else {
+                        format!("{} days ago!!", age_days).red().bold().to_string()
+                    };
+
+                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+
+                    println!();
+                    println!("🎯 YOUR FOCUS PR");
+                    println!("{}", "─".repeat(50));
+                    println!();
+                    println!("  #{}  {}", pr.pr_number, pr.pr_title.bold());
+                    println!();
+                    println!("  📁 {}  👤 {}  ⏱️ {}  📊 {}/{}",
+                        pr.repo.split('/').last().unwrap_or(&pr.repo).dimmed(),
+                        pr.pr_author.cyan(),
+                        age_label,
+                        pr.additions.to_string().green(),
+                        pr.deletions.to_string().red()
+                    );
+                    println!("  📏 Total: {} lines  {}", total_lines, score_stars.red().bold());
+                    println!("  🔗 {}", pr.pr_url.blue().underline());
+                    println!();
+                    println!("{}", "─".repeat(50));
+                    println!("  Total pending: {} PRs", reviews.len());
+                    if reviews.len() > 1 {
+                        println!("  Run `review-dispatcher top` to see more");
+                    }
+                    println!();
+
+                    if open {
+                        opener::open(&pr.pr_url)?;
+                        println!("🖥️  Opening PR in browser...");
+                    }
+                }
+            }
+        }
+
         Commands::Conflicts { only_conflicts, json } => {
             println!("\n🔍 Checking merge conflict status for {} PRs...\n", reviews.len());
             io::stdout().flush()?;

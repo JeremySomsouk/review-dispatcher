@@ -268,6 +268,15 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show the ONE PR you should focus on right now — the most urgent by priority score
+    Focus {
+        /// Open the focused PR in your browser instead of printing details
+        #[arg(long, short = 'o')]
+        open: bool,
+        /// Output as JSON (includes full PR details)
+        #[arg(long)]
+        json: bool,
+    },
     /// Show GitHub API health status and rate limits
     Health {
         /// Output as JSON
