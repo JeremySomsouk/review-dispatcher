@@ -814,6 +814,143 @@ async fn main() -> anyhow::Result<()> {
                 logger::print_reviews(&filtered, priority);
             }
         }
+
+        Commands::Report { days, json } => {
+            use chrono::{Duration, Utc};
+            use std::collections::HashMap;
+
+            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+
+            if !report_output_dir.exists() {
+                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", report_output_dir.display());
+                return Ok(());
+            }
+
+            // Read all review files from the output directory
+            let mut processed_count = 0u32;
+            let mut processed_by_author: HashMap<String, u32> = HashMap::new();
+            let mut processed_by_repo: HashMap<String, u32> = HashMap::new();
+            let mut recent_reviews: Vec<(String, chrono::DateTime<Utc>, String)> = vec![];
+
+            let cutoff = Utc::now() - Duration::days(days as i64);
+
+            if let Ok(entries) = std::fs::read_dir(&report_output_dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            let lines: Vec<&str> = content.lines().collect();
+                            if lines.len() >= 4 {
+                                let pr_title = lines.first().unwrap_or(&"").trim();
+                                let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
+                                if let Some(date_str) = date_line {
+                                    if let Some(date_part) = date_str.strip_prefix("Reviewed on ") {
+                                        if let Ok(date) = chrono::DateTime::parse_from_rfc3339(date_part) {
+                                            let date = date.with_timezone(&Utc);
+                                            if date >= cutoff {
+                                                processed_count += 1;
+                                                recent_reviews.push((pr_title.to_string(), date, path.file_name().unwrap_or_default().to_string_lossy().to_string()));
+
+                                                for line in &lines {
+                                                    if line.starts_with("- **Author**:") {
+                                                        if let Some(author) = line.strip_prefix("- **Author**:") {
+                                                            let author = author.trim();
+                                                            *processed_by_author.entry(author.to_string()).or_insert(0) += 1;
+                                                        }
+                                                    }
+                                                    if line.starts_with("- **Repository**:") {
+                                                        if let Some(repo) = line.strip_prefix("- **Repository**:") {
+                                                            let repo = repo.trim();
+                                                            *processed_by_repo.entry(repo.to_string()).or_insert(0) += 1;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            let pending_total = reviews.len();
+            let pending_old = reviews.iter().filter(|r| {
+                let age_days = (Utc::now() - r.created_at).num_days() as i64;
+                age_days >= days as i64
+            }).count();
+
+            let pending_additions: u64 = reviews.iter().map(|r| r.additions).sum();
+            let pending_deletions: u64 = reviews.iter().map(|r| r.deletions).sum();
+
+            let report = serde_json::json!({
+                "period_days": days,
+                "generated_at": Utc::now().to_rfc3339(),
+                "processed_reviews": processed_count,
+                "pending_reviews": pending_total,
+                "pending_old_count": pending_old,
+                "pending_additions": pending_additions,
+                "pending_deletions": pending_deletions,
+                "by_author": processed_by_author,
+                "by_repository": processed_by_repo
+            });
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!("\n📊 Weekly Review Report  ({}-day period)\n{}", days, "─".repeat(45));
+                println!("  📁 Directory: {}", report_output_dir.display().to_string().dimmed());
+                println!();
+                println!("  ✅ Processed Reviews:");
+                println!("     Total reviewed:     {}", processed_count);
+                if !processed_by_author.is_empty() {
+                    println!("     By author:");
+                    let mut sorted: Vec<_> = processed_by_author.iter().collect();
+                    sorted.sort_by(|a, b| b.1.cmp(a.1));
+                    for (author, count) in sorted.iter().take(5) {
+                        println!("       {}: {}", author.cyan(), count);
+                    }
+                }
+                if !processed_by_repo.is_empty() {
+                    println!("     By repository:");
+                    let mut sorted: Vec<_> = processed_by_repo.iter().collect();
+                    sorted.sort_by(|a, b| b.1.cmp(a.1));
+                    for (repo, count) in sorted.iter().take(5) {
+                        println!("       {}: {}", repo, count);
+                    }
+                }
+                println!();
+                println!("  ⏳ Current Pending:");
+                println!("     Total pending:       {}", pending_total);
+                println!("     Old ({}d+):          {}", days, pending_old);
+                println!("     Lines pending:       +{} / -{}",
+                    pending_additions.to_string().green(),
+                    pending_deletions.to_string().red()
+                );
+                println!();
+
+                if !recent_reviews.is_empty() {
+                    println!("  🕐 Recent Activity (last {} days):", days);
+                    recent_reviews.sort_by(|a, b| b.1.cmp(&a.1));
+                    for (title, date, _) in recent_reviews.iter().take(5) {
+                        let days_ago = (Utc::now() - *date).num_days();
+                        let when = if days_ago == 0 {
+                            "today".green()
+                        } else if days_ago == 1 {
+                            "yesterday".normal()
+                        } else {
+                            format!("{} days ago", days_ago).dimmed()
+                        };
+                        println!("     • {} ({})", title.bold(), when);
+                    }
+                    println!();
+                }
+
+                println!("  💡 Tip: Use `--json` flag for machine-readable output");
+                println!("{}", "─".repeat(45));
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written

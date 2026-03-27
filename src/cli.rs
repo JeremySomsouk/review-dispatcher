@@ -118,6 +118,15 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
     },
+    /// Generate a weekly review report from processed review files
+    Report {
+        /// Number of days to look back (default: 7)
+        #[arg(long, default_value_t = 7)]
+        days: u32,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Filter pending reviews by various criteria
     Filter {
         /// Filter by repository name (partial match)
