@@ -4246,6 +4246,284 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::ReviewVelocity { days, bottlenecks, json } => {
+            use chrono::{Duration, Utc};
+            use std::collections::{HashMap, BTreeMap};
+
+            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+
+            if !report_output_dir.exists() {
+                println!("❌ No reviews directory found at {}. Run `review-dispatcher delegate` first.", report_output_dir.display());
+                return Ok(());
+            }
+
+            let cutoff = Utc::now() - Duration::days(days as i64);
+
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct VelocityData {
+                pr_title: String,
+                pr_number: u64,
+                repo: String,
+                author: String,
+                reviewed_at: String,
+                created_at: String,
+                hours_to_review: f64,
+                additions: u64,
+                deletions: u64,
+            }
+
+            let mut velocity_data: Vec<VelocityData> = vec![];
+            let mut by_author: HashMap<String, Vec<f64>> = HashMap::new();
+            let mut by_repo: HashMap<String, Vec<f64>> = HashMap::new();
+
+            if let Ok(entries) = std::fs::read_dir(&report_output_dir) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let path = entry.path();
+                    if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            let lines: Vec<&str> = content.lines().collect();
+                            if lines.len() >= 4 {
+                                let pr_title = lines.first().unwrap_or(&"").trim().trim_start_matches("# ").to_string();
+                                let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
+                                let created_line = lines.iter().find(|l| l.starts_with("- **Created**:"));
+                                let additions_line = lines.iter().find(|l| l.contains("+") && l.contains("additions"));
+                                let deletions_line = lines.iter().find(|l| l.contains("-") && l.contains("deletions"));
+                                let author_line = lines.iter().find(|l| l.starts_with("- **Author**:"));
+                                let repo_line = lines.iter().find(|l| l.starts_with("- **Repository**:"));
+
+                                if let (Some(date_str), Some(created_str)) = (date_line, created_line) {
+                                    if let (Some(date_part), Some(created_part)) = (
+                                        date_str.strip_prefix("Reviewed on "),
+                                        created_str.strip_prefix("- **Created**: ")
+                                    ) {
+                                        if let (Ok(reviewed_at), Ok(created_at)) = (
+                                            chrono::DateTime::parse_from_rfc3339(date_part),
+                                            chrono::DateTime::parse_from_rfc3339(created_part)
+                                        ) {
+                                            let reviewed_at_tz = reviewed_at.with_timezone(&Utc);
+                                            let created_at_tz = created_at.with_timezone(&Utc);
+
+                                            if reviewed_at_tz >= cutoff {
+                                                let hours = (reviewed_at_tz - created_at_tz).num_hours() as f64;
+
+                                                let pr_number = path.file_stem()
+                                                    .and_then(|s| s.to_str())
+                                                    .and_then(|s| s.split('_').last())
+                                                    .and_then(|s| s.parse().ok())
+                                                    .unwrap_or(0);
+
+                                                let additions: u64 = additions_line
+                                                    .and_then(|l| l.split('`').nth(1))
+                                                    .and_then(|s| s.replace(['+', ','], "").trim().parse().ok())
+                                                    .unwrap_or(0);
+                                                let deletions: u64 = deletions_line
+                                                    .and_then(|l| l.split('`').nth(1))
+                                                    .and_then(|s| s.replace(['-', ','], "").trim().parse().ok())
+                                                    .unwrap_or(0);
+                                                let author = author_line
+                                                    .and_then(|l| l.strip_prefix("- **Author**:"))
+                                                    .map(|s| s.trim().to_string())
+                                                    .unwrap_or_default();
+                                                let repo = repo_line
+                                                    .and_then(|l| l.strip_prefix("- **Repository**:"))
+                                                    .map(|s| s.trim().to_string())
+                                                    .unwrap_or_default();
+
+                                                by_author.entry(author.clone()).or_insert_with(Vec::new).push(hours);
+                                                by_repo.entry(repo.clone()).or_insert_with(Vec::new).push(hours);
+
+                                                velocity_data.push(VelocityData {
+                                                    pr_title,
+                                                    pr_number,
+                                                    repo: repo.clone(),
+                                                    author,
+                                                    reviewed_at: reviewed_at_tz.to_rfc3339(),
+                                                    created_at: created_at_tz.to_rfc3339(),
+                                                    hours_to_review: hours,
+                                                    additions,
+                                                    deletions,
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if velocity_data.is_empty() {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                        "period_days": days,
+                        "total_prs": 0,
+                        "avg_hours_to_review": 0.0,
+                        "median_hours": 0.0,
+                        "fastest_review_hours": 0.0,
+                        "slowest_review_hours": 0.0,
+                        "by_author": {},
+                        "by_repo": {},
+                    }))?);
+                } else {
+                    println!("\n⚡ Review Velocity — last {} days\n{}", days, "─".repeat(45));
+                    println!("  😴 No review data found in the last {} days.", days);
+                    println!("  Process some reviews first with `review-dispatcher delegate`.\n");
+                }
+                return Ok(());
+            }
+
+            // Calculate statistics
+            let mut all_hours: Vec<f64> = velocity_data.iter().map(|v| v.hours_to_review).collect();
+            all_hours.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+            let total_prs = velocity_data.len();
+            let avg_hours = all_hours.iter().sum::<f64>() / all_hours.len() as f64;
+            let median_hours = if all_hours.len() % 2 == 0 {
+                (all_hours[all_hours.len() / 2 - 1] + all_hours[all_hours.len() / 2]) / 2.0
+            } else {
+                all_hours[all_hours.len() / 2]
+            };
+            let fastest = all_hours.first().copied().unwrap_or(0.0);
+            let slowest = all_hours.last().copied().unwrap_or(0.0);
+
+            // Author stats
+            let mut author_stats: Vec<(String, f64, f64, usize)> = by_author
+                .iter()
+                .map(|(author, hours)| {
+                    let avg = hours.iter().sum::<f64>() / hours.len() as f64;
+                    let sorted = hours.clone();
+                    let median = if sorted.len() % 2 == 0 {
+                        (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
+                    } else {
+                        sorted[sorted.len() / 2]
+                    };
+                    (author.clone(), avg, median, hours.len())
+                })
+                .collect();
+            author_stats.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Repo stats
+            let mut repo_stats: Vec<(String, f64, f64, usize)> = by_repo
+                .iter()
+                .map(|(repo, hours)| {
+                    let avg = hours.iter().sum::<f64>() / hours.len() as f64;
+                    let sorted = hours.clone();
+                    let median = if sorted.len() % 2 == 0 {
+                        (sorted[sorted.len() / 2 - 1] + sorted[sorted.len() / 2]) / 2.0
+                    } else {
+                        sorted[sorted.len() / 2]
+                    };
+                    (repo.clone(), avg, median, hours.len())
+                })
+                .collect();
+            repo_stats.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct VelocityOutput {
+                    period_days: u32,
+                    total_prs: usize,
+                    avg_hours_to_review: f64,
+                    median_hours: f64,
+                    fastest_review_hours: f64,
+                    slowest_review_hours: f64,
+                    by_author: BTreeMap<String, (f64, f64, usize)>,
+                    by_repo: BTreeMap<String, (f64, f64, usize)>,
+                }
+                let mut by_author_map: BTreeMap<String, (f64, f64, usize)> = BTreeMap::new();
+                for (author, avg, median, count) in &author_stats {
+                    by_author_map.insert(author.clone(), (*avg, *median, *count));
+                }
+                let mut by_repo_map: BTreeMap<String, (f64, f64, usize)> = BTreeMap::new();
+                for (repo, avg, median, count) in &repo_stats {
+                    by_repo_map.insert(repo.clone(), (*avg, *median, *count));
+                }
+                let output = VelocityOutput {
+                    period_days: days,
+                    total_prs,
+                    avg_hours_to_review: avg_hours,
+                    median_hours,
+                    fastest_review_hours: fastest,
+                    slowest_review_hours: slowest,
+                    by_author: by_author_map,
+                    by_repo: by_repo_map,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("\n⚡ Review Velocity — last {} days\n{}", days, "─".repeat(45));
+
+                // Summary stats
+                println!("  📊 Summary ({} PRs reviewed)", total_prs);
+                println!("     Average time to review:  {:.1} hours", avg_hours);
+                println!("     Median time to review:    {:.1} hours", median_hours);
+                println!("     Fastest review:           {:.1} hours", fastest);
+                println!("     Slowest review:           {:.1} hours", slowest);
+
+                // Time buckets
+                let mut under_4h = 0usize;
+                let mut under_24h = 0usize;
+                let mut under_72h = 0usize;
+                let mut over_72h = 0usize;
+
+                for h in &all_hours {
+                    if *h <= 4.0 { under_4h += 1; }
+                    else if *h <= 24.0 { under_24h += 1; }
+                    else if *h <= 72.0 { under_72h += 1; }
+                    else { over_72h += 1; }
+                }
+
+                println!("\n  ⏱️  Time Distribution");
+                let total_f = total_prs as f64;
+                println!("     < 4h:   {:>4} ({:>5.1}%)  {}",
+                    under_4h, (under_4h as f64 / total_f) * 100.0,
+                    "▓".repeat((under_4h as f64 / total_f * 20.0) as usize).green());
+                println!("     4-24h:  {:>4} ({:>5.1}%)  {}",
+                    under_24h - under_4h, ((under_24h - under_4h) as f64 / total_f) * 100.0,
+                    "▓".repeat(((under_24h - under_4h) as f64 / total_f * 20.0) as usize).cyan());
+                println!("     1-3d:   {:>4} ({:>5.1}%)  {}",
+                    under_72h - under_24h, ((under_72h - under_24h) as f64 / total_f) * 100.0,
+                    "▓".repeat(((under_72h - under_24h) as f64 / total_f * 20.0) as usize).yellow());
+                println!("     > 3d:   {:>4} ({:>5.1}%)  {}",
+                    over_72h, (over_72h as f64 / total_f) * 100.0,
+                    "▓".repeat((over_72h as f64 / total_f * 20.0) as usize).red());
+
+                if bottlenecks {
+                    println!("\n  🐢 Bottleneck Analysis — by Author");
+                    println!("     (slowest average review time)");
+                    for (author, avg, median, count) in author_stats.iter().rev().take(5) {
+                        let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
+                        let bar: String = "█".repeat(bar_len.max(1));
+                        println!("     {} {}  {:.1}h avg  ({} PRs)",
+                            author.cyan(),
+                            bar.red(),
+                            avg,
+                            count
+                        );
+                    }
+
+                    println!("\n  🐢 Bottleneck Analysis — by Repository");
+                    println!("     (slowest average review time)");
+                    for (repo, avg, median, count) in repo_stats.iter().rev().take(5) {
+                        let short_name = repo.split('/').last().unwrap_or(repo);
+                        let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
+                        let bar: String = "█".repeat(bar_len.max(1));
+                        println!("     {} {}  {:.1}h avg  ({} PRs)",
+                            short_name.yellow(),
+                            bar.red(),
+                            avg,
+                            count
+                        );
+                    }
+                }
+
+                println!("\n  💡 Use `--bottlenecks` to see which repos/authors take longest");
+                println!("  💡 Use `--json` for machine-readable output");
+                println!("{}", "─".repeat(45));
+                println!();
+            }
+        }
+
         Commands::Summary { json } => {
             use chrono::Utc;
 

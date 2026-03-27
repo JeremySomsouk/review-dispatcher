@@ -404,6 +404,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Analyze how quickly PRs get reviewed (avg time-to-first-review, bottleneck detection)
+    ReviewVelocity {
+        /// Number of days to look back (default: 30)
+        #[arg(long, short = 'd', default_value_t = 30)]
+        days: u32,
+        /// Show bottleneck analysis (which repos/authors take longest)
+        #[arg(long, short = 'b')]
+        bottlenecks: bool,
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear
