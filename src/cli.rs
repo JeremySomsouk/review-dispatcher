@@ -220,4 +220,16 @@ pub enum Commands {
         #[arg(long, short = 'l')]
         language: Option<String>,
     },
+    /// Show your highest priority pending PRs based on age, size, and urgency
+    Top {
+        /// Limit the number of results shown (default: 10)
+        #[arg(long, short = 'n')]
+        limit: Option<usize>,
+        /// Minimum priority score threshold (1-5, default: 3)
+        #[arg(long, short = 's')]
+        min_score: Option<u8>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }

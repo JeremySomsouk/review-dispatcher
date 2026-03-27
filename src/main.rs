@@ -1406,6 +1406,124 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Top { limit, min_score, json } => {
+            let limit = limit.unwrap_or(10);
+            let min_score = min_score.unwrap_or(3).min(5);
+
+            // Calculate priority for all reviews
+            let mut scored: Vec<_> = reviews
+                .iter()
+                .map(|r| {
+                    let score = logger::calculate_priority_score(r);
+                    (r.clone(), score)
+                })
+                .filter(|(_, score)| *score >= min_score)
+                .collect();
+
+            // Sort by priority score descending, then by age ascending
+            scored.sort_by(|a, b| {
+                let score_cmp = b.1.cmp(&a.1);
+                if score_cmp == std::cmp::Ordering::Equal {
+                    a.0.created_at.cmp(&b.0.created_at)
+                } else {
+                    score_cmp
+                }
+            });
+
+            let top_prs: Vec<_> = scored.into_iter().take(limit).collect();
+
+            if top_prs.is_empty() {
+                println!("\n🎯 No high-priority reviews found (min score: {})\n", min_score);
+                return Ok(());
+            }
+
+            if json {
+                #[derive(serde::Serialize)]
+                struct TopReview<'a> {
+                    repo: &'a str,
+                    pr_number: u64,
+                    pr_title: &'a str,
+                    pr_author: &'a str,
+                    pr_url: &'a str,
+                    priority_score: u8,
+                    age_days: i64,
+                    additions: u64,
+                    deletions: u64,
+                    draft: bool,
+                }
+                let output: Vec<TopReview> = top_prs
+                    .iter()
+                    .map(|(r, score)| TopReview {
+                        repo: &r.repo,
+                        pr_number: r.pr_number,
+                        pr_title: &r.pr_title,
+                        pr_author: &r.pr_author,
+                        pr_url: &r.pr_url,
+                        priority_score: *score,
+                        age_days: (chrono::Utc::now() - r.created_at).num_days(),
+                        additions: r.additions,
+                        deletions: r.deletions,
+                        draft: r.draft,
+                    })
+                    .collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!(
+                    "\n🎯 Top {} Priority Reviews (score >= {})\n{}",
+                    limit,
+                    min_score,
+                    "─".repeat(50)
+                );
+                for (r, score) in &top_prs {
+                    let age_days = (chrono::Utc::now() - r.created_at).num_days();
+                    let age_label = match age_days {
+                        0 => "today".green(),
+                        1 => "1 day".normal(),
+                        _ => format!("{} days", age_days).red(),
+                    };
+
+                    let size = r.additions + r.deletions;
+                    let size_label = if size < 50 {
+                        "XS".green()
+                    } else if size < 200 {
+                        "S".green()
+                    } else if size < 500 {
+                        "M".yellow()
+                    } else if size < 1000 {
+                        "L".red()
+                    } else {
+                        "XL".magenta()
+                    };
+
+                    let draft_label = if r.draft { " [DRAFT]".yellow() } else { "".normal() };
+
+                    println!(
+                        "  ⭐{}  {}  #{} ({}){}",
+                        score,
+                        r.pr_title.bold(),
+                        r.pr_number,
+                        r.repo.dimmed(),
+                        draft_label
+                    );
+                    println!(
+                        "      👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}",
+                        r.pr_author.cyan(),
+                        size_label,
+                        size,
+                        age_label
+                    );
+                    println!(
+                        "      🔗 {}",
+                        r.pr_url.blue().underline()
+                    );
+                    println!();
+                }
+                println!("{}", "─".repeat(50));
+                println!("  💡 Use `--min-score 4` for only critical PRs");
+                println!("  💡 Use `--json` for scripting\n");
+            }
+        }
+
         Commands::Report { days, json } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
