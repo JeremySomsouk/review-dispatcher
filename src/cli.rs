@@ -298,6 +298,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Categorize pending PRs by age brackets (new/aging/stale/overdue) with visual buckets
+    Age {
+        /// Show only PRs newer than this many days
+        #[arg(long, short = 'n')]
+        min_days: Option<u32>,
+        /// Show only PRs older than this many days
+        #[arg(long, short = 'x')]
+        older_than: Option<u32>,
+        /// Group output by age bucket instead of flat list
+        #[arg(long, short = 'g', default_value_t = false)]
+        grouped: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

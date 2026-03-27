@@ -1788,6 +1788,229 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Age { min_days, older_than, grouped, json } => {
+            use chrono::Utc;
+
+            let now = Utc::now();
+
+            // Age buckets: (label, emoji, max_days, min_days)
+            // None for max means +infinity
+            #[derive(Clone, Copy)]
+            struct Bucket(&'static str, &'static str, Option<i64>, Option<i64>);
+            const BUCKETS: [Bucket; 5] = [
+                Bucket("Overdue",     "💀", Some(14), Some(15)),
+                Bucket("Stale",       "🔥", Some(7),  Some(8)),
+                Bucket("Aging",       "⏳", Some(3),  Some(4)),
+                Bucket("Fresh",       "🌱", Some(1),  Some(2)),
+                Bucket("New",         "🆕", None,      Some(0)),
+            ];
+
+            let min_days = min_days.map(|d| d as i64);
+            let older_than = older_than.map(|d| d as i64);
+
+            #[derive(serde::Serialize)]
+            struct AgeItem<'a> {
+                repo: &'a str,
+                pr_number: u64,
+                pr_title: &'a str,
+                pr_author: &'a str,
+                pr_url: &'a str,
+                age_days: i64,
+                additions: u64,
+                deletions: u64,
+                draft: bool,
+            }
+
+            #[derive(serde::Serialize)]
+            struct AgeBucket<'a> {
+                label: &'a str,
+                emoji: &'a str,
+                prs: Vec<AgeItem<'a>>,
+            }
+
+            let mut buckets: Vec<(Bucket, Vec<&github::PendingReview>)> =
+                BUCKETS.iter().cloned().map(|b| (b, vec![])).collect();
+
+            for r in &reviews {
+                let age_days = (now - r.created_at).num_days();
+
+                // Apply --older-than filter
+                if let Some(cutoff) = older_than {
+                    if age_days <= cutoff {
+                        continue;
+                    }
+                }
+
+                // Apply --min-days filter
+                if let Some(min) = min_days {
+                    if age_days < min {
+                        continue;
+                    }
+                }
+
+                // Find matching bucket (last match wins since ranges overlap)
+                let mut matched = false;
+                for (bucket, prs) in &mut buckets {
+                    let Bucket(_, _, bucket_max, bucket_min) = *bucket;
+                    let in_bucket = match (bucket_min, bucket_max) {
+                        (Some(min), Some(max)) => age_days >= min && age_days <= max,
+                        (Some(min), None) => age_days >= min,
+                        (None, Some(max)) => age_days <= max,
+                        (None, None) => true,
+                    };
+                    if in_bucket {
+                        prs.push(r);
+                        matched = true;
+                    }
+                }
+                let _ = matched; // suppress unused warning
+            }
+
+            if json {
+                let output: Vec<AgeBucket> = buckets
+                    .iter()
+                    .filter(|(_, prs)| !prs.is_empty())
+                    .map(|(bucket, prs)| {
+                        let Bucket(label, emoji, _, _) = *bucket;
+                        AgeBucket {
+                            label,
+                            emoji,
+                            prs: prs.iter().map(|r| {
+                                let age_days = (now - r.created_at).num_days();
+                                AgeItem {
+                                    repo: &r.repo,
+                                    pr_number: r.pr_number,
+                                    pr_title: &r.pr_title,
+                                    pr_author: &r.pr_author,
+                                    pr_url: &r.pr_url,
+                                    age_days,
+                                    additions: r.additions,
+                                    deletions: r.deletions,
+                                    draft: r.draft,
+                                }
+                            }).collect(),
+                        }
+                    })
+                    .collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else if grouped {
+                // Grouped view: one section per bucket
+                let total: usize = buckets.iter().map(|(_, p)| p.len()).sum();
+                println!("\n📊 Age Breakdown — {} PRs total\n{}", total, "─".repeat(50));
+
+                let mut any_shown = false;
+                for (bucket, prs) in &buckets {
+                    if prs.is_empty() {
+                        continue;
+                    }
+                    any_shown = true;
+                    let Bucket(label, emoji, _, _) = *bucket;
+                    println!("\n{} {} ({} PRs)", emoji, label.bold(), prs.len());
+                    println!("{}", "─".repeat(40));
+
+                    for r in prs {
+                        let age_days = (now - r.created_at).num_days();
+                        let age_str = if age_days == 0 {
+                            "today".green().to_string()
+                        } else if age_days == 1 {
+                            "1 day".yellow().to_string()
+                        } else {
+                            format!("{} days", age_days).red().to_string()
+                        };
+                        let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                        let _total_lines = r.additions + r.deletions;
+                        println!(
+                            "  #{}  {}  •  👤 {}  •  +{}/-{} lines  •  {} old{}\n      📁 {}  🔗 {}",
+                            r.pr_number,
+                            r.pr_title.bold(),
+                            r.pr_author.cyan(),
+                            r.additions,
+                            r.deletions,
+                            age_str,
+                            draft_str,
+                            r.repo.dimmed(),
+                            r.pr_url.blue().underline()
+                        );
+                    }
+                }
+
+                if !any_shown {
+                    println!("\n  No PRs match the specified age filters.\n");
+                }
+                println!("\n{}", "─".repeat(50));
+                println!("  💡 Use `--older-than 7` to see only week-old+ PRs");
+                println!("  💡 Use `--json` for scripting\n");
+            } else {
+                // Flat view: sorted oldest-first within each bucket, buckets ordered newest→oldest
+                let mut all_filtered: Vec<&github::PendingReview> = Vec::new();
+                for (_, prs) in &buckets {
+                    all_filtered.extend(prs.iter().cloned());
+                }
+                // Sort oldest-first (most neglected first)
+                all_filtered.sort_by_key(|r| r.created_at);
+
+                if all_filtered.is_empty() {
+                    println!("\n⏰ No PRs match the specified age filters.\n");
+                    return Ok(());
+                }
+
+                println!(
+                    "\n⏰ Age Report — {} PRs (oldest first)\n{}",
+                    all_filtered.len(),
+                    "─".repeat(50)
+                );
+
+                for r in &all_filtered {
+                    let age_days = (now - r.created_at).num_days();
+
+                    // Determine bucket for emoji
+                    let (emoji, bucket_label) = if age_days >= 15 {
+                        ("💀", "Overdue")
+                    } else if age_days >= 8 {
+                        ("🔥", "Stale")
+                    } else if age_days >= 4 {
+                        ("⏳", "Aging")
+                    } else if age_days >= 2 {
+                        ("🌱", "Fresh")
+                    } else {
+                        ("🆕", "New")
+                    };
+
+                    let age_str = if age_days == 0 {
+                        "today".green().to_string()
+                    } else if age_days == 1 {
+                        "1 day".yellow().to_string()
+                    } else if age_days <= 7 {
+                        format!("{} days", age_days).yellow().to_string()
+                    } else {
+                        format!("{} days", age_days).red().to_string()
+                    };
+
+                    let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+
+                    println!(
+                        "{}  {}  #{} ({})\n    👤 {}  •  +{}/-{} lines  •  {} old{}",
+                        emoji,
+                        bucket_label.cyan(),
+                        r.pr_number,
+                        r.repo.dimmed(),
+                        r.pr_author.cyan(),
+                        r.additions,
+                        r.deletions,
+                        age_str,
+                        draft_str
+                    );
+                    println!("    🔗 {}", r.pr_url.blue().underline());
+                    println!();
+                }
+
+                println!("{}", "─".repeat(50));
+                println!("  Buckets: 🆕 New <2d  🌱 Fresh 2-3d  ⏳ Aging 4-7d  🔥 Stale 8-14d  💀 Overdue 15d+");
+                println!("  💡 Use `--grouped` to see PRs organized by age bucket");
+                println!("  💡 Use `--older-than 7` to focus on week-old+ PRs\n");
+            }
+        }
+
         Commands::Snooze { action, pr_numbers, days } => {
             use serde::{Deserialize, Serialize};
 
