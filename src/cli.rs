@@ -70,6 +70,15 @@ pub enum Commands {
     },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary,
+    /// Show review workload distribution across team members (load balance analysis)
+    Load {
+        /// Minimum number of PRs to be considered "loaded" (default: 3)
+        #[arg(long, short)]
+        threshold: Option<u32>,
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Remove all past review files from the output directory
     Clean,
     /// Monitor for new PRs and send macOS notifications

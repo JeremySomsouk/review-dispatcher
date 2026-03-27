@@ -6,6 +6,7 @@
 - [mine](commands/mine.md)
 - [stats](commands/stats.md)
 - [team-summary](commands/team-summary.md)
+- [load](commands/load.md)
 - [assign](commands/assign.md)
 - [approve](commands/approve.md)
 - [claim](commands/claim.md)

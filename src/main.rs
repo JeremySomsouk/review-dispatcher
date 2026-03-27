@@ -404,6 +404,176 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Load { threshold, json } => {
+            use std::collections::HashMap;
+            use serde::Serialize;
+
+            let min_threshold = threshold.unwrap_or(3) as usize;
+
+            #[derive(Debug, Clone, Serialize)]
+            struct MemberLoad {
+                author: String,
+                pr_count: usize,
+                total_lines: u64,
+                total_additions: u64,
+                total_deletions: u64,
+                avg_age_days: f64,
+                oldest_pr_age_days: i64,
+                draft_count: usize,
+                repos: Vec<String>,
+                overloaded: bool,
+            }
+
+            let mut by_author: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
+            for r in &reviews {
+                by_author.entry(r.pr_author.clone()).or_insert_with(Vec::new).push(r);
+            }
+
+            let now = chrono::Utc::now();
+            let mut loads: Vec<MemberLoad> = Vec::new();
+
+            for (author, prs) in &by_author {
+                let total_lines = prs.iter().map(|r| r.additions + r.deletions).sum::<u64>();
+                let total_additions: u64 = prs.iter().map(|r| r.additions).sum();
+                let total_deletions: u64 = prs.iter().map(|r| r.deletions).sum();
+                let ages: Vec<i64> = prs.iter().map(|r| (now - r.created_at).num_days()).collect();
+                let avg_age = if ages.is_empty() {
+                    0.0
+                } else {
+                    ages.iter().sum::<i64>() as f64 / ages.len() as f64
+                };
+                let oldest_age = ages.iter().max().copied().unwrap_or(0);
+                let draft_count = prs.iter().filter(|r| r.draft).count();
+                let mut repos: Vec<String> = prs.iter().map(|r| r.repo.clone()).collect();
+                repos.sort();
+                repos.dedup();
+
+                loads.push(MemberLoad {
+                    author: author.clone(),
+                    pr_count: prs.len(),
+                    total_lines,
+                    total_additions,
+                    total_deletions,
+                    avg_age_days: avg_age,
+                    oldest_pr_age_days: oldest_age,
+                    draft_count,
+                    repos,
+                    overloaded: prs.len() >= min_threshold,
+                });
+            }
+
+            // Sort by pr_count descending
+            loads.sort_by(|a, b| b.pr_count.cmp(&a.pr_count));
+
+            let total_prs = reviews.len();
+            let total_load_members = loads.len();
+
+            if json {
+                #[derive(Serialize)]
+                struct LoadOutput<'a> {
+                    total_prs: usize,
+                    total_members: usize,
+                    threshold: usize,
+                    members: Vec<&'a MemberLoad>,
+                }
+                let output = LoadOutput {
+                    total_prs,
+                    total_members: total_load_members,
+                    threshold: min_threshold,
+                    members: loads.iter().collect(),
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("\n⚖️  Review Load Distribution\n{}", "─".repeat(50));
+                println!("  Total pending PRs: {} | Team members: {} | Overload threshold: {} PRs\n",
+                    total_prs.to_string().cyan(), total_load_members, min_threshold);
+
+                if loads.is_empty() {
+                    println!("  No review requests found.\n");
+                    return Ok(());
+                }
+
+                // Summary bar
+                let max_count = loads.first().map(|l| l.pr_count).unwrap_or(1);
+                println!("  Workload bar (max {} PRs):", max_count);
+                print!("  ");
+                for load in &loads {
+                    let bar_len = ((load.pr_count as f64 / max_count as f64) * 20.0).round() as usize;
+                    let bar = if load.overloaded {
+                        "█".repeat(bar_len).red()
+                    } else {
+                        "█".repeat(bar_len).cyan()
+                    };
+                    print!("{}", bar);
+                }
+                println!();
+                print!("  ");
+                for load in &loads {
+                    let ch = if load.overloaded { '🔴' } else { '🟢' };
+                    print!("{} ", ch);
+                    let spaces = load.pr_count.to_string().len();
+                    print!("{}", " ".repeat(spaces));
+                }
+                println!("\n");
+
+                // Detailed table
+                println!("  {:<20} {:>4} {:>8} {:>8} {:>10} {:>10}",
+                    "Author".bold(), "PRs", "+add", "-del", "Avg Age", "Status");
+                println!("  {}", "─".repeat(70));
+
+                let overloaded_count = loads.iter().filter(|l| l.overloaded).count();
+                let healthy_count = total_load_members - overloaded_count;
+
+                for load in &loads {
+                    let status = if load.overloaded {
+                        "🔴 OVERLOADED".red().to_string()
+                    } else {
+                        "🟢 OK".green().to_string()
+                    };
+                    let age_str = if load.avg_age_days < 1.0 {
+                        "<1d".to_string()
+                    } else {
+                        format!("{:.0}d", load.avg_age_days)
+                    };
+                    println!(
+                        "  {:<20} {:>4} {:>+8} {:>+8} {:>10} {}",
+                        load.author.bold(),
+                        load.pr_count.to_string().cyan(),
+                        load.total_additions.to_string().green(),
+                        load.total_deletions.to_string().red(),
+                        age_str.yellow(),
+                        status
+                    );
+                    if !load.repos.is_empty() {
+                        println!("  {:<20} repos: {}", "", load.repos.join(", ").dimmed());
+                    }
+                }
+
+                println!("  {}", "─".repeat(70));
+                println!("  Summary: {} healthy | {} overloaded", healthy_count, overloaded_count.to_string().red());
+
+                // Recommendations
+                println!("\n  💡 Recommendations:");
+                if overloaded_count > 0 {
+                    let overloaded_members: Vec<_> = loads.iter().filter(|l| l.overloaded).collect();
+                    if let Some(top) = overloaded_members.first() {
+                        println!("  • {} has the most pending PRs ({}), consider reassigning some",
+                            top.author.bold(), top.pr_count);
+                    }
+                    let avg = total_prs as f64 / total_load_members.max(1) as f64;
+                    println!("  • Average load: {:.1} PRs per member", avg);
+                    let underloaded: Vec<_> = loads.iter().filter(|l| l.pr_count < (avg as usize * 2 / 3)).collect();
+                    if !underloaded.is_empty() {
+                        println!("  • Consider delegating to: {}",
+                            underloaded.iter().map(|l| l.author.as_str()).collect::<Vec<_>>().join(", "));
+                    }
+                } else {
+                    println!("  • Team workload is balanced! 🎉");
+                }
+                println!();
+            }
+        }
+
         Commands::Clean => {
             if let Some(ref dir) = output_dir {
                 if dir.exists() {
