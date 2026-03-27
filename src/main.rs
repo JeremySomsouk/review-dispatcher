@@ -5760,6 +5760,204 @@ async fn main() -> anyhow::Result<()> {
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
+        Commands::Compare { pr1, pr2, detailed, json } => {
+            // Parse PR identifiers (format: "repo#123" or just "123")
+            fn parse_pr_id(s: &str, repos: &[String]) -> Option<(String, u64)> {
+                if s.contains('#') {
+                    let parts: Vec<&str> = s.split('#').collect();
+                    if parts.len() == 2 {
+                        let repo = parts[0].to_string();
+                        let num = parts[1].parse::<u64>().ok()?;
+                        return Some((repo, num));
+                    }
+                } else if let Ok(num) = s.parse::<u64>() {
+                    // Use first repo if not specified
+                    if let Some(repo) = repos.first() {
+                        return Some((repo.clone(), num));
+                    }
+                }
+                None
+            }
+
+            let (repo1, num1) = parse_pr_id(&pr1, &cfg.github_repos).ok_or_else(|| anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr1))?;
+            let (repo2, num2) = parse_pr_id(&pr2, &cfg.github_repos).ok_or_else(|| anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr2))?;
+
+            // Fetch both PRs
+            let client = octocrab::Octocrab::builder()
+                .personal_token(cfg.github_token.clone())
+                .build()?;
+
+            #[derive(Debug, Clone, serde::Serialize)]
+            struct ComparedPr {
+                repo: String,
+                pr_number: u64,
+                pr_title: String,
+                author: String,
+                age_days: i64,
+                additions: u64,
+                deletions: u64,
+                total_lines: u64,
+                draft: bool,
+                files_count: usize,
+                languages: std::collections::HashMap<String, u64>,
+                priority_score: u8,
+            }
+
+            async fn fetch_pr_details(client: &octocrab::Octocrab, org: &str, repo: &str, pr_number: u64) -> anyhow::Result<ComparedPr> {
+                let pr = client.pulls(org, repo).get(pr_number).await?;
+                let age_days = (chrono::Utc::now() - pr.created_at.unwrap_or_else(chrono::Utc::now)).num_days();
+                let additions = pr.additions.unwrap_or(0) as u64;
+                let deletions = pr.deletions.unwrap_or(0) as u64;
+                let total_lines = additions + deletions;
+
+                // Calculate priority score (1-5 stars)
+                let priority_score = {
+                    let age_score = if age_days <= 1 { 1 } else if age_days <= 3 { 2 } else if age_days <= 7 { 3 } else if age_days <= 14 { 4 } else { 5 };
+                    let size_score = if total_lines <= 50 { 1 } else if total_lines <= 200 { 2 } else if total_lines <= 500 { 3 } else if total_lines <= 1000 { 4 } else { 5 };
+                    ((age_score + size_score) / 2).min(5).max(1) as u8
+                };
+
+                // Fetch files to get language breakdown
+                let files = client.pulls(org, repo).list_files(pr_number).await?.into_iter().collect::<Vec<_>>();
+                let files_count = files.len();
+                let mut languages: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+                for f in &files {
+                    let lang = f.filename.split('.').last()
+                        .map(|ext| match ext {
+                            "ts" | "tsx" => "TypeScript",
+                            "js" | "jsx" | "mjs" => "JavaScript",
+                            "py" => "Python",
+                            "go" => "Go",
+                            "java" => "Java",
+                            "rs" => "Rust",
+                            "rb" => "Ruby",
+                            "cs" => "C#",
+                            "cpp" | "cc" | "cxx" => "C++",
+                            "c" | "h" => "C",
+                            "swift" => "Swift",
+                            "kt" | "kts" => "Kotlin",
+                            "scala" => "Scala",
+                            "php" => "PHP",
+                            "ex" | "exs" => "Elixir",
+                            "erl" => "Erlang",
+                            "hs" => "Haskell",
+                            "lua" => "Lua",
+                            "sql" => "SQL",
+                            "sh" | "bash" | "zsh" => "Shell",
+                            "yml" | "yaml" => "YAML",
+                            "json" => "JSON",
+                            "md" => "Markdown",
+                            "html" | "htm" => "HTML",
+                            "css" | "scss" | "sass" => "CSS",
+                            _ => "Other",
+                        }.to_string())
+                        .unwrap_or_else(|| "Other".to_string());
+                    *languages.entry(lang).or_insert(0) += 1;
+                }
+
+                Ok(ComparedPr {
+                    repo: repo.to_string(),
+                    pr_number,
+                    pr_title: pr.title.unwrap_or_default(),
+                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                    age_days,
+                    additions,
+                    deletions,
+                    total_lines,
+                    draft: pr.draft.unwrap_or(false),
+                    files_count,
+                    languages,
+                    priority_score,
+                })
+            }
+
+            let pr_details_1 = fetch_pr_details(&client, &cfg.github_org, &repo1, num1).await
+                .map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo1, num1, e))?;
+            let pr_details_2 = fetch_pr_details(&client, &cfg.github_org, &repo2, num2).await
+                .map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo2, num2, e))?;
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                    "pr1": pr_details_1,
+                    "pr2": pr_details_2,
+                }))?);
+            } else {
+                println!("\n⚖️  PR Comparison\n{}", "═".repeat(60));
+
+                // Helper to print PR comparison row
+                macro_rules! print_row {
+                    ($label:expr, $val1:expr, $val2:expr) => {
+                        let max_len = 40;
+                        let val1_str = $val1.chars().take(max_len).collect::<String>();
+                        let val2_str = $val2.chars().take(max_len).collect::<String>();
+                        println!("  {:12}  {:<40}  {:<40}", $label, val1_str, val2_str);
+                    };
+                }
+
+                // PR headers
+                println!("\n  {:12}  {:<40}  {:<40}", "",
+                    format!("#{} {}", num1, &pr_details_1.pr_title[..pr_details_1.pr_title.len().min(35)]),
+                    format!("#{} {}", num2, &pr_details_2.pr_title[..pr_details_2.pr_title.len().min(35)]));
+                println!("  {:12}  {:<40}  {:<40}", "",
+                    pr_details_1.repo.bold(), pr_details_2.repo.bold());
+                println!("{}", "─".repeat(60));
+
+                print_row!("Author", pr_details_1.author.cyan().to_string(), pr_details_2.author.cyan().to_string());
+                print_row!("Age", format!("{} days", pr_details_1.age_days), format!("{} days", pr_details_2.age_days));
+                print_row!("Size", format!("+{}/-{}", pr_details_1.additions, pr_details_1.deletions),
+                    format!("+{}/-{}", pr_details_2.additions, pr_details_2.deletions));
+                print_row!("Files", pr_details_1.files_count.to_string(), pr_details_2.files_count.to_string());
+                print_row!("Draft", if pr_details_1.draft { "Yes" } else { "No" }.to_string(),
+                    if pr_details_2.draft { "Yes" } else { "No" }.to_string());
+                print_row!("Priority", format!("{}/5", pr_details_1.priority_score), format!("{}/5", pr_details_2.priority_score));
+
+                println!("{}", "─".repeat(60));
+
+                // Winner indicators
+                let winner = |label: &str, w1: bool, w2: bool| -> String {
+                    match (w1, w2) {
+                        (true, false) => format!("← {} wins", label),
+                        (false, true) => format!("{} wins →", label),
+                        _ => format!("{} tie", label),
+                    }
+                };
+
+                let age_winner = pr_details_1.age_days < pr_details_2.age_days;
+                let size_winner = pr_details_1.total_lines < pr_details_2.total_lines;
+                let priority_winner = pr_details_1.priority_score > pr_details_2.priority_score;
+
+                println!("  📊 Summary:");
+                println!("    • Age: {} (newer)", winner("age", age_winner, pr_details_2.age_days < pr_details_1.age_days));
+                println!("    • Size: {} (smaller)", winner("size", size_winner, pr_details_2.total_lines < pr_details_1.total_lines));
+                println!("    • Priority: {} (higher score)", winner("priority", priority_winner, pr_details_2.priority_score > pr_details_1.priority_score));
+
+                if detailed {
+                    println!("\n  💻 Languages:");
+                    print!("    PR #{}: ", num1);
+                    let mut langs: Vec<_> = pr_details_1.languages.iter().collect();
+                    langs.sort_by(|a, b| b.1.cmp(a.1));
+                    for (lang, count) in langs.iter().take(5) {
+                        print!("{} ({}), ", lang, count);
+                    }
+                    println!();
+                    print!("    PR #{}: ", num2);
+                    let mut langs: Vec<_> = pr_details_2.languages.iter().collect();
+                    langs.sort_by(|a, b| b.1.cmp(a.1));
+                    for (lang, count) in langs.iter().take(5) {
+                        print!("{} ({}), ", lang, count);
+                    }
+                    println!();
+                }
+
+                // URLs
+                let url1 = format!("https://github.com/{}/pull/{}", cfg.github_org, repo1);
+                let url2 = format!("https://github.com/{}/pull/{}", cfg.github_org, repo2);
+                println!("\n  🔗 Links:");
+                println!("    PR #{}: {}", num1, url1.blue().underline());
+                println!("    PR #{}: {}", num2, url2.blue().underline());
+                println!();
+            }
+        }
     }
 
     // Open terminal tab last, after all files are written

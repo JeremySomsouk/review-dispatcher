@@ -515,6 +515,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Compare two PRs side-by-side to help decide which to review first
+    Compare {
+        /// First PR number to compare (in format "repo#123" or just "123" for first repo)
+        #[arg(value_name = "PR1")]
+        pr1: String,
+        /// Second PR number to compare (in format "repo#123" or just "123" for first repo)
+        #[arg(value_name = "PR2")]
+        pr2: String,
+        /// Show detailed comparison including file-level breakdown
+        #[arg(long, short = 'd')]
+        detailed: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
