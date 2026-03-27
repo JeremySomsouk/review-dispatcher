@@ -1,0 +1,9 @@
+[book]
+title = "Review Dispatcher"
+authors = ["Jeremy Somsouk"]
+description = "CLI tool for GitHub PR review management"
+src = "src"
+
+[output.html]
+default-theme = "ayu"
+site-url = "https://jeremysomsouk.github.io/review-dispatcher/"
