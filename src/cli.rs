@@ -409,6 +409,8 @@ pub enum SnoozeAction {
     Add,
     /// List currently snoozed PRs
     List,
+    /// Show detailed info about snoozed PRs (author, age, lines changed, priority)
+    Review,
     /// Remove PR(s) from the snooze list
     Remove,
     /// Clear all snoozed PRs

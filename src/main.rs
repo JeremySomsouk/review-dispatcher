@@ -2581,7 +2581,13 @@ async fn main() -> anyhow::Result<()> {
                 pub repo: String,
                 pub pr_number: u64,
                 pub pr_title: String,
+                pub pr_url: String,       // PR URL for quick access
                 pub snoozed_until: String, // ISO 8601 timestamp
+                pub snoozed_at: String,    // ISO 8601 timestamp when snooze was created
+                pub additions: u64,        // Lines added
+                pub deletions: u64,        // Lines deleted
+                pub priority_score: Option<u8>, // Priority score when snoozed
+                pub author: String,        // PR author
             }
 
             // Load existing snooze data
@@ -2665,7 +2671,13 @@ async fn main() -> anyhow::Result<()> {
                             repo: review.repo.clone(),
                             pr_number: review.pr_number,
                             pr_title: review.pr_title.clone(),
+                            pr_url: review.pr_url.clone(),
                             snoozed_until: snooze_until.clone(),
+                            snoozed_at: chrono::Utc::now().to_rfc3339(),
+                            additions: review.additions,
+                            deletions: review.deletions,
+                            priority_score: Some(logger::calculate_priority_score(review)),
+                            author: review.pr_author.clone(),
                         });
 
                         println!(
@@ -2740,6 +2752,86 @@ async fn main() -> anyhow::Result<()> {
                     }
                     println!("{}", "─".repeat(50));
                     println!("\n💡 Use `snooze remove --pr 123` to wake a PR early\n");
+                }
+
+                cli::SnoozeAction::Review => {
+                    let now = chrono::Utc::now();
+                    let mut active: Vec<_> = snoozed
+                        .iter()
+                        .filter(|e| {
+                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                                until.with_timezone(&chrono::Utc) > now
+                            } else {
+                                false
+                            }
+                        })
+                        .collect();
+
+                    if active.is_empty() {
+                        println!("\n😴 No currently snoozed PRs.\n");
+                        return Ok(());
+                    }
+
+                    // Sort by expiry time (soonest first)
+                    active.sort_by(|a, b| {
+                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        a_time.cmp(&b_time)
+                    });
+
+                    println!(
+                        "\n😴 Snoozed PRs — Detailed View ({} total)\n{}",
+                        active.len(),
+                        "─".repeat(55)
+                    );
+
+                    for entry in &active {
+                        let until = chrono::DateTime::parse_from_rfc3339(&entry.snoozed_until)
+                            .map(|t| t.with_timezone(&chrono::Utc))
+                            .unwrap_or(now);
+                        let remaining = (until - now).num_hours();
+                        let remaining_label = if remaining < 24 {
+                            format!("{}h left", remaining).red()
+                        } else {
+                            format!("{}d left", remaining / 24).yellow()
+                        };
+
+                        // Parse original snooze time to calculate how long ago it was snoozed
+                        let snoozed_at = chrono::DateTime::parse_from_rfc3339(&entry.snoozed_at)
+                            .map(|t| t.with_timezone(&chrono::Utc))
+                            .unwrap_or(now);
+                        let snoozed_for = (now - snoozed_at).num_hours();
+                        let snoozed_for_label = if snoozed_for < 24 {
+                            format!("{}h ago", snoozed_for)
+                        } else {
+                            format!("{}d ago", snoozed_for / 24)
+                        };
+
+                        println!("  😴 {}  #{}  ({})", 
+                            entry.pr_title.bold(), 
+                            entry.pr_number,
+                            entry.repo.dimmed()
+                        );
+                        println!("      ⏱️  Snoozed {}  •  ⏳ {}  •  📊 +{}/-{} lines",
+                            snoozed_for_label.dimmed(),
+                            remaining_label,
+                            entry.additions,
+                            entry.deletions
+                        );
+                        println!("      🔗 {}", entry.pr_url.blue().underline());
+                        
+                        // Show priority if available
+                        if let Some(score) = entry.priority_score {
+                            if score > 0 {
+                                let stars = "⭐".repeat(score as usize);
+                                println!("      {} Priority score", stars.dimmed());
+                            }
+                        }
+                        println!();
+                    }
+                    println!("{}", "─".repeat(55));
+                    println!("\n💡 Use `snooze remove --pr 123` to wake a PR early");
+                    println!("💡 Use `snooze extend --pr 123 --days 5` to extend snooze\n");
                 }
 
                 cli::SnoozeAction::Remove => {
