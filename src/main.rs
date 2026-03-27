@@ -741,6 +741,216 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Timeline { pr_number, json } => {
+            let target_pr = cli.pr.or(pr_number);
+
+            let prs = match target_pr {
+                Some(num) => {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
+                    .await?
+                }
+                None => {
+                    // Show all pending reviews and let user pick
+                    if reviews.is_empty() {
+                        println!("No pending reviews found.");
+                        return Ok(());
+                    }
+                    logger::print_reviews(&reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to show timeline [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        }
+                    }
+                }
+            };
+
+            if prs.is_empty() {
+                println!("No PR found.");
+                return Ok(());
+            }
+
+            for review in prs {
+                let timeline = github::fetch_pr_timeline(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &review.repo,
+                    review.pr_number,
+                )
+                .await?;
+
+                let timeline_output = serde_json::json!({
+                    "pr_number": review.pr_number,
+                    "pr_title": review.pr_title,
+                    "repo": review.repo,
+                    "url": review.pr_url,
+                    "events": timeline,
+                });
+
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&timeline_output)?);
+                } else {
+                    println!("\n{}", "═".repeat(60));
+                    println!("📜 PR #{} — {} Timeline", review.pr_number, review.pr_title.bold());
+                    println!("{}", "═".repeat(60));
+                    println!();
+
+                    if timeline.is_empty() {
+                        println!("  No timeline events found.");
+                    } else {
+                        // Group events by type for summary
+                        let mut review_count = 0;
+                        let mut comment_count = 0;
+                        let mut label_events = 0;
+                        let mut other_events = 0;
+
+                        for event in &timeline {
+                            match event.event.as_str() {
+                                "PullRequestReview" => review_count += 1,
+                                "Comment" | "IssueComment" => comment_count += 1,
+                                "labeled" | "unlabeled" => label_events += 1,
+                                _ => other_events += 1,
+                            }
+                        }
+
+                        println!("  📊 Summary: {} reviews, {} comments, {} label changes",
+                            review_count.to_string().green(),
+                            comment_count.to_string().cyan(),
+                            label_events.to_string().yellow()
+                        );
+                        println!();
+                        println!("{}", "─".repeat(60));
+
+                        // Show chronological timeline
+                        for event in &timeline {
+                            let time_str = event.created_at.format("%Y-%m-%d %H:%M").to_string();
+                            let actor_str = event.actor.as_deref().unwrap_or("unknown");
+
+                            let (icon, desc) = match event.event.as_str() {
+                                "PullRequestReview" => {
+                                    let state = event.data.get("review_state")
+                                        .and_then(|s| s.as_str())
+                                        .unwrap_or("COMMENTED");
+                                    let state_icon: &str = match state {
+                                        "APPROVED" => "✅",
+                                        "CHANGES_REQUESTED" => "🔁",
+                                        _ => "💬",
+                                    };
+                                    let preview = event.data.get("body_preview")
+                                        .and_then(|b| b.as_str())
+                                        .map(|s| format!(": \"{}\"", s.chars().take(60).collect::<String>()))
+                                        .unwrap_or_default();
+                                    (state_icon.to_string(), format!("{} by @{} review{}", state, actor_str.cyan(), preview))
+                                }
+                                "Comment" | "IssueComment" => {
+                                    let preview = event.data.get("body_preview")
+                                        .and_then(|b| b.as_str())
+                                        .map(|s| format!(": \"{}\"", s.chars().take(80).collect::<String>()))
+                                        .unwrap_or_default();
+                                    ("💬".to_string(), format!("Comment by @{}{}", actor_str.cyan(), preview))
+                                }
+                                "labeled" => {
+                                    let label = event.data.get("label")
+                                        .and_then(|l| l.as_str())
+                                        .unwrap_or("unknown");
+                                    ("🏷️".to_string(), format!("Labeled with *{}* by @{}", label, actor_str.cyan()))
+                                }
+                                "unlabeled" => {
+                                    let label = event.data.get("label")
+                                        .and_then(|l| l.as_str())
+                                        .unwrap_or("unknown");
+                                    ("🏷️".to_string(), format!("Unlabeled *{}* by @{}", label, actor_str.cyan()))
+                                }
+                                "assigned" => {
+                                    let assignee = event.data.get("assignee")
+                                        .and_then(|a| a.as_str())
+                                        .unwrap_or("unknown");
+                                    ("👤".to_string(), format!("Assigned to @{}", assignee.cyan()))
+                                }
+                                "unassigned" => {
+                                    let assignee = event.data.get("assignee")
+                                        .and_then(|a| a.as_str())
+                                        .unwrap_or("unknown");
+                                    ("👤".to_string(), format!("Unassigned @{}", assignee.cyan()))
+                                }
+                                "merged" => {
+                                    ("🔀".to_string(), format!("PR merged by @{}", actor_str.cyan()))
+                                }
+                                "closed" => {
+                                    let merged = event.data.get("merged").and_then(|m| m.as_bool()).unwrap_or(false);
+                                    if merged {
+                                        ("✅".to_string(), format!("PR closed and merged by @{}", actor_str.cyan()))
+                                    } else {
+                                        ("❌".to_string(), format!("PR closed without merging by @{}", actor_str.cyan()))
+                                    }
+                                }
+                                "reopened" => {
+                                    ("🔄".to_string(), format!("PR reopened by @{}", actor_str.cyan()))
+                                }
+                                "referenced" => {
+                                    ("🔗".to_string(), format!("Referenced from commit by @{}", actor_str.cyan()))
+                                }
+                                "head_ref_force_pushed" => {
+                                    ("⚡".to_string(), format!("Head branch force-pushed by @{}", actor_str.cyan()))
+                                }
+                                "head_ref_deleted" => {
+                                    ("🗑️".to_string(), format!("Head branch deleted by @{}", actor_str.cyan()))
+                                }
+                                "ready_for_review" => {
+                                    ("📣".to_string(), format!("PR marked as ready for review by @{}", actor_str.cyan()))
+                                }
+                                "converted_to_draft" => {
+                                    ("📝".to_string(), format!("PR converted to draft by @{}", actor_str.cyan()))
+                                }
+                                "locked" => {
+                                    ("🔒".to_string(), format!("PR locked by @{}", actor_str.cyan()))
+                                }
+                                "unlocked" => {
+                                    ("🔓".to_string(), format!("PR unlocked by @{}", actor_str.cyan()))
+                                }
+                                "pinned" => {
+                                    ("📌".to_string(), format!("PR pinned by @{}", actor_str.cyan()))
+                                }
+                                "unpinned" => {
+                                    ("📍".to_string(), format!("PR unpinned by @{}", actor_str.cyan()))
+                                }
+                                "subscribed" | "unsubscribed" => {
+                                    ("🔔".to_string(), format!("@{} {}", actor_str.cyan(), event.event.replace("_", " ")))
+                                }
+                                "mentioned" | "team_mentioned" => {
+                                    ("@".to_string(), format!("{} mentioned by @{}", event.event.replace("_", " "), actor_str.cyan()))
+                                }
+                                _ => {
+                                    ("📌".to_string(), format!("{} by @{}", event.event.replace("_", " "), actor_str.cyan()))
+                                }
+                            };
+
+                            println!();
+                            println!("  {}  {}  {}", time_str.dimmed(), icon, desc);
+                        }
+                    }
+
+                    println!();
+                    println!("{}", "─".repeat(60));
+                    println!("  🔗 {}", review.pr_url.blue().underline());
+                    println!("{}", "═".repeat(60));
+                    println!();
+                }
+            }
+        }
+
         Commands::Browse { pr_numbers } => {
             let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
                 // Parse comma-separated PR numbers

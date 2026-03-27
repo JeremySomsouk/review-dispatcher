@@ -939,3 +939,123 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
         rate_limit_warning,
     })
 }
+
+/// Represents a single event in a PR's timeline.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TimelineEvent {
+    /// Event type: "PullRequestReview", "Comment", "LabelEvent", "AssignEvent", "MilestoneEvent", "ClosedEvent", "ReopenedEvent", "MergedEvent", etc.
+    pub event: String,
+    /// When this event occurred
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    /// Actor (user) who triggered this event
+    pub actor: Option<String>,
+    /// Event-specific data (e.g., review state, comment body preview)
+    pub data: serde_json::Value,
+}
+
+/// Fetch the timeline of events for a specific PR.
+pub async fn fetch_pr_timeline(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+) -> Result<Vec<TimelineEvent>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let timeline_url = format!(
+        "/repos/{}/{}/issues/{}/timeline",
+        org, repo, pr_number
+    );
+
+    let events: Vec<serde_json::Value> = client
+        .get(&timeline_url, Some(&[("per_page", "100")]))
+        .await
+        .unwrap_or_default();
+
+    let mut timeline = Vec::new();
+
+    for event in events {
+        let event_type = event.get("event")
+            .and_then(|e| e.as_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        let created_at = event.get("created_at")
+            .and_then(|t| t.as_str())
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc))
+            .unwrap_or_else(chrono::Utc::now);
+
+        let actor = event.get("actor")
+            .or_else(|| event.get("user"))
+            .and_then(|a| a.get("login"))
+            .and_then(|l| l.as_str())
+            .map(String::from);
+
+        // Extract event-specific data
+        let mut data = serde_json::json!({});
+
+        match event_type.as_str() {
+            "PullRequestReview" => {
+                if let Some(state) = event.get("state").and_then(|s| s.as_str()) {
+                    data["review_state"] = serde_json::json!(state);
+                }
+                if let Some(body) = event.get("body").and_then(|b| b.as_str()) {
+                    let preview: String = body.chars().take(200).collect();
+                    data["body_preview"] = serde_json::json!(preview);
+                }
+            }
+            "Comment" | "IssueComment" => {
+                if let Some(body) = event.get("body").and_then(|b| b.as_str()) {
+                    let preview: String = body.chars().take(200).collect();
+                    data["body_preview"] = serde_json::json!(preview);
+                }
+            }
+            "labeled" => {
+                if let Some(label) = event.get("label").and_then(|l| l.get("name")) {
+                    data["label"] = label.clone();
+                }
+            }
+            "unlabeled" => {
+                if let Some(label) = event.get("label").and_then(|l| l.get("name")) {
+                    data["label"] = label.clone();
+                }
+            }
+            "assigned" | "unassigned" => {
+                if let Some(assignee) = event.get("assignee").and_then(|a| a.get("login")) {
+                    data["assignee"] = assignee.clone();
+                }
+            }
+            "merged" => {
+                if let Some(merge_commit_sha) = event.get("merge_commit_sha") {
+                    data["merge_commit_sha"] = merge_commit_sha.clone();
+                }
+            }
+            "closed" => {
+                if let Some(merged) = event.get("merged") {
+                    data["merged"] = merged.clone();
+                }
+            }
+            _ => {
+                // For other event types, include relevant fields
+                if let Some(label) = event.get("label").and_then(|l| l.get("name")) {
+                    data["label"] = label.clone();
+                }
+            }
+        }
+
+        timeline.push(TimelineEvent {
+            event: event_type,
+            created_at,
+            actor,
+            data,
+        });
+    }
+
+    // Timeline API returns events newest-first, but we want chronological order
+    timeline.reverse();
+
+    Ok(timeline)
+}

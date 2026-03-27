@@ -110,6 +110,15 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Show the chronological timeline of events on a PR (reviews, comments, labels, CI, etc.)
+    Timeline {
+        /// PR number to show timeline for
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Assign yourself as a reviewer on a PR
     Assign {
         /// PR number to assign yourself to
