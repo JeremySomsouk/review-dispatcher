@@ -107,6 +107,12 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
     },
+    /// Remove yourself as a reviewer from a PR
+    Unassign {
+        /// PR number to unassign yourself from
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+    },
     /// Post a comment on a PR directly from the CLI
     Comment {
         /// PR number to comment on
