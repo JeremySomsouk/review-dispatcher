@@ -627,6 +627,123 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
+        Commands::Files { pr_numbers, all } => {
+            let targets: Vec<_> = if all {
+                // Show files for all pending reviews
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                // Parse comma-separated PR numbers
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs
+                let mut all_prs = Vec::new();
+                for num in &results {
+                    let prs = github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                    .await?;
+                    all_prs.extend(prs);
+                }
+                all_prs
+            } else {
+                // Interactive: show list and let user pick
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to show files [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                    }
+                }
+            };
+
+            if targets.is_empty() {
+                println!("No PRs found.");
+                return Ok(());
+            }
+
+            // Show files for each selected PR
+            for review in &targets {
+                print!("\n⏳ Fetching files for #{} {}... ", review.pr_number, review.pr_title);
+                io::stdout().flush()?;
+
+                match github::fetch_pr_files(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &review.repo,
+                    review.pr_number,
+                )
+                .await
+                {
+                    Ok(files) => {
+                        println!("{}", "done".green());
+                        println!("\n{}", "─".repeat(60));
+                        println!("📄 {}  #{}  ({} files)", review.pr_title.bold(), review.pr_number, files.len());
+                        println!("{}", "─".repeat(60));
+
+                        if files.is_empty() {
+                            println!("  (no file changes)");
+                        } else {
+                            for file in &files {
+                                let status_icon = match file.status.as_str() {
+                                    "added" => "+".green(),
+                                    "removed" => "-".red(),
+                                    "modified" => "M".yellow(),
+                                    "renamed" => "R".cyan(),
+                                    _ => "?".normal(),
+                                };
+                                let total = file.additions + file.deletions;
+                                let size_indicator = if total > 500 {
+                                    format!(" ({} lines)", total).red()
+                                } else if total > 200 {
+                                    format!(" ({} lines)", total).yellow()
+                                } else {
+                                    format!(" ({} lines)", total).dimmed()
+                                };
+                                println!(
+                                    "  {}  {}{}",
+                                    status_icon,
+                                    file.filename.dimmed(),
+                                    size_indicator
+                                );
+                            }
+                        }
+                        println!("{}", "─".repeat(60));
+                    }
+                    Err(e) => {
+                        println!("{}", "failed".red());
+                        println!("  ❌ Error fetching files: {}", e);
+                    }
+                }
+            }
+            println!();
+        }
+
         Commands::Filter { repo, author, min_size, max_size, min_age, max_age, drafts_only, no_drafts, priority, json } => {
             // Apply filters to the reviews
             let filtered: Vec<_> = reviews.iter().filter(|r| {

@@ -206,3 +206,51 @@ pub async fn fetch_my_open_prs(
     my_prs.sort_by_key(|r| r.created_at);
     Ok(my_prs)
 }
+
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PullRequestFile {
+    pub filename: String,
+    pub status: String,
+    pub additions: u64,
+    pub deletions: u64,
+}
+
+pub async fn fetch_pr_files(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+) -> Result<Vec<PullRequestFile>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let files: Vec<PullRequestFile> = client
+        .pulls(org, repo)
+        .list_files(pr_number)
+        .await?
+        .into_iter()
+        .map(|f| {
+            let status_str = match f.status {
+                octocrab::models::repos::DiffEntryStatus::Added => "added",
+                octocrab::models::repos::DiffEntryStatus::Removed => "removed",
+                octocrab::models::repos::DiffEntryStatus::Modified => "modified",
+                octocrab::models::repos::DiffEntryStatus::Renamed => "renamed",
+                octocrab::models::repos::DiffEntryStatus::Copied => "copied",
+                octocrab::models::repos::DiffEntryStatus::Changed => "changed",
+                octocrab::models::repos::DiffEntryStatus::Unchanged => "unchanged",
+                _ => "unknown",
+            };
+            PullRequestFile {
+                filename: f.filename,
+                status: status_str.to_string(),
+                additions: f.additions,
+                deletions: f.deletions,
+            }
+        })
+        .collect();
+
+    Ok(files)
+}

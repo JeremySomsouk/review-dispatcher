@@ -109,6 +109,15 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
     },
+    /// Show changed files for one or more PRs
+    Files {
+        /// PR number(s) to show files for (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
+        /// Show files for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+    },
     /// Filter pending reviews by various criteria
     Filter {
         /// Filter by repository name (partial match)
