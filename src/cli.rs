@@ -349,6 +349,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// Categorize pending PRs by size (XS/S/M/L/XL) with statistics and visual breakdown
+    Size {
+        /// Show only PRs of specific size(s) - XS, S, M, L, XL (comma-separated)
+        #[arg(long, short = 's')]
+        filter_size: Option<String>,
+        /// Group output by size bucket instead of flat list
+        #[arg(long, short = 'g', default_value_t = false)]
+        grouped: bool,
+        /// Show priority scores for each PR
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
         /// Snooze action: add, list, remove, or clear

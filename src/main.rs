@@ -2084,6 +2084,254 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
+        Commands::Size { filter_size, grouped, priority, json } => {
+            use chrono::Utc;
+
+            // Size buckets: (label, emoji, min_lines, max_lines)
+            // XS: 0-30, S: 31-100, M: 101-300, L: 301-800, XL: 801+
+            #[derive(Clone, Copy)]
+            struct SizeBucket(&'static str, u64, Option<u64>);
+            const SIZE_BUCKETS: [SizeBucket; 5] = [
+                SizeBucket("XS", 0, Some(30)),
+                SizeBucket("S",  31, Some(100)),
+                SizeBucket("M",  101, Some(300)),
+                SizeBucket("L",  301, Some(800)),
+                SizeBucket("XL", 801, None),
+            ];
+
+            // Parse filter_size if provided
+            let filter_sizes: Option<Vec<String>> = filter_size.as_ref().map(|s| {
+                s.split(',').map(|part| part.trim().to_uppercase()).collect()
+            });
+
+            #[derive(serde::Serialize)]
+            struct SizeItem<'a> {
+                repo: &'a str,
+                pr_number: u64,
+                pr_title: &'a str,
+                pr_author: &'a str,
+                pr_url: &'a str,
+                additions: u64,
+                deletions: u64,
+                total_lines: u64,
+                draft: bool,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                priority_score: Option<u8>,
+            }
+
+            #[derive(serde::Serialize)]
+            struct SizeBucketOutput<'a> {
+                label: &'a str,
+                emoji: &'a str,
+                min_lines: u64,
+                max_lines: Option<u64>,
+                prs: Vec<SizeItem<'a>>,
+            }
+
+            let mut buckets: Vec<(SizeBucket, Vec<&github::PendingReview>)> =
+                SIZE_BUCKETS.iter().cloned().map(|b| (b, vec![])).collect();
+
+            for r in &reviews {
+                let total_lines = r.additions + r.deletions;
+
+                // Apply size filter if specified
+                if let Some(ref sizes) = filter_sizes {
+                    let mut matched = false;
+                    for (bucket, _) in &buckets {
+                        let SizeBucket(label, min, max) = *bucket;
+                        let in_bucket = if let Some(max) = max {
+                            total_lines >= min && total_lines <= max
+                        } else {
+                            total_lines >= min
+                        };
+                        if sizes.iter().any(|s| s.as_str() == label) && in_bucket {
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if !matched {
+                        continue;
+                    }
+                }
+
+                // Find matching bucket
+                for (bucket, prs) in &mut buckets {
+                    let SizeBucket(_, min, max) = *bucket;
+                    let in_bucket = if let Some(max) = max {
+                        total_lines >= min && total_lines <= max
+                    } else {
+                        total_lines >= min
+                    };
+                    if in_bucket {
+                        prs.push(r);
+                        break;
+                    }
+                }
+            }
+
+            // Update emoji based on bucket
+            let size_emojis = ["⚖️", "🔬", "📊", "📈", "🚀"];
+
+            if json {
+                let output: Vec<SizeBucketOutput> = buckets
+                    .iter()
+                    .filter(|(_, prs)| !prs.is_empty())
+                    .map(|(bucket, prs)| {
+                        let SizeBucket(label, min, max) = *bucket;
+                        SizeBucketOutput {
+                            label,
+                            emoji: size_emojis[SIZE_BUCKETS.iter().position(|b| b.0 == label).unwrap_or(0)],
+                            min_lines: min,
+                            max_lines: max,
+                            prs: prs.iter().map(|r| {
+                                let score = if priority {
+                                    Some(logger::calculate_priority_score(r))
+                                } else {
+                                    None
+                                };
+                                SizeItem {
+                                    repo: &r.repo,
+                                    pr_number: r.pr_number,
+                                    pr_title: &r.pr_title,
+                                    pr_author: &r.pr_author,
+                                    pr_url: &r.pr_url,
+                                    additions: r.additions,
+                                    deletions: r.deletions,
+                                    total_lines: r.additions + r.deletions,
+                                    draft: r.draft,
+                                    priority_score: score,
+                                }
+                            }).collect(),
+                        }
+                    }).collect();
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else if grouped {
+                // Grouped view: one section per size bucket
+                let total: usize = buckets.iter().map(|(_, p)| p.len()).sum();
+                println!("\n📏 Size Breakdown — {} PRs total\n{}", total, "─".repeat(50));
+
+                let mut any_shown = false;
+                for (bucket, prs) in &buckets {
+                    if prs.is_empty() {
+                        continue;
+                    }
+                    any_shown = true;
+                    let SizeBucket(label, min, max) = *bucket;
+                    let bucket_idx = SIZE_BUCKETS.iter().position(|b| b.0 == label).unwrap_or(0);
+                    let emoji = size_emojis[bucket_idx];
+                    let range_str = if let Some(max) = max {
+                        format!("{}-{} lines", min, max)
+                    } else {
+                        format!("{}+ lines", min)
+                    };
+
+                    let bucket_additions: u64 = prs.iter().map(|r| r.additions).sum();
+                    let bucket_deletions: u64 = prs.iter().map(|r| r.deletions).sum();
+
+                    println!("\n{} {} {} ({} PRs, +{}/-{} lines)",
+                        emoji, label.bold(), range_str.dimmed(), prs.len(), bucket_additions, bucket_deletions);
+                    println!("{}", "─".repeat(40));
+
+                    for r in prs {
+                        let total_lines = r.additions + r.deletions;
+                        let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                        let priority_str = if priority {
+                            let score = logger::calculate_priority_score(r);
+                            let stars = "★".repeat(score as usize);
+                            format!(" {}", stars.red())
+                        } else {
+                            String::new()
+                        };
+                        println!(
+                            "  #{}  {}  •  👤 {}  •  +{}/-{} lines{}\n      📁 {}  🔗 {}",
+                            r.pr_number,
+                            r.pr_title.bold(),
+                            r.pr_author.cyan(),
+                            r.additions,
+                            r.deletions,
+                            format!("{}{}", draft_str, priority_str),
+                            r.repo.dimmed(),
+                            r.pr_url.blue().underline()
+                        );
+                    }
+                }
+
+                if !any_shown {
+                    println!("\n  No PRs match the specified size filters.\n");
+                }
+                println!("\n{}", "─".repeat(50));
+                println!("  💡 Use `--filter-size XS,S,M,L,XL` to show only specific sizes");
+                println!("  💡 Use `--priority` or `-P` to show priority scores");
+                println!("  💡 Use `--json` for scripting\n");
+            } else {
+                // Flat view: sorted smallest-first within each bucket
+                let mut all_filtered: Vec<&github::PendingReview> = Vec::new();
+                for (_, prs) in &buckets {
+                    all_filtered.extend(prs.iter().cloned());
+                }
+                // Sort smallest-first (quick wins first)
+                all_filtered.sort_by_key(|r| r.additions + r.deletions);
+
+                if all_filtered.is_empty() {
+                    println!("\n📏 No PRs match the specified size filters.\n");
+                    return Ok(());
+                }
+
+                println!(
+                    "\n📏 Size Report — {} PRs (smallest first)\n{}",
+                    all_filtered.len(),
+                    "─".repeat(50)
+                );
+
+                // Calculate bucket emoji dynamically
+                let get_size_info = |total: u64| -> (&str, &str, &str) {
+                    if total <= 30 {
+                        ("XS", "⚖️", "tiny")
+                    } else if total <= 100 {
+                        ("S", "🔬", "small")
+                    } else if total <= 300 {
+                        ("M", "📊", "medium")
+                    } else if total <= 800 {
+                        ("L", "📈", "large")
+                    } else {
+                        ("XL", "🚀", "extra large")
+                    }
+                };
+
+                for r in &all_filtered {
+                    let total_lines = r.additions + r.deletions;
+                    let (size_label, emoji, size_desc) = get_size_info(total_lines);
+                    let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                    let priority_str = if priority {
+                        let score = logger::calculate_priority_score(r);
+                        let stars = "★".repeat(score as usize);
+                        format!(" {}", stars.red())
+                    } else {
+                        String::new()
+                    };
+
+                    println!(
+                        "{} {}  #{}  {}  •  👤 {}  •  +{}/-{} lines{}\n    📁 {}  🔗 {}",
+                        emoji,
+                        size_label.cyan(),
+                        r.pr_number,
+                        r.pr_title.bold(),
+                        r.pr_author.cyan(),
+                        r.additions,
+                        r.deletions,
+                        format!("{}{}", draft_str, priority_str),
+                        r.repo.dimmed(),
+                        r.pr_url.blue().underline()
+                    );
+                }
+
+                println!("{}", "─".repeat(50));
+                println!("  Sizes: ⚖️ XS <30  🔬 S 31-100  📊 M 101-300  📈 L 301-800  🚀 XL 801+");
+                println!("  💡 Use `--grouped` to see PRs organized by size bucket");
+                println!("  💡 Use `--filter-size S,M` to show only small/medium PRs\n");
+            }
+        }
+
         Commands::Snooze { action, pr_numbers, days } => {
             use serde::{Deserialize, Serialize};
 
