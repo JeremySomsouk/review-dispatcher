@@ -23,6 +23,7 @@ review-dispatcher review-time [OPTIONS]
 |------|-------------|---------|
 | `PR_NUMBERS` | PR number(s) to estimate (comma-separated) | Interactive |
 | `-a, --all` | Show estimates for all pending reviews | `false` |
+| `-g, --grouped` | Group output by time category | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## How It Works
@@ -62,6 +63,9 @@ review-dispatcher review-time 4821,4815,4809
 
 # Estimate all pending reviews
 review-dispatcher review-time --all
+
+# Group by time category for session planning
+review-dispatcher review-time --all --grouped
 
 # Get JSON output for scripting
 review-dispatcher review-time --all --json

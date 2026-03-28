@@ -5375,7 +5375,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewTime { pr_numbers, all, json } => {
+        Commands::ReviewTime { pr_numbers, all, grouped, json } => {
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
@@ -5470,6 +5470,7 @@ async fn main() -> anyhow::Result<()> {
                 size_category: String,
                 age_days: i64,
                 priority_score: u8,
+                draft: bool,
             }
 
             let mut estimates: Vec<ReviewTimeEstimate> = Vec::new();
@@ -5535,6 +5536,7 @@ async fn main() -> anyhow::Result<()> {
                     size_category: size_cat.to_string(),
                     age_days,
                     priority_score,
+                    draft: review.draft,
                 });
             }
 
@@ -5549,51 +5551,159 @@ async fn main() -> anyhow::Result<()> {
             let total_minutes: u32 = estimates.iter().map(|e| e.estimated_minutes).sum();
             let total_hours = total_minutes as f64 / 60.0;
 
-            println!(
-                "\n⏱️  Review Time Estimates — {} PRs, ~{:.1}h total\n{}",
-                estimates.len(),
-                total_hours,
-                "─".repeat(55)
-            );
+            // Time bucket definitions: (label, emoji, min_minutes, max_minutes)
+            #[derive(Clone, Copy)]
+            struct TimeBucket(&'static str, &'static str, u32, Option<u32>);
+            const TIME_BUCKETS: [TimeBucket; 5] = [
+                TimeBucket("⚡ lightning", "⚡", 0, Some(10)),
+                TimeBucket("🔵 quick", "🔵", 10, Some(20)),
+                TimeBucket("🟡 moderate", "🟡", 20, Some(45)),
+                TimeBucket("🟠 substantial", "🟠", 45, Some(90)),
+                TimeBucket("🔴 lengthy", "🔴", 90, None),
+            ];
 
-            for est in &estimates {
-                let size_color: colored::Color = match est.size_category.as_str() {
-                    "XS" | "S" => colored::Color::Green,
-                    "M" => colored::Color::Yellow,
-                    "L" => colored::Color::Red,
-                    _ => colored::Color::Magenta,
-                };
+            if grouped {
+                // Grouped view: organize by time category
+                let mut buckets: Vec<(TimeBucket, Vec<&ReviewTimeEstimate>)> =
+                    TIME_BUCKETS.iter().cloned().map(|b| (b, vec![])).collect();
 
-                let time_str = if est.estimated_minutes < 60 {
-                    format!("{} min", est.estimated_minutes)
-                } else {
-                    let hours = est.estimated_minutes as f64 / 60.0;
-                    format!("{:.1}h", hours)
-                };
-
-                let stars = "★".repeat(est.priority_score as usize);
+                for est in &estimates {
+                    for (bucket, prs) in &mut buckets {
+                        let TimeBucket(_, _, min, max) = *bucket;
+                        let in_bucket = if let Some(max) = max {
+                            est.estimated_minutes >= min && est.estimated_minutes < max
+                        } else {
+                            est.estimated_minutes >= min
+                        };
+                        if in_bucket {
+                            prs.push(est);
+                            break;
+                        }
+                    }
+                }
 
                 println!(
-                    "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}\n     {} ⭐{}",
-                    est.size_category.color(size_color),
-                    est.pr_title.bold(),
-                    est.pr_number,
-                    est.repo.dimmed(),
-                    est.author.cyan(),
-                    est.size_category,
-                    est.total_lines,
-                    time_str.green(),
-                    est.time_category,
-                    stars.red(),
-                    est.priority_score
+                    "\n⏱️  Review Time Estimates — {} PRs, ~{:.1}h total (grouped by time)\n{}",
+                    estimates.len(),
+                    total_hours,
+                    "─".repeat(55)
                 );
-                println!();
-            }
 
-            println!("{}", "─".repeat(55));
-            println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
-            println!("  💡 Time estimates based on lines changed, adjusted for size complexity");
-            println!("  💡 Use `--json` for scripting\n");
+                let mut any_shown = false;
+                for (bucket, prs) in &buckets {
+                    if prs.is_empty() {
+                        continue;
+                    }
+                    any_shown = true;
+                    let TimeBucket(label, emoji, min, max) = *bucket;
+                    let range_str = if let Some(max) = max {
+                        format!("{} to {} min", min, max)
+                    } else {
+                        format!("{}+ min", min)
+                    };
+
+                    let bucket_minutes: u32 = prs.iter().map(|e| e.estimated_minutes).sum();
+                    let bucket_hours = bucket_minutes as f64 / 60.0;
+
+                    println!(
+                        "\n{} {} {} ({} PRs, {:.1}h total)\n{}",
+                        emoji,
+                        label.bold(),
+                        range_str.dimmed(),
+                        prs.len(),
+                        bucket_hours,
+                        "─".repeat(40)
+                    );
+
+                    for est in prs {
+                        let size_color: colored::Color = match est.size_category.as_str() {
+                            "XS" | "S" => colored::Color::Green,
+                            "M" => colored::Color::Yellow,
+                            "L" => colored::Color::Red,
+                            _ => colored::Color::Magenta,
+                        };
+
+                        let time_str = if est.estimated_minutes < 60 {
+                            format!("{} min", est.estimated_minutes)
+                        } else {
+                            let hours = est.estimated_minutes as f64 / 60.0;
+                            format!("{:.1}h", hours)
+                        };
+
+                        let stars = "★".repeat(est.priority_score as usize);
+
+                        println!(
+                            "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}{}",
+                            est.size_category.color(size_color),
+                            est.pr_title.bold(),
+                            est.pr_number,
+                            est.repo.dimmed(),
+                            est.author.cyan(),
+                            est.size_category,
+                            est.total_lines,
+                            time_str.green(),
+                            stars.red(),
+                            if est.draft { " 📝DRAFT".yellow().to_string() } else { String::new() }
+                        );
+                    }
+                }
+
+                if !any_shown {
+                    println!("\n  No PRs to estimate.\n");
+                }
+                println!("\n{}", "─".repeat(55));
+                println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
+                println!("  💡 Use `--grouped` to see PRs organized by time category");
+                println!("  💡 Use `--json` for scripting\n");
+            } else {
+                // Flat view: sorted by time (longest first)
+                println!(
+                    "\n⏱️  Review Time Estimates — {} PRs, ~{:.1}h total\n{}",
+                    estimates.len(),
+                    total_hours,
+                    "─".repeat(55)
+                );
+
+                for est in &estimates {
+                    let size_color: colored::Color = match est.size_category.as_str() {
+                        "XS" | "S" => colored::Color::Green,
+                        "M" => colored::Color::Yellow,
+                        "L" => colored::Color::Red,
+                        _ => colored::Color::Magenta,
+                    };
+
+                    let time_str = if est.estimated_minutes < 60 {
+                        format!("{} min", est.estimated_minutes)
+                    } else {
+                        let hours = est.estimated_minutes as f64 / 60.0;
+                        format!("{:.1}h", hours)
+                    };
+
+                    let stars = "★".repeat(est.priority_score as usize);
+
+                    println!(
+                        "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}\n     {} ⭐{}",
+                        est.size_category.color(size_color),
+                        est.pr_title.bold(),
+                        est.pr_number,
+                        est.repo.dimmed(),
+                        est.author.cyan(),
+                        est.size_category,
+                        est.total_lines,
+                        time_str.green(),
+                        est.time_category,
+                        stars.red(),
+                        est.priority_score
+                    );
+                    println!();
+                }
+
+                println!("{}", "─".repeat(55));
+                println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
+                println!("  💡 Time estimates based on lines changed, adjusted for size complexity");
+                println!("  💡 Use `--grouped` to see PRs organized by time category");
+                println!("  💡 Use `--json` for scripting\n");
+            }
         }
 
         Commands::Report { days, json } => {

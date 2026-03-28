@@ -633,6 +633,9 @@ pub enum Commands {
         /// Show review time for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Group output by time category (lightning/quick/moderate/substantial/lengthy)
+        #[arg(long, short = 'g')]
+        grouped: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
