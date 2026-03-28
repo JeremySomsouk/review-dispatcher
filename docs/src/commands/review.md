@@ -26,6 +26,8 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 | `-o, --output <FILE>` | Output diff to file | Terminal |
 | `-l, --language <LANG>` | Language hint for syntax highlighting | Auto-detected |
 | `-P, --priority` | Show priority score (1-5 stars) | `false` |
+| `--repo <PATTERN>` | Filter by repository (partial match, case-insensitive) | - |
+| `--author <PATTERN>` | Filter by author (partial match, case-insensitive) | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -38,4 +40,7 @@ review-dispatcher review 4821 --json
 review-dispatcher review --pr 4821 --output diff.patch
 review-dispatcher review --all
 review-dispatcher review --all --priority
+review-dispatcher review --all --repo myservice
+review-dispatcher review --all --author johndoe
+review-dispatcher review --all --repo api --author alice
 ```

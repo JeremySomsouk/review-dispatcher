@@ -3309,8 +3309,27 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, pr, all, context, output_file, language, priority, json } => {
+        Commands::Review { pr_number, pr, all, context, output_file, language, priority, repo, author, json } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
+
+            // Apply --repo and --author filters first (consistent with other commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
 
             let prs = match target_pr {
                 Some(num) => {
@@ -3322,15 +3341,15 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .await?
                 }
-                None if all && !reviews.is_empty() => {
-                    reviews.clone()
+                None if all && !filtered_reviews.is_empty() => {
+                    filtered_reviews
                 }
                 None => {
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
+                    if filtered_reviews.is_empty() {
+                        println!("No matching reviews found.");
                         return Ok(());
                     }
-                    logger::print_reviews(&reviews, false);
+                    logger::print_reviews(&filtered_reviews, false);
                     print!(
                         "\n{} ",
                         "Select PR to review [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -3338,10 +3357,10 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
+                    match parse_selection(input.trim(), filtered_reviews.len()) {
                         Selection::Quit => return Ok(()),
                         Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                         }
                     }
                 }
