@@ -358,7 +358,7 @@ pub enum Commands {
         #[arg(long, short = 'f')]
         failed_only: bool,
         /// Only show PRs with passing checks
-        #[arg(long, short = 'P')]
+        #[arg(long, short = 'p')]
         passing_only: bool,
         /// Show CI status for all pending reviews
         #[arg(long, short = 'a')]
@@ -366,6 +366,12 @@ pub enum Commands {
         /// PR number(s) to check (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

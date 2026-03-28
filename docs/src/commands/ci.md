@@ -21,12 +21,14 @@ review-dispatcher ci [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-f, --failing-only` | Only show PRs with failing checks | `false` |
-| `-P, --passing-only` | Only show PRs with passing checks | `false` |
+| `-p, --passing-only` | Only show PRs with passing checks | `false` |
 | `-a, --all` | Show CI status for all pending reviews | `false` |
 | `-n, --pr-numbers <NUMS>` | PR number(s) to check (comma-separated) | - |
+| `-r, --repo <REPO>` | Filter by repository name (partial match) | - |
+| `--author <AUTHOR>` | Filter by author username (partial match) | - |
 | `--json` | Output as JSON | `false` |
 
-Note: `-p` is reserved globally for `--pr` (target specific PR). Use `-P` (uppercase) for `--passing-only`.
+Note: `-p` is the short form for `--passing-only` in this command. Use `--pr` (global flag) to target a specific PR number.
 
 ## Examples
 
@@ -35,4 +37,7 @@ review-dispatcher ci
 review-dispatcher ci --failing-only
 review-dispatcher ci --passing-only
 review-dispatcher ci -f -a
+review-dispatcher ci --repo myrepo
+review-dispatcher ci --author johndoe
+review-dispatcher ci --repo myrepo --failing-only
 ```

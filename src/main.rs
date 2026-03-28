@@ -6975,7 +6975,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ci { failed_only, passing_only, all, pr_numbers, json } => {
+        Commands::Ci { failed_only, passing_only, all, pr_numbers, repo, author, json } => {
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
@@ -7015,6 +7015,25 @@ async fn main() -> anyhow::Result<()> {
 
             if targets.is_empty() {
                 println!("No PRs to check CI status for.");
+                return Ok(());
+            }
+
+            // Apply --repo and --author filters to targets
+            let targets: Vec<_> = {
+                let mut filtered = targets;
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                filtered
+            };
+
+            if targets.is_empty() {
+                println!("No PRs match the specified filters.");
                 return Ok(());
             }
 
