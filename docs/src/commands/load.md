@@ -22,6 +22,8 @@ review-dispatcher load [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--threshold, -t <N>` | Minimum PRs to be considered "loaded" | `3` |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -32,6 +34,15 @@ review-dispatcher load
 
 # Set custom overload threshold (5 PRs)
 review-dispatcher load --threshold 5
+
+# Filter to a specific repository
+review-dispatcher load --repo myservice
+
+# Filter to a specific author
+review-dispatcher load --author sarah_dev
+
+# Combine filters
+review-dispatcher load --repo myservice --author sarah_dev --threshold 4
 
 # JSON output for automation/dashboards
 review-dispatcher load --json
@@ -99,6 +110,8 @@ The command provides actionable recommendations:
 - Combine with `review-dispatcher team-summary` for broader team view
 - Use `--json` output to build team dashboards
 - Run before sprint planning to balance review load
+- Use `--repo` to focus on specific repository workload distribution
+- Use `--author` to see load breakdown for specific team members
 
 ## Related Commands
 

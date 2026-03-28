@@ -749,7 +749,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Load { threshold, json } => {
+        Commands::Load { threshold, repo, author, json } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
@@ -769,8 +769,27 @@ async fn main() -> anyhow::Result<()> {
                 overloaded: bool,
             }
 
+            // Apply --repo and --author filters to reviews first
+            let filtered: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let mut by_author: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
-            for r in &reviews {
+            for r in &filtered {
                 by_author.entry(r.pr_author.clone()).or_insert_with(Vec::new).push(r);
             }
 
@@ -810,7 +829,7 @@ async fn main() -> anyhow::Result<()> {
             // Sort by pr_count descending
             loads.sort_by(|a, b| b.pr_count.cmp(&a.pr_count));
 
-            let total_prs = reviews.len();
+            let total_prs = filtered.len();
             let total_load_members = loads.len();
 
             if json {

@@ -149,6 +149,12 @@ pub enum Commands {
         /// Minimum number of PRs to be considered "loaded" (default: 3)
         #[arg(long, short)]
         threshold: Option<u32>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
