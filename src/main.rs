@@ -4154,7 +4154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Snooze { action, pr_numbers, days } => {
+        Commands::Snooze { action, pr_numbers, days, json, priority } => {
             use serde::{Deserialize, Serialize};
 
             // Snooze storage file
@@ -4301,7 +4301,57 @@ async fn main() -> anyhow::Result<()> {
                         .collect();
 
                     if active.is_empty() {
-                        println!("\n😴 No currently snoozed PRs.\n");
+                        if json {
+                            println!("[]");
+                        } else {
+                            println!("\n😴 No currently snoozed PRs.\n");
+                        }
+                        return Ok(());
+                    }
+
+                    // Sort by expiry time
+                    active.sort_by(|a, b| {
+                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        a_time.cmp(&b_time)
+                    });
+
+                    // JSON output mode
+                    if json {
+                        #[derive(serde::Serialize)]
+                        struct SnoozeListItem<'a> {
+                            repo: &'a str,
+                            pr_number: u64,
+                            pr_title: &'a str,
+                            author: &'a str,
+                            snoozed_until: &'a str,
+                            remaining_hours: i64,
+                            additions: u64,
+                            deletions: u64,
+                            priority_score: Option<u8>,
+                        }
+
+                        let output: Vec<SnoozeListItem> = active
+                            .iter()
+                            .map(|e| {
+                                let until = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until)
+                                    .map(|t| t.with_timezone(&chrono::Utc))
+                                    .unwrap_or(now);
+                                let remaining = (until - now).num_hours();
+                                SnoozeListItem {
+                                    repo: &e.repo,
+                                    pr_number: e.pr_number,
+                                    pr_title: &e.pr_title,
+                                    author: &e.author,
+                                    snoozed_until: &e.snoozed_until,
+                                    remaining_hours: remaining,
+                                    additions: e.additions,
+                                    deletions: e.deletions,
+                                    priority_score: e.priority_score,
+                                }
+                            })
+                            .collect();
+                        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
                         return Ok(());
                     }
 
@@ -4310,13 +4360,6 @@ async fn main() -> anyhow::Result<()> {
                         active.len(),
                         "─".repeat(50)
                     );
-
-                    // Sort by expiry time
-                    active.sort_by(|a, b| {
-                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
-                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
-                        a_time.cmp(&b_time)
-                    });
 
                     for entry in &active {
                         let until = chrono::DateTime::parse_from_rfc3339(&entry.snoozed_until)
@@ -4329,12 +4372,27 @@ async fn main() -> anyhow::Result<()> {
                             format!("{}d left", remaining / 24).yellow()
                         };
 
+                        let priority_display = if priority {
+                            if let Some(score) = entry.priority_score {
+                                if score > 0 {
+                                    format!("  ⭐{}/5", score)
+                                } else {
+                                    String::new()
+                                }
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        };
+
                         println!(
-                            "  😴 {}  #{} ({}) - {}",
+                            "  😴 {}  #{} ({}) - {}{}",
                             entry.pr_title.bold(),
                             entry.pr_number,
                             entry.repo.dimmed(),
-                            remaining_label
+                            remaining_label,
+                            priority_display
                         );
                     }
                     println!("{}", "─".repeat(50));

@@ -618,6 +618,12 @@ pub enum Commands {
         /// Snooze duration in days (default: 3)
         #[arg(long, short = 'd')]
         days: Option<u32>,
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
+        /// Show priority scores for listed snoozed PRs
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Send a follow-up reminder to authors of stale PRs to get their attention
     Chase {
