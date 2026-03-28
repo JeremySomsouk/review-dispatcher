@@ -237,6 +237,9 @@ pub enum Commands {
         /// Open specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
         pr: Option<u64>,
+        /// Open all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
         json: bool,

@@ -1353,11 +1353,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, json } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, json } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
-            let targets: Vec<_> = if let Some(num) = target_pr {
+            let targets: Vec<_> = if all {
+                // --all flag: use all pending reviews
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(num) = target_pr {
                 // Single PR via --pr or positional
                 let prs = github::fetch_pr_by_number(
                     &cfg.github_token,
