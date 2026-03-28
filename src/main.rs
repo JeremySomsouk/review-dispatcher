@@ -5782,15 +5782,21 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { min_age, send, message, repo, author, json } => {
+        Commands::Chase { pr_number, min_age, send, message, repo, author, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
             let now = Utc::now();
             let cutoff = now - Duration::days(min_age_days);
 
+            // Handle --pr filter first (shorthand for specific PR)
+            let pr_filtered: Vec<_> = match cli.pr.or(pr_number) {
+                Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                None => reviews.clone(),
+            };
+
             // Filter stale PRs (older than min_age)
-            let mut stale_prs: Vec<_> = reviews
+            let mut stale_prs: Vec<_> = pr_filtered
                 .iter()
                 .filter(|r| r.created_at <= cutoff)
                 .cloned()

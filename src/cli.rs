@@ -783,6 +783,9 @@ pub enum Commands {
     },
     /// Send a follow-up reminder to authors of stale PRs to get their attention
     Chase {
+        /// PR number to chase (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Minimum age in days to chase (default: 7)
         #[arg(long, short = 'a', default_value_t = 7)]
         min_age: u32,

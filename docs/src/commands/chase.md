@@ -21,6 +21,8 @@ review-dispatcher chase [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `PR_NUMBER` | PR number to chase (shorthand for `--pr`) | - |
+| `-p, --pr <PR>` | Target a specific PR by number | - |
 | `-a, --min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
 | `-s, --send` | Actually post comments to GitHub (default: preview only) | `false` |
 | `-m, --message <TEXT>` | Custom message template | Default template |
@@ -55,6 +57,9 @@ Your custom message can include these placeholders:
 ```bash
 # Preview chase comments for PRs older than 7 days
 review-dispatcher chase
+
+# Chase a specific PR (ignores --min-age, targets only that PR)
+review-dispatcher chase --pr 123
 
 # Chase PRs older than 14 days and post comments
 review-dispatcher chase --min-age 14 --send
