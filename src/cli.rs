@@ -603,6 +603,15 @@ pub enum Commands {
         /// Limit the number of results shown (default: 10)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
+        /// Show priority scores for quick wins (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

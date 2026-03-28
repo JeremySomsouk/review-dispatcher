@@ -3603,12 +3603,29 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Quick { max_lines, limit, json } => {
+        Commands::Quick { max_lines, limit, priority, repo, author, json } => {
             let max_lines = max_lines.unwrap_or(200);
             let limit = limit.unwrap_or(10);
 
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered: Vec<_> = {
+                let mut result = reviews.clone();
+
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             // Filter to small, non-draft PRs
-            let quick_wins: Vec<_> = reviews
+            let quick_wins: Vec<_> = filtered
                 .iter()
                 .filter(|r| !r.draft && (r.additions + r.deletions) <= max_lines)
                 .take(limit)
@@ -3666,11 +3683,19 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} lines", total).yellow()
                     };
 
+                    let priority_display = if priority {
+                        let score = logger::calculate_priority_score(r);
+                        format!("  ⭐ {}/5", logger::priority_stars(score))
+                    } else {
+                        String::new()
+                    };
+
                     println!(
-                        "  ⚡ {} #{} ({})\n      👤 {}  •  📦 {}  •  ⏱️ {}\n      🔗 {}",
+                        "  ⚡ {} #{} ({}){}\n      👤 {}  •  📦 {}  •  ⏱️ {}\n      🔗 {}",
                         r.pr_title.bold(),
                         r.pr_number,
                         r.repo.dimmed(),
+                        priority_display,
                         r.pr_author.cyan(),
                         size_label,
                         age_label,
@@ -3680,6 +3705,7 @@ async fn main() -> anyhow::Result<()> {
                 }
                 println!("{}", "─".repeat(50));
                 println!("  💡 Use `--max-lines 100` for tiny PRs only");
+                println!("  💡 Use `--priority` to show priority scores");
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
