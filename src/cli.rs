@@ -702,6 +702,12 @@ pub enum Commands {
         /// Custom message template (use {author} and {title} as placeholders)
         #[arg(long, short = 'm')]
         message: Option<String>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

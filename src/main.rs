@@ -5615,7 +5615,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { min_age, send, message, json } => {
+        Commands::Chase { min_age, send, message, repo, author, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -5623,11 +5623,23 @@ async fn main() -> anyhow::Result<()> {
             let cutoff = now - Duration::days(min_age_days);
 
             // Filter stale PRs (older than min_age)
-            let stale_prs: Vec<_> = reviews
+            let mut stale_prs: Vec<_> = reviews
                 .iter()
                 .filter(|r| r.created_at <= cutoff)
                 .cloned()
                 .collect();
+
+            // Apply --repo filter
+            if let Some(ref repo_filter) = repo {
+                let pattern = repo_filter.to_lowercase();
+                stale_prs.retain(|r| r.repo.to_lowercase().contains(&pattern));
+            }
+
+            // Apply --author filter
+            if let Some(ref author_filter) = author {
+                let pattern = author_filter.to_lowercase();
+                stale_prs.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+            }
 
             if stale_prs.is_empty() {
                 println!("\n🎉 No stale PRs older than {} day(s) to chase!\n", min_age);

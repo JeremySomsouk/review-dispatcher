@@ -24,6 +24,8 @@ review-dispatcher chase [OPTIONS]
 | `-a, --min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
 | `-s, --send` | Actually post comments to GitHub (default: preview only) | `false` |
 | `-m, --message <TEXT>` | Custom message template | Default template |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON | `false` |
 
 ## Message Template
