@@ -28,7 +28,11 @@ review-dispatcher snooze expire
 
 # Expected output (when there are expired entries):
 # 🧹 Cleaned up 3 expired snooze entry(s):
-#   ✨ 3 PR(s) have returned to your pending list.
+#   ✨ Fix authentication bug #456 (myorg/myrepo)
+#   ✨ Update dependencies #789 (myorg/other-repo)
+#   ✨ Add user dashboard #101 (myorg/myrepo)
+#
+#   ↩️ 3 PR(s) have returned to your pending list.
 # ✅ 7 snoozed PR(s) remain in the list.
 
 # Expected output (when nothing has expired):

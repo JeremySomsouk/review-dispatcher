@@ -4013,8 +4013,8 @@ async fn main() -> anyhow::Result<()> {
                 cli::SnoozeAction::Expire => {
                     let now = chrono::Utc::now();
 
-                    // Count expired entries first (without borrowing issues)
-                    let expired_count = snoozed
+                    // Extract expired entries so we can display them before removing
+                    let expired: Vec<_> = snoozed
                         .iter()
                         .filter(|e| {
                             if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
@@ -4023,15 +4023,15 @@ async fn main() -> anyhow::Result<()> {
                                 false
                             }
                         })
-                        .count();
+                        .cloned()
+                        .collect();
 
-                    if expired_count == 0 {
+                    if expired.is_empty() {
                         println!("\n✨ No expired snooze entries to clean up.\n");
                         return Ok(());
                     }
 
-                    // Retain non-expired entries (keep entries where snoozed_until > now)
-                    let _before_count = snoozed.len();
+                    // Remove expired entries
                     snoozed.retain(|e| {
                         if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
                             until.with_timezone(&chrono::Utc) > now
@@ -4042,11 +4042,18 @@ async fn main() -> anyhow::Result<()> {
 
                     println!(
                         "\n🧹 Cleaned up {} expired snooze entry(s):\n",
-                        expired_count.to_string().yellow().bold()
+                        expired.len().to_string().yellow().bold()
                     );
 
-                    // Show what was cleaned (we know count, not individual items since we didn't store them)
-                    println!("  ✨ {} PR(s) have returned to your pending list.", expired_count);
+                    for entry in &expired {
+                        println!(
+                            "  ✨ {} #{} ({})",
+                            entry.pr_title.dimmed(),
+                            entry.pr_number.to_string().dimmed(),
+                            entry.repo.dimmed()
+                        );
+                    }
+                    println!("\n  ↩️  {} PR(s) have returned to your pending list.", expired.len());
 
                     // Save updated snooze data
                     if let Some(ref dir) = output_dir {
