@@ -276,6 +276,9 @@ pub enum Commands {
         /// Keyword to search for in PR titles
         #[arg(value_name = "KEYWORD")]
         query: String,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

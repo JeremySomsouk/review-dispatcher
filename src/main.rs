@@ -2367,7 +2367,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Search { query, priority, json, repo, author } => {
+        Commands::Search { query, since_days, priority, json, repo, author } => {
             // Apply --pr filter first (targets specific PR even in search)
             let base_filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
@@ -2375,6 +2375,7 @@ async fn main() -> anyhow::Result<()> {
             };
 
             let query_lower = query.to_lowercase();
+            let now = chrono::Utc::now();
             let filtered: Vec<_> = base_filtered
                 .iter()
                 .filter(|r| {
@@ -2391,6 +2392,13 @@ async fn main() -> anyhow::Result<()> {
                     // Filter by author (optional)
                     if let Some(ref author_filter) = author {
                         if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                            return false;
+                        }
+                    }
+                    // Filter by since_days (optional)
+                    if let Some(days) = since_days {
+                        let age = (now - r.created_at).num_days() as u32;
+                        if age > days {
                             return false;
                         }
                     }
