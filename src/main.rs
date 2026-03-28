@@ -4576,17 +4576,21 @@ async fn main() -> anyhow::Result<()> {
                             println!("❌ No valid PR numbers provided.");
                             return Ok(());
                         }
-                        let mut all_prs = Vec::new();
-                        for num in &results {
-                            let prs = github::fetch_pr_by_number(
+                        // Parallel fetch all PRs by number using join_all
+                        let fetch_futures = results.iter().map(|num| {
+                            github::fetch_pr_by_number(
                                 &cfg.github_token,
                                 &cfg.github_org,
                                 &cfg.github_repos,
                                 *num,
                             )
-                            .await?;
-                            all_prs.extend(prs);
-                        }
+                        });
+                        let all_prs: Vec<github::PendingReview> = futures::future::join_all(fetch_futures)
+                            .await
+                            .into_iter()
+                            .filter_map(|r| r.ok())
+                            .flatten()
+                            .collect();
                         all_prs
                     } else {
                         if reviews.is_empty() {
