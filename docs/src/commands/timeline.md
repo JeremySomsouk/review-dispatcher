@@ -25,6 +25,8 @@ review-dispatcher timeline [OPTIONS]
 | `PR_NUMBER` | Target a specific PR by number | Interactive selection |
 | `--pr, -p` | Target a specific PR by number (global) | Interactive selection |
 | `--json` | Output as JSON for scripting | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | All repos |
+| `--author` | Filter by author username (partial match, case-insensitive) | All authors |
 
 ## Examples
 
@@ -37,6 +39,15 @@ review-dispatcher timeline
 
 # JSON output for integration
 review-dispatcher timeline --pr 4821 --json
+
+# Filter to a specific repo
+review-dispatcher timeline --repo frontend
+
+# Filter to a specific author
+review-dispatcher timeline --author sarah_dev
+
+# Combine filters
+review-dispatcher timeline --repo myorg --author reviewer1
 ```
 
 ## Output

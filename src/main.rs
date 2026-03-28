@@ -1370,38 +1370,50 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Timeline { pr_number, json } => {
+        Commands::Timeline { pr_number, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
-            let prs = match target_pr {
-                Some(num) => {
-                    github::fetch_pr_by_number(
-                        &cfg.github_token,
-                        &cfg.github_org,
-                        &cfg.github_repos,
-                        num,
-                    )
-                    .await?
+            // When --pr is specified, bypass filters and fetch directly
+            let prs = if target_pr.is_some() {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    target_pr.unwrap(),
+                )
+                .await?
+            } else {
+                // Apply --repo and --author filters to reviews, then let user pick
+                let mut filtered = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
                 }
-                None => {
-                    // Show all pending reviews and let user pick
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to show timeline [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
-                        }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                if filtered.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&filtered, false);
+                print!(
+                    "\n{} ",
+                    "Select PR to show timeline [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), filtered.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| filtered[i].clone()).collect()
                     }
                 }
             };
