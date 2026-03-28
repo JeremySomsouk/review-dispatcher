@@ -1,6 +1,6 @@
 # filter
 
-**Filter PRs by multiple criteria: repository, author, size, age.**
+**Filter PRs by multiple criteria: repository, author, size, age, or specific PR number.**
 
 Powerful way to slice through your pending reviews and find exactly what you're looking for.
 
@@ -20,6 +20,7 @@ review-dispatcher filter [OPTIONS]
 
 | Flag | Description |
 |------|-------------|
+| `PR_NUMBER` | Filter to a specific PR number |
 | `--repo <NAME>` | Repository contains this text (partial match) |
 | `--author <NAME>` | Author contains this text (partial match) |
 | `--min-size <LINES>` | Minimum total lines changed |
@@ -32,9 +33,14 @@ review-dispatcher filter [OPTIONS]
 | `-P, --priority` | Show priority scores |
 | `--json` | Output as JSON |
 
+Note: You can also use the global `--pr <NUMBER>` flag to target a specific PR.
+
 ## Examples
 
 ```bash
+# Filter to specific PR
+review-dispatcher filter 123
+
 # All frontend PRs
 review-dispatcher filter --repo frontend
 
@@ -65,6 +71,6 @@ review-dispatcher filter --repo api --min-size 100 --json | jq '.[].pr_number'
 
 ## Tips
 
-- All filters are ANDed together (repo AND author AND size...)
+- All filters are ANDed together (PR number AND repo AND author AND size...)
 - Partial match on repo/author names (case-insensitive)
 - Great for building automation scripts

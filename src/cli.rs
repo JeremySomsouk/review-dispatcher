@@ -315,6 +315,9 @@ pub enum Commands {
     },
     /// Filter pending reviews by various criteria
     Filter {
+        /// PR number to filter to (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Filter by repository name (partial match)
         #[arg(long)]
         repo: Option<String>,

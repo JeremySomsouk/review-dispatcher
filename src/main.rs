@@ -2583,9 +2583,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Filter { repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
+        Commands::Filter { pr_number, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
+            // Target specific PR: global --pr flag > local --pr_number
+            let target_pr = cli.pr.or(pr_number);
+
             // Apply filters to the reviews
             let filtered: Vec<_> = reviews.iter().filter(|r| {
+                // Filter by specific PR number (if provided)
+                if let Some(num) = target_pr {
+                    if r.pr_number != num {
+                        return false;
+                    }
+                }
+
                 // Filter by repo (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
                     if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
