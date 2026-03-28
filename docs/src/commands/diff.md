@@ -13,6 +13,7 @@ review-dispatcher diff [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--pr, -p <NUMBER>` | Target a specific PR by number | Interactive selection |
+| `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
 
@@ -22,6 +23,9 @@ review-dispatcher diff --pr 4821
 
 # Interactive mode (select from pending reviews)
 review-dispatcher diff
+
+# JSON output for scripting
+review-dispatcher diff --pr 4821 --json
 ```
 
 ## Output
@@ -39,15 +43,25 @@ Displays comprehensive PR information including:
 - **Repository**: Full repo name
 - **URL**: Direct link to the PR
 
-```
-📄 feat: add CSV export  #4821
-   👤 sarah_dev  •  📅 5 days ago  •  🌿 feature/export
-   📊 READY  •  +245 additions  •  -32 deletions
-   🔗 https://github.com/org/repo/pull/4821
-────────────────────────────────────────────────────
-   📦 Size: M (277 lines)
-   ⏱️  Age: 📅 WEEK OLD (5 days)
-   ⭐ Priority: 3/5  ⭐⭐⭐
-   📁 Repository: myorg/frontend
-────────────────────────────────────────────────────
+## JSON Output
+
+When `--json` is used, outputs a single JSON object per PR:
+
+```json
+{
+  "pr_number": 4821,
+  "pr_title": "feat: add CSV export",
+  "repo": "myorg/frontend",
+  "author": "sarah_dev",
+  "branch": "feature/export",
+  "url": "https://github.com/myorg/frontend/pull/4821",
+  "age_days": 5,
+  "age_category": "WEEK_OLD",
+  "size_lines": 277,
+  "size_category": "M",
+  "additions": 245,
+  "deletions": 32,
+  "draft": false,
+  "priority_score": 3
+}
 ```

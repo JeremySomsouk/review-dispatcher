@@ -675,7 +675,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number } => {
+        Commands::Diff { pr_number, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -716,72 +716,118 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            #[derive(serde::Serialize)]
+            struct DiffOutput<'a> {
+                pr_number: u64,
+                pr_title: &'a str,
+                repo: &'a str,
+                author: &'a str,
+                branch: &'a str,
+                url: &'a str,
+                age_days: i64,
+                age_category: String,
+                size_lines: u64,
+                size_category: &'a str,
+                additions: u64,
+                deletions: u64,
+                draft: bool,
+                priority_score: u8,
+            }
+
             for review in prs {
                 let age_days = (chrono::Utc::now() - review.created_at).num_days();
-                let age_label = match age_days {
-                    0 => "today".green(),
-                    1 => "1 day ago".normal(),
-                    _ => format!("{} days ago", age_days).red(),
-                };
-
-                println!("\n{}", "─".repeat(60));
-                println!("📄 {}  #{}", review.pr_title.bold(), review.pr_number);
-                println!("   👤 {}  •  📅 {}  •  🌿 {}", 
-                    review.pr_author.cyan(), 
-                    age_label,
-                    review.branch.dimmed()
-                );
-                println!("   📊 {}  •  +{} additions  •  -{} deletions",
-                    if review.draft { "DRAFT".yellow() } else { "READY".green() },
-                    review.additions.to_string().green(),
-                    review.deletions.to_string().red()
-                );
-                println!("   🔗 {}", review.pr_url.blue().underline());
-                println!("{}", "─".repeat(60));
-
-                // Show size category
                 let total = review.additions + review.deletions;
-                let size_label = if total < 50 {
-                    "XS".to_string()
+                let size_label: &'static str = if total < 50 {
+                    "XS"
                 } else if total < 200 {
-                    "S".to_string()
+                    "S"
                 } else if total < 500 {
-                    "M".to_string()
+                    "M"
                 } else if total < 1000 {
-                    "L".to_string()
+                    "L"
                 } else {
-                    "XL".to_string()
+                    "XL"
                 };
-                let size_color: colored::Color = match size_label.as_str() {
-                    "XS" | "S" => colored::Color::Green,
-                    "M" => colored::Color::Yellow,
-                    "L" => colored::Color::Red,
-                    _ => colored::Color::Magenta,
-                };
-                println!("   📦 Size: {} ({} lines)", size_label.color(size_color), total);
-
-                // Show age category
-                let age_cat = if age_days == 0 {
-                    "🔥 HOT"
+                let age_category = if age_days == 0 {
+                    "HOT".to_string()
                 } else if age_days <= 2 {
-                    "⚡ FRESH"
+                    "FRESH".to_string()
                 } else if age_days <= 7 {
-                    "📅 WEEK OLD"
+                    "WEEK_OLD".to_string()
                 } else if age_days <= 14 {
-                    "⚠️  STALE"
+                    "STALE".to_string()
                 } else {
-                    "🚨 OLD"
+                    "OLD".to_string()
                 };
-                println!("   ⏱️  Age: {} ({} days)", age_cat, age_days);
+                let priority_score = logger::calculate_priority_score(&review);
 
-                // Priority indicator
-                let score = logger::calculate_priority_score(&review);
-                println!("   ⭐ Priority: {}/5  {}", score, logger::priority_stars(score));
+                if json {
+                    let output = DiffOutput {
+                        pr_number: review.pr_number,
+                        pr_title: &review.pr_title,
+                        repo: &review.repo,
+                        author: &review.pr_author,
+                        branch: &review.branch,
+                        url: &review.pr_url,
+                        age_days,
+                        age_category,
+                        size_lines: total,
+                        size_category: size_label,
+                        additions: review.additions,
+                        deletions: review.deletions,
+                        draft: review.draft,
+                        priority_score,
+                    };
+                    println!("{}", serde_json::to_string_pretty(&output)?);
+                } else {
+                    let age_label = match age_days {
+                        0 => "today".green(),
+                        1 => "1 day ago".normal(),
+                        _ => format!("{} days ago", age_days).red(),
+                    };
 
-                // Show repo
-                println!("   📁 Repository: {}", review.repo);
-                println!("{}", "─".repeat(60));
-                println!();
+                    println!("\n{}", "─".repeat(60));
+                    println!("📄 {}  #{}", review.pr_title.bold(), review.pr_number);
+                    println!("   👤 {}  •  📅 {}  •  🌿 {}",
+                        review.pr_author.cyan(),
+                        age_label,
+                        review.branch.dimmed()
+                    );
+                    println!("   📊 {}  •  +{} additions  •  -{} deletions",
+                        if review.draft { "DRAFT".yellow() } else { "READY".green() },
+                        review.additions.to_string().green(),
+                        review.deletions.to_string().red()
+                    );
+                    println!("   🔗 {}", review.pr_url.blue().underline());
+                    println!("{}", "─".repeat(60));
+
+                    let size_color: colored::Color = match size_label {
+                        "XS" | "S" => colored::Color::Green,
+                        "M" => colored::Color::Yellow,
+                        "L" => colored::Color::Red,
+                        _ => colored::Color::Magenta,
+                    };
+                    println!("   📦 Size: {} ({} lines)", size_label.color(size_color), total);
+
+                    let age_cat = if age_days == 0 {
+                        "🔥 HOT"
+                    } else if age_days <= 2 {
+                        "⚡ FRESH"
+                    } else if age_days <= 7 {
+                        "📅 WEEK OLD"
+                    } else if age_days <= 14 {
+                        "⚠️  STALE"
+                    } else {
+                        "🚨 OLD"
+                    };
+                    println!("   ⏱️  Age: {} ({} days)", age_cat, age_days);
+
+                    println!("   ⭐ Priority: {}/5  {}", priority_score, logger::priority_stars(priority_score));
+
+                    println!("   📁 Repository: {}", review.repo);
+                    println!("{}", "─".repeat(60));
+                    println!();
+                }
             }
         }
 

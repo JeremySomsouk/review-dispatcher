@@ -115,6 +115,9 @@ pub enum Commands {
         /// PR number to show diff for
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Show full PR information including description, reviewers, and metadata
     Info {
