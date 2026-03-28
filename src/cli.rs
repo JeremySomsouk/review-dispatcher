@@ -104,6 +104,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary {
@@ -119,6 +122,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Show review workload distribution across team members (load balance analysis)
     Load {

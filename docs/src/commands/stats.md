@@ -23,6 +23,7 @@ review-dispatcher stats [OPTIONS]
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
+| `-P, --priority` | Show priority breakdown (stars by age/size score) | `false` |
 
 ## Examples
 
@@ -41,4 +42,7 @@ review-dispatcher stats --author alice
 
 # Stats for a specific PR
 review-dispatcher stats --pr 4821
+
+# Stats with priority breakdown
+review-dispatcher stats --priority
 ```
