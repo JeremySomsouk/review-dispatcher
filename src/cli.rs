@@ -771,6 +771,15 @@ pub enum Commands {
         /// Output as raw Markdown (no preamble)
         #[arg(long)]
         raw: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Analyze review trends over time (velocity, avg time to review, top reviewers)
     Trends {

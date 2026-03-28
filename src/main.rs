@@ -4419,22 +4419,39 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Digest { days, raw } => {
+        Commands::Digest { days, raw, repo, author, priority } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
             let now = Utc::now();
             let _cutoff = now - Duration::days(days as i64);
 
-            // Compute age buckets
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
+            // Compute age buckets (continuous non-overlapping ranges: New 0-1d, Fresh 2-3d, Aging 4-7d, Stale 8-14d, Overdue 15d+)
             #[derive(Clone, Copy)]
-            struct Bucket(&'static str, &'static str, Option<i64>, Option<i64>);
+            struct Bucket(&'static str, &'static str, i64, i64);
             const BUCKETS: [Bucket; 5] = [
-                Bucket("New",     "🆕", None,      Some(2)),
-                Bucket("Fresh",   "🌱", Some(2),   Some(4)),
-                Bucket("Aging",   "⏳", Some(4),   Some(8)),
-                Bucket("Stale",   "🔥", Some(8),   Some(15)),
-                Bucket("Overdue", "💀", Some(15),  None),
+                Bucket("New",     "🆕", 0,  1),
+                Bucket("Fresh",   "🌱", 2,  3),
+                Bucket("Aging",   "⏳", 4,  7),
+                Bucket("Stale",   "🔥", 8,  14),
+                Bucket("Overdue", "💀", 15, i64::MAX),
             ];
 
             let mut bucket_counts: Vec<(Bucket, usize)> = BUCKETS.iter().copied().map(|b| (b, 0)).collect();
@@ -4444,7 +4461,7 @@ async fn main() -> anyhow::Result<()> {
             let mut by_author: HashMap<String, usize> = HashMap::new();
             let mut overdue_prs: Vec<&github::PendingReview> = vec![];
 
-            for r in &reviews {
+            for r in &filtered_reviews {
                 let age_days = (now - r.created_at).num_days();
                 total_additions += r.additions;
                 total_deletions += r.deletions;
@@ -4453,23 +4470,18 @@ async fn main() -> anyhow::Result<()> {
                     *by_author.entry(r.pr_author.clone()).or_insert(0) += 1;
                 }
                 for (bucket, count) in &mut bucket_counts {
-                    let Bucket(_, _, bucket_max, bucket_min) = *bucket;
-                    let in_bucket = match (bucket_min, bucket_max) {
-                        (Some(min), Some(max)) => age_days >= min && age_days <= max,
-                        (Some(min), None) => age_days >= min,
-                        (None, Some(max)) => age_days <= max,
-                        (None, None) => true,
-                    };
-                    if in_bucket {
+                    let Bucket(_label, _emoji, bucket_min, bucket_max) = *bucket;
+                    if age_days >= bucket_min && age_days <= bucket_max {
                         *count += 1;
                         if age_days >= 15 {
                             overdue_prs.push(r);
                         }
+                        break; // PR belongs to exactly one bucket
                     }
                 }
             }
 
-            let total = reviews.len();
+            let total = filtered_reviews.len();
             let overdue_count = overdue_prs.len();
 
             // Top repos
@@ -4531,8 +4543,17 @@ async fn main() -> anyhow::Result<()> {
                     println!("### 🚨 Overdue (15d+)");
                     for r in overdue_prs.iter().take(10) {
                         let age = (now - r.created_at).num_days();
-                        println!("- [{}#{}]({}) *{}* — {}d old",
-                            r.repo, r.pr_number, r.pr_url, r.pr_title, age);
+                        let priority_label = if priority {
+                            let score = logger::calculate_priority_score(r);
+                            format!(" ⭐{}", score)
+                        } else {
+                            String::new()
+                        };
+                        println!("- [{}#{}]({}) *{}* — {}d old{}",
+                            r.repo, r.pr_number, r.pr_url, r.pr_title, age, priority_label);
+                    }
+                    if !priority {
+                        println!("\n_Use `--priority` to show priority scores_");
                     }
                 }
             } else {
@@ -4580,7 +4601,13 @@ async fn main() -> anyhow::Result<()> {
                     println!("  🚨 Overdue PRs (15d+)");
                     for r in overdue_prs.iter().take(5) {
                         let age = (now - r.created_at).num_days();
-                        println!("     #{} {} — {}d old", r.pr_number, r.pr_title.bold(), age);
+                        let priority_label = if priority {
+                            let score = logger::calculate_priority_score(r);
+                            format!(" {}", logger::priority_stars(score).dimmed())
+                        } else {
+                            String::new()
+                        };
+                        println!("     #{} {} — {}d old — {}{}", r.pr_number, r.pr_title.bold(), age, r.repo.dimmed(), priority_label);
                     }
                     if overdue_prs.len() > 5 {
                         println!("     ...and {} more", overdue_prs.len() - 5);
@@ -4588,7 +4615,57 @@ async fn main() -> anyhow::Result<()> {
                     println!();
                 }
 
+                if priority {
+                    // Show priority breakdown
+                    let mut scored: Vec<_> = filtered_reviews.iter()
+                        .map(|r| {
+                            let score = logger::calculate_priority_score(r);
+                            (r, score)
+                        })
+                        .collect();
+                    scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+                    if let Some((most_urgent, top_score)) = scored.first() {
+                        let age_days = (now - most_urgent.created_at).num_days();
+                        let total = most_urgent.additions + most_urgent.deletions;
+                        println!("  🚨 Most Urgent:");
+                        println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
+                        println!("    👤 {}  •  📦 {} lines  •  ⏱️ {}d  •  {}",
+                            most_urgent.pr_author.cyan(),
+                            total,
+                            age_days,
+                            most_urgent.repo.dimmed()
+                        );
+                        println!();
+                    }
+
+                    // Priority breakdown
+                    let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
+                    for (review, score) in &scored {
+                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                    }
+
+                    println!("  ⭐ Priority Breakdown:");
+                    for score in (1..=5).rev() {
+                        if let Some(prs) = score_groups.get(&score) {
+                            let stars = logger::priority_stars(score);
+                            let oldest_age = prs.iter().map(|r| (now - r.created_at).num_days()).max().unwrap_or(0);
+                            println!("     ⭐{}  {} PR(s)  •  oldest: {}d  •  +{}/-{} lines",
+                                stars,
+                                prs.len(),
+                                oldest_age,
+                                prs.iter().map(|r| r.additions).sum::<u64>(),
+                                prs.iter().map(|r| r.deletions).sum::<u64>()
+                            );
+                        }
+                    }
+                    println!();
+                }
+
                 println!("  💡 Use `--raw` to get Markdown output for Slack/Teams");
+                if !priority {
+                    println!("  💡 Use `--priority` to show priority scores and most urgent PR");
+                }
                 println!("{}", "─".repeat(45));
             }
         }

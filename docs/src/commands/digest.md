@@ -23,6 +23,9 @@ review-dispatcher digest [OPTIONS]
 |------|-------------|---------|
 | `-d, --days <DAYS>` | Number of days to include | `7` |
 | `--raw` | Output as raw Markdown (for Slack/Teams) | `false` |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | |
+| `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | |
+| `-P, --priority` | Show priority scores and most urgent PR | `false` |
 
 ## Examples
 
@@ -38,6 +41,18 @@ review-dispatcher digest --raw
 
 # Raw Markdown with custom window
 review-dispatcher digest --days 14 --raw
+
+# Filter by repository
+review-dispatcher digest --repo api
+
+# Filter by author
+review-dispatcher digest --author alice
+
+# Show priority scores and most urgent PR
+review-dispatcher digest --priority
+
+# Combined: raw markdown filtered by repo with priority
+review-dispatcher digest --raw --repo backend --priority
 ```
 
 ## Output Examples
@@ -77,6 +92,33 @@ review-dispatcher digest --days 14 --raw
   💡 Use `--raw` to get Markdown output for Slack/Teams
 ```
 
+### With `--priority` flag
+
+```
+📋 Weekly Review Digest — last 7 days
+─────────────────────────────────────────────
+
+  📊 Summary
+     Total PRs:          12
+     Lines changed:      +2847 / -1203
+     🚨 Overdue (15d+):  2
+
+  🚨 Most Urgent:
+    fix: critical auth bug  #4821  ⭐⭐⭐⭐⭐
+    👤 alice  •  📦 1247 lines  •  ⏱️ 18d  •  api-gateway
+
+  ⭐ Priority Breakdown:
+     ⭐⭐⭐⭐⭐  2 PR(s)  •  oldest: 18d  •  +2340/-892 lines
+     ⭐⭐⭐⭐   3 PR(s)  •  oldest: 10d  •  +847/-423 lines
+     ⭐⭐⭐    4 PR(s)  •  oldest: 5d  •  +432/-156 lines
+     ⭐⭐     2 PR(s)  •  oldest: 2d  •  +156/-89 lines
+     ⭐      1 PR(s)  •  oldest: 0d  •  +72/-43 lines
+
+─────────────────────────────────────────────
+  💡 Use `--raw` to get Markdown output for Slack/Teams
+  💡 Use `--priority` to show priority scores and most urgent PR
+```
+
 ### Raw Markdown output (`--raw`)
 
 ```markdown
@@ -110,4 +152,6 @@ review-dispatcher digest --days 14 --raw
 - Use `--raw` when posting to Slack, Teams, or email — the Markdown renders nicely in all three
 - Pipe to `pbcopy` to copy to clipboard: `review-dispatcher digest --raw | pbcopy`
 - Use `--days 1` for a daily standup digest instead of weekly
-- Age buckets: 🆕 New <2d · 🌱 Fresh 2-3d · ⏳ Aging 4-7d · 🔥 Stale 8-14d · 💀 Overdue 15d+
+- Use `--priority` to identify the most urgent PR at a glance
+- Age buckets: 🆕 New 0-1d · 🌱 Fresh 2-3d · ⏳ Aging 4-7d · 🔥 Stale 8-14d · 💀 Overdue 15d+
+- Combine filters for targeted digests: `digest --repo backend --author alice --priority`
