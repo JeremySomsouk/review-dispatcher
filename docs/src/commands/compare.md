@@ -23,6 +23,7 @@ review-dispatcher compare <PR1> <PR2> [OPTIONS]
 | `<PR1>` | First PR to compare (format: `repo#123` or just `123`) | Required |
 | `<PR2>` | Second PR to compare (format: `repo#123` or just `123`) | Required |
 | `-d, --detailed` | Show detailed comparison including language breakdown | `false` |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## PR Format
@@ -44,6 +45,9 @@ review-dispatcher compare frontend#4821 backend#1024
 # Detailed comparison with language breakdown
 review-dispatcher compare 123 456 --detailed
 
+# Show priority scores with stars
+review-dispatcher compare 123 456 --priority
+
 # JSON output for automation
 review-dispatcher compare 123 456 --json
 ```
@@ -61,7 +65,7 @@ review-dispatcher compare 123 456 --json
   Size         +340/-25               +1200/-200
   Files        12                     8
   Draft        No                     Yes
-  Priority     4/5                    3/5
+  Priority     4/5 ⭐⭐⭐⭐           3/5 ⭐⭐⭐
 
   ──────────────────────────────────────────────────────────
   📊 Summary:
@@ -91,6 +95,7 @@ review-dispatcher compare 123 456 --json
 - Use `review-dispatcher top` to find your highest-priority PRs first
 - Combine with `browse` to open compared PRs directly
 - For complex decisions, use `--detailed` to see language breakdown
+- Use `--priority` to quickly see urgency scores as visual stars
 - Consider draft PRs lower priority (they're still in progress)
 
 ## Related Commands

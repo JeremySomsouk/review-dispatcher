@@ -9263,7 +9263,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Compare { pr1, pr2, detailed, json } => {
+        Commands::Compare { pr1, pr2, detailed, priority, json } => {
             // Parse PR identifiers (format: "repo#123" or just "123")
             fn parse_pr_id(s: &str, repos: &[String]) -> Option<(String, u64)> {
                 if s.contains('#') {
@@ -9412,7 +9412,18 @@ async fn main() -> anyhow::Result<()> {
                 print_row!("Files", pr_details_1.files_count.to_string(), pr_details_2.files_count.to_string());
                 print_row!("Draft", if pr_details_1.draft { "Yes" } else { "No" }.to_string(),
                     if pr_details_2.draft { "Yes" } else { "No" }.to_string());
-                print_row!("Priority", format!("{}/5", pr_details_1.priority_score), format!("{}/5", pr_details_2.priority_score));
+                print_row!("Priority", 
+                    if priority { 
+                        format!("{}/5 {}", pr_details_1.priority_score, logger::priority_stars(pr_details_1.priority_score)) 
+                    } else { 
+                        format!("{}/5", pr_details_1.priority_score) 
+                    }, 
+                    if priority { 
+                        format!("{}/5 {}", pr_details_2.priority_score, logger::priority_stars(pr_details_2.priority_score)) 
+                    } else { 
+                        format!("{}/5", pr_details_2.priority_score) 
+                    }
+                );
 
                 println!("{}", "─".repeat(60));
 

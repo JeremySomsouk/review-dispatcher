@@ -930,6 +930,9 @@ pub enum Commands {
         /// Show detailed comparison including file-level breakdown
         #[arg(long, short = 'd')]
         detailed: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
