@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine => {
+        Commands::Mine { json, priority } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -165,7 +165,11 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            logger::print_reviews(&my_prs, false);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&my_prs)?);
+            } else {
+                logger::print_reviews(&my_prs, priority);
+            }
 
             if let Some(ref dir) = output_dir {
                 let index_path = writer::write_index(dir, &my_prs)?;
@@ -2183,7 +2187,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Files { pr_number, pr_numbers, pr, all, json } => {
+        Commands::Files { pr_number, pr_numbers, pr, all, priority, json } => {
             let target_pr = pr.or(pr_number);
 
             let targets: Vec<_> = if all {
@@ -2306,8 +2310,15 @@ async fn main() -> anyhow::Result<()> {
                                 files,
                             });
                         } else {
+                            let priority_display = if priority {
+                                let score = logger::calculate_priority_score(&review);
+                                format!("  ⭐ {}/5", score)
+                            } else {
+                                String::new()
+                            };
+
                             println!("\n{}", "─".repeat(60));
-                            println!("📄 {}  #{}  ({} files)", review.pr_title.bold(), review.pr_number, files.len());
+                            println!("📄 {}  #{}{}{}", review.pr_title.bold(), review.pr_number, priority_display, format!("  ({} files)", files.len()).dimmed());
                             println!("{}", "─".repeat(60));
 
                             if files.is_empty() {

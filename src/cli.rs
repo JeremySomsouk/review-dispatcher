@@ -76,7 +76,14 @@ pub enum Commands {
         priority: bool,
     },
     /// List your own open PRs (draft or not)
-    Mine,
+    Mine {
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
+        /// Show priority score (1-5 stars) based on age and size
+        #[arg(long, short = 'P')]
+        priority: bool,
+    },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {
         /// Output as JSON for scripting
@@ -251,6 +258,9 @@ pub enum Commands {
         /// Show files for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,

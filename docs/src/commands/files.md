@@ -23,6 +23,7 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 | `-p, --pr <PR>` | Show files for specific PR (shorthand) | - |
 | `-n, --pr-numbers <NUMS>` | PR number(s) to show files for (comma-separated) | - |
 | `-a, --all` | Show files for all pending reviews | `false` |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars) | `false` |
 | `--json` | Output as JSON (useful for scripting) | `false` |
 
 ## Examples
@@ -33,6 +34,7 @@ review-dispatcher files --pr 4821
 review-dispatcher files -n 4821,3156,2890
 review-dispatcher files --all
 review-dispatcher files --pr 4821 --json
+review-dispatcher files --all --priority
 ```
 
 ## JSON Output
