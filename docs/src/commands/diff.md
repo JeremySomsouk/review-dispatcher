@@ -15,6 +15,8 @@ review-dispatcher diff [OPTIONS]
 | `--pr, -p <NUMBER>` | Target a specific PR by number | Interactive selection |
 | `--json` | Output as JSON for scripting | `false` |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | None |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | None |
 
 ## Examples
 
@@ -25,8 +27,17 @@ review-dispatcher diff --pr 4821
 # Interactive mode (select from pending reviews)
 review-dispatcher diff
 
+# Filter to specific repo before selecting
+review-dispatcher diff --repo frontend
+
+# Filter to specific author before selecting
+review-dispatcher diff --author sarah_dev
+
 # JSON output for scripting
 review-dispatcher diff --pr 4821 --json
+
+# Show priority scores
+review-dispatcher diff --pr 4821 --priority
 ```
 
 ## Output
