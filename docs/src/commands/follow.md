@@ -35,6 +35,7 @@ review-dispatcher follow <ACTION> [OPTIONS]
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | `none` |
 | `--author` | Filter by author username (partial match, case-insensitive) | `none` |
+| `--priority` / `-P` | Show priority indicator based on PR size (🟢 SMALL, 🟡 MEDIUM, 🔴 LARGE) | `false` |
 
 ## PR Format
 
@@ -57,6 +58,9 @@ review-dispatcher follow add frontend#4821,backend#1024
 
 # List all followed PRs
 review-dispatcher follow list
+
+# List followed PRs with priority indicators
+review-dispatcher follow list --priority
 
 # List followed PRs as JSON (for scripting)
 review-dispatcher follow list --json
@@ -104,11 +108,11 @@ The `status` command detects:
 ```
 👁️  Following 3 PR(s)
 ──────────────────────────────────────────────────
-🟢 myorg/frontend #123 — Add user authentication
+🟢 myorg/frontend #123 — Add user authentication  🟢 SMALL (365 lines)
     📊 +340/-25 lines  |  CI: ⏳  |  Review: ─  |  Author: alice
-🟢 myorg/backend #456 — Fix database connection pool
+🟢 myorg/backend #456 — Fix database connection pool  🔴 LARGE (1400 lines)
     📊 +1200/-200 lines  |  CI: ✅  |  Review: 🔁  |  Author: bob
-📝 myorg/frontend #789 — WIP: Dark mode support
+📝 myorg/frontend #789 — WIP: Dark mode support  🟢 SMALL (60 lines)
     📊 +50/-10 lines  |  CI: ✅  |  Review: ✅  |  Author: carol
 ```
 

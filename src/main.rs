@@ -3104,7 +3104,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Labels { pr_number, pr_numbers, pr, all, filter_by, repo, author, json } => {
+        Commands::Labels { pr_number, pr_numbers, pr, all, filter_by, repo, author, json, priority } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             // Apply --repo and --author filters when using interactive selection or --all
@@ -5389,7 +5389,7 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_numbers, json, repo, author } => {
+        Commands::Follow { action, pr_numbers, json, repo, author, priority } => {
             use serde::{Deserialize, Serialize};
 
             // Follow storage file
@@ -5628,12 +5628,22 @@ async fn main() -> anyhow::Result<()> {
                                 _ => "─",
                             };
 
+                            // Compute rough priority indicator from size (age not stored in FollowedPr)
+                            let priority_display = if priority {
+                                let total = pr.additions + pr.deletions;
+                                let urgency = if total > 1000 { "🔴 LARGE" } else if total > 500 { "🟡 MEDIUM" } else { "🟢 SMALL" };
+                                format!("  {} ({} lines)", urgency, total)
+                            } else {
+                                String::new()
+                            };
+
                             println!(
-                                "  {} {} #{} — {}",
+                                "  {} {} #{} — {}{}",
                                 state_icon,
                                 pr.repo.bold(),
                                 pr.pr_number,
-                                pr.pr_title
+                                pr.pr_title,
+                                priority_display
                             );
                             println!(
                                 "      📊 +{}/-{} lines  |  CI: {}  |  Review: {}  |  Author: {}",
