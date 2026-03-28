@@ -486,6 +486,12 @@ pub enum Commands {
         /// Number of days to look back (default: 7)
         #[arg(long, short = 'd', default_value_t = 7)]
         days: u32,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

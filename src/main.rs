@@ -6275,7 +6275,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, json } => {
+        Commands::Activity { days, repo, author, json } => {
             println!("\n📈 Fetching your review activity (last {} days)...\n", days);
 
             match github::fetch_my_review_activity(
@@ -6287,7 +6287,19 @@ async fn main() -> anyhow::Result<()> {
             )
             .await
             {
-                Ok(activities) => {
+                Ok(mut activities) => {
+                    // Apply --repo filter (partial match, case-insensitive)
+                    if let Some(ref repo_filter) = repo {
+                        let pattern = repo_filter.to_lowercase();
+                        activities.retain(|a| a.repo.to_lowercase().contains(&pattern));
+                    }
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    if let Some(ref author_filter) = author {
+                        let pattern = author_filter.to_lowercase();
+                        activities.retain(|a| a.author.to_lowercase().contains(&pattern));
+                    }
+
                     if json {
                         println!("{}", serde_json::to_string_pretty(&activities)?);
                     } else {

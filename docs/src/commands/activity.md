@@ -21,6 +21,8 @@ review-dispatcher activity [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-d, --days <DAYS>` | Number of days to look back | `7` |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | all |
+| `--author <AUTHOR>` | Filter by PR author username (partial match, case-insensitive) | all |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
@@ -31,4 +33,16 @@ review-dispatcher activity
 
 # Last 30 days
 review-dispatcher activity --days 30
+
+# Filter by repository
+review-dispatcher activity --repo myrepo
+
+# Filter by author
+review-dispatcher activity --author johndoe
+
+# Combine filters
+review-dispatcher activity --days 14 --repo api --author alice
+
+# JSON output for scripting
+review-dispatcher activity --json
 ```
