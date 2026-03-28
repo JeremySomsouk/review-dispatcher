@@ -4336,98 +4336,133 @@ async fn main() -> anyhow::Result<()> {
                         .personal_token(cfg.github_token.clone())
                         .build()?;
 
+                    // Phase 1: Fetch all PR details in parallel
+                    let pr_futures = followed.iter().map(|pr| {
+                        let client = client.clone();
+                        let org = cfg.github_org.clone();
+                        let repo = pr.repo.clone();
+                        let pr_number = pr.pr_number;
+
+                        async move {
+                            let current = client.pulls(&org, &repo).get(pr_number).await;
+                            (pr_number, repo, current)
+                        }
+                    });
+
+                    let pr_results: Vec<(u64, String, Result<octocrab::models::pulls::PullRequest, octocrab::Error>)> =
+                        join_all(pr_futures).await;
+
+                    // Phase 2: Fetch CI statuses in parallel for successful PR fetches
+                    let ci_futures: Vec<_> = pr_results
+                        .iter()
+                        .filter_map(|(pr_number, repo, result)| {
+                            let pr = result.as_ref().ok()?;
+                            let current_commit = pr.head.sha.clone();
+
+                            let client = client.clone();
+                            let org = cfg.github_org.clone();
+                            let repo = repo.clone();
+
+                            Some(async move {
+                                #[derive(serde::Deserialize)]
+                                struct CombinedStatus {
+                                    state: String,
+                                }
+
+                                let combined_status_url = format!(
+                                    "/repos/{}/{}/commits/{}/status",
+                                    org, repo, current_commit
+                                );
+
+                                let current_ci: String = client
+                                    .get(&combined_status_url, None::<&str>)
+                                    .await
+                                    .map(|s: CombinedStatus| s.state)
+                                    .unwrap_or_else(|_| "unknown".to_string());
+
+                                (*pr_number, current_commit, current_ci)
+                            })
+                        })
+                        .collect();
+
+                    let ci_results: Vec<(u64, String, String)> = join_all(ci_futures).await;
+                    let ci_map: std::collections::HashMap<u64, (String, String)> = ci_results
+                        .into_iter()
+                        .map(|(pr_number, commit, ci)| (pr_number, (commit, ci)))
+                        .collect();
+
                     let now = chrono::Utc::now().to_rfc3339();
                     let mut has_changes = false;
 
+                    // Process results and check for changes
                     for pr in followed.iter_mut() {
-                        // Fetch current PR state
-                        #[derive(serde::Deserialize)]
-                        struct PrResponse {
-                            merged: Option<bool>,
-                            state: Option<octocrab::models::IssueState>,
-                            draft: Option<bool>,
-                            head: PrHead,
-                        }
-                        #[derive(serde::Deserialize)]
-                        struct PrHead {
-                            sha: String,
-                        }
+                        // Find PR result
+                        let pr_result = pr_results.iter().find(|(num, _, _)| *num == pr.pr_number);
+                        let current = match pr_result.and_then(|(_, _, r)| r.as_ref().ok()) {
+                            Some(current) => current,
+                            None => continue,
+                        };
 
-                        if let Ok(current) = client.pulls(&cfg.github_org, &pr.repo)
-                            .get(pr.pr_number).await {
-                            
-                            let current_state = if current.merged.unwrap_or(false) {
-                                "merged"
-                            } else {
-                                match current.state.as_ref() {
-                                    Some(octocrab::models::IssueState::Open) => "open",
-                                    Some(octocrab::models::IssueState::Closed) => "closed",
-                                    _ => "unknown",
-                                }
-                            };
-
-                            let current_commit = current.head.sha.clone();
-                            
-                            // Fetch combined CI status for this commit via GitHub status API
-                            #[derive(serde::Deserialize)]
-                            struct CombinedStatus {
-                                state: String,
+                        let current_state = if current.merged.unwrap_or(false) {
+                            "merged"
+                        } else {
+                            match current.state.as_ref() {
+                                Some(octocrab::models::IssueState::Open) => "open",
+                                Some(octocrab::models::IssueState::Closed) => "closed",
+                                _ => "unknown",
                             }
+                        };
 
-                            let combined_status_url = format!(
-                                "/repos/{}/{}/commits/{}/status",
-                                cfg.github_org, pr.repo, current_commit
+                        let current_commit = current.head.sha.clone();
+
+                        // Get CI status from map
+                        let current_ci = ci_map
+                            .get(&pr.pr_number)
+                            .map(|(_, ci)| ci.clone())
+                            .unwrap_or_else(|| "unknown".to_string());
+
+                        // Check for changes
+                        let state_changed = pr.last_known_state != current_state;
+                        let ci_changed = pr.last_ci_status != current_ci;
+                        let new_commit = pr.last_commit_sha != current_commit;
+
+                        if state_changed || ci_changed || new_commit {
+                            has_changes = true;
+                            println!(
+                                "  🔔 {} #{} — {}",
+                                pr.repo.bold(),
+                                pr.pr_number,
+                                pr.pr_title
                             );
 
-                            let current_ci: String = client
-                                .get(&combined_status_url, None::<&str>)
-                                .await
-                                .map(|s: CombinedStatus| s.state)
-                                .unwrap_or_else(|_| "unknown".to_string());
-
-                            // Check for changes
-                            let state_changed = pr.last_known_state != current_state;
-                            let ci_changed = pr.last_ci_status != current_ci;
-                            let new_commit = pr.last_commit_sha != current_commit;
-
-                            if state_changed || ci_changed || new_commit {
-                                has_changes = true;
+                            if state_changed {
                                 println!(
-                                    "  🔔 {} #{} — {}",
-                                    pr.repo.bold(),
-                                    pr.pr_number,
-                                    pr.pr_title
+                                    "      Status: {} → {}",
+                                    pr.last_known_state.yellow(),
+                                    current_state.green()
                                 );
-                                
-                                if state_changed {
-                                    println!(
-                                        "      Status: {} → {}",
-                                        pr.last_known_state.yellow(),
-                                        current_state.green()
-                                    );
-                                }
-                                if new_commit {
-                                    println!(
-                                        "      Commit: {} → {}",
-                                        &pr.last_commit_sha[..7.min(pr.last_commit_sha.len())].yellow(),
-                                        &current_commit[..7.min(current_commit.len())].green()
-                                    );
-                                }
-                                if ci_changed {
-                                    println!(
-                                        "      CI: {} → {}",
-                                        pr.last_ci_status.yellow(),
-                                        current_ci.green()
-                                    );
-                                }
-                                println!();
-
-                                // Update stored state
-                                pr.last_known_state = current_state.to_string();
-                                pr.last_ci_status = current_ci;
-                                pr.last_commit_sha = current_commit;
-                                pr.last_check = now.clone();
                             }
+                            if new_commit {
+                                println!(
+                                    "      Commit: {} → {}",
+                                    &pr.last_commit_sha[..7.min(pr.last_commit_sha.len())].yellow(),
+                                    &current_commit[..7.min(current_commit.len())].green()
+                                );
+                            }
+                            if ci_changed {
+                                println!(
+                                    "      CI: {} → {}",
+                                    pr.last_ci_status.yellow(),
+                                    current_ci.green()
+                                );
+                            }
+                            println!();
+
+                            // Update stored state
+                            pr.last_known_state = current_state.to_string();
+                            pr.last_ci_status = current_ci;
+                            pr.last_commit_sha = current_commit;
+                            pr.last_check = now.clone();
                         }
                     }
 
