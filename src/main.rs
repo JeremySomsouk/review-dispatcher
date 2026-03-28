@@ -6038,7 +6038,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, min_age, send, message, repo, author, json } => {
+        Commands::Chase { pr_number, min_age, send, message, repo, author, priority, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -6090,12 +6090,14 @@ async fn main() -> anyhow::Result<()> {
                 pub days_waiting: i64,
                 pub message: String,
                 pub pr_url: String,
+                pub priority_score: u8,
             }
 
             let chase_entries: Vec<ChaseEntry> = stale_prs
                 .iter()
                 .map(|r| {
                     let days_waiting = (now - r.created_at).num_days();
+                    let priority_score = logger::calculate_priority_score(r);
                     let msg = message_template
                         .replace("{author}", &r.pr_author)
                         .replace("{title}", &r.pr_title)
@@ -6111,6 +6113,7 @@ async fn main() -> anyhow::Result<()> {
                         days_waiting,
                         message: msg,
                         pr_url: r.pr_url.clone(),
+                        priority_score,
                     }
                 })
                 .collect();
@@ -6134,11 +6137,18 @@ async fn main() -> anyhow::Result<()> {
                     format!("{}d", entry.days_waiting).dimmed().to_string()
                 };
 
-                println!("  📬 {} {} (#{}) - {} old", 
+                let priority_display = if priority {
+                    format!("  {}", logger::priority_stars(entry.priority_score))
+                } else {
+                    String::new()
+                };
+
+                println!("  📬 {} {} (#{}) - {}{}", 
                     entry.pr_title.bold(),
                     format!("by {}", entry.author.cyan()),
                     entry.pr_number,
-                    age_label
+                    age_label,
+                    priority_display
                 );
                 println!("     💬 {}\n", entry.message.dimmed());
             }

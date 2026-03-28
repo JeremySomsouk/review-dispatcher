@@ -28,6 +28,7 @@ review-dispatcher chase [OPTIONS]
 | `-m, --message <TEXT>` | Custom message template | Default template |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Message Template
@@ -64,6 +65,9 @@ review-dispatcher chase --pr 123
 # Chase PRs older than 14 days and post comments
 review-dispatcher chase --min-age 14 --send
 
+# Chase with priority scores to identify most urgent PRs
+review-dispatcher chase --priority
+
 # Use a custom message template
 review-dispatcher chase --message "Hey {author}, bumping this - it's been {days} days!"
 
@@ -77,6 +81,7 @@ When run in preview mode (without `--send`):
 
 - Shows each stale PR with author, age, and proposed comment
 - Color-coded age badges (red for 14+ days, yellow for 7+ days)
+- Priority scores (when `--priority` is specified)
 - Summary of how many PRs would be chased
 
 When run with `--send`:
