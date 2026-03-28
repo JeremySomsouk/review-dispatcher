@@ -89,6 +89,15 @@ pub enum Commands {
         /// Show priority score (1-5 stars) based on age and size
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {

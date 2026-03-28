@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine { json, priority } => {
+        Commands::Mine { json, priority, since_days, repo, author } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -165,15 +165,52 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            // Apply --since filter
+            let filtered: Vec<_> = match since_days {
+                Some(days) => {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    my_prs
+                        .iter()
+                        .filter(|r| r.created_at >= cutoff)
+                        .cloned()
+                        .collect()
+                }
+                None => my_prs.clone(),
+            };
+
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match repo {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.repo.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Apply --author filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match author {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.pr_author.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
             if json {
-                println!("{}", serde_json::to_string_pretty(&my_prs)?);
+                println!("{}", serde_json::to_string_pretty(&filtered)?);
             } else {
-                logger::print_reviews(&my_prs, priority);
+                logger::print_reviews(&filtered, priority);
             }
 
             if let Some(ref dir) = output_dir {
-                let index_path = writer::write_index(dir, &my_prs)?;
-                for review in &my_prs {
+                let index_path = writer::write_index(dir, &filtered)?;
+                for review in &filtered {
                     writer::write_review(dir, review, None)?;
                 }
                 println!(
