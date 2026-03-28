@@ -24,6 +24,9 @@ review-dispatcher attention [OPTIONS]
 | `-t, --threshold <NUM>` | Minimum attention score to show (1-10) | `5` |
 | `-d, --detailed` | Show detailed score breakdown | `false` |
 | `-n, --limit <NUM>` | Limit the number of results shown | `10` |
+| `-P, --priority` | Show priority score (1-5 stars based on age and size) | `false` |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Attention Score Calculation
@@ -60,6 +63,18 @@ review-dispatcher attention --detailed
 
 # Show top 5 most urgent
 review-dispatcher attention --limit 5
+
+# Show with priority scores (1-5 stars)
+review-dispatcher attention --priority
+
+# Filter by repository
+review-dispatcher attention --repo myorg/frontend
+
+# Filter by author
+review-dispatcher attention --author alice
+
+# Combine filters
+review-dispatcher attention --repo myorg --author alice --priority
 
 # Get JSON for scripting or dashboards
 review-dispatcher attention --json

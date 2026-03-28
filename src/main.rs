@@ -7599,11 +7599,30 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Attention { threshold, detailed, limit, json } => {
+        Commands::Attention { threshold, detailed, limit, priority, repo, author, json } => {
             use chrono::Utc;
             use crate::github::PendingReview;
 
-            if reviews.is_empty() {
+            // Apply --repo and --author filters
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
+            if filtered_reviews.is_empty() {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&serde_json::json!({
                         "total": 0,
@@ -7671,7 +7690,7 @@ async fn main() -> anyhow::Result<()> {
                 (total, AttentionFactors { age_score, size_score, draft_score, staleness_bonus })
             }
 
-            let mut attention_list: Vec<AttentionPR> = reviews.iter().map(|r| {
+            let mut attention_list: Vec<AttentionPR> = filtered_reviews.iter().map(|r| {
                 let (attention_score, factors) = calc_attention_score(r);
                 AttentionPR {
                     repo: r.repo.clone(),
@@ -7727,8 +7746,25 @@ async fn main() -> anyhow::Result<()> {
 
                     let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
                     let stars = "🔥".repeat((pr.attention_score / 2).min(5) as usize);
+                    let priority_display = if priority {
+                        let p_score = logger::calculate_priority_score(&crate::github::PendingReview {
+                            repo: pr.repo.clone(),
+                            pr_number: pr.pr_number,
+                            pr_title: pr.pr_title.clone(),
+                            pr_author: pr.pr_author.clone(),
+                            pr_url: pr.pr_url.clone(),
+                            created_at: chrono::Utc::now() - chrono::Duration::days(pr.age_days),
+                            additions: pr.size,
+                            deletions: 0,
+                            draft: pr.draft,
+                            branch: String::new(),
+                        });
+                        format!("  {}", logger::priority_stars(p_score))
+                    } else {
+                        String::new()
+                    };
 
-                    println!("  {}  {} {} ({}){}", stars, pr.pr_title.bold(), format!("#{}", pr.pr_number).dimmed(), pr.repo.dimmed(), draft_label);
+                    println!("  {}  {} {} ({}){}{}", stars, pr.pr_title.bold(), format!("#{}", pr.pr_number).dimmed(), pr.repo.dimmed(), draft_label, priority_display);
                     println!("      👤 {}  •  {} lines  •  opened {}", 
                         pr.pr_author.cyan(), pr.size, age_label);
                     
