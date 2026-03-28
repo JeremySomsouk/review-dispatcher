@@ -9,6 +9,7 @@ The counterpart to `assign` — give up review responsibility when you've been a
 - Wrong assignment: "I was asked to review this by accident"
 - Capacity shift: "I'm too busy, someone else should take this"
 - Triage cleanup: Clean up your review queue after re-organizing
+- Batch operation: Use `--all` to unassign from all pending reviews at once
 - Scripting: Use `--json` for programmatic integrations
 
 ## Synopsis
@@ -23,6 +24,8 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to unassign yourself from (shorthand for `--pr`) | Required if no `--pr` |
 | `-p, --pr` | Global flag: target a specific PR number | - |
+| `-a, --all` | Unassign yourself from all pending reviews at once | `false` |
+| `-n, --pr-numbers` | PR number(s) to unassign from (comma-separated, e.g. `123,456`) | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -30,6 +33,12 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 ```bash
 # Unassign from a specific PR
 review-dispatcher unassign 4821
+
+# Unassign from all pending reviews at once
+review-dispatcher unassign --all
+
+# Unassign from multiple specific PRs
+review-dispatcher unassign --pr-numbers 4821,4822,4823
 
 # Interactive selection from pending reviews
 review-dispatcher unassign
@@ -40,9 +49,10 @@ review-dispatcher unassign 4821 --json
 
 ## Tips
 
-- If no PR number is provided, shows your pending reviews and lets you select one interactively
-- Use `list` first to see which PRs you're currently assigned to
-- After unassigning, the PR author may need to manually request another reviewer
+- Use `--all` to quickly unassign yourself from ALL pending reviews without prompting
+- Use `--pr-numbers` to unassign from multiple specific PRs in one command
+- Parallel requests are used when unassigning from multiple PRs for speed
+- If no PR number is provided and `--all` is not used, shows your pending reviews and lets you select interactively
 
 ## JSON Output
 

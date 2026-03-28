@@ -9,6 +9,7 @@ Skip the web UI — claim review responsibility directly from the terminal.
 - Quick claim: "I want to review this before anyone else"
 - Triage workflow: Pair with `delegate` for AI-assisted assignment
 - Scripting: Use `--json` for programmatic integrations
+- Batch operation: Use `--all` to assign to all pending reviews at once
 
 ## Synopsis
 
@@ -22,6 +23,8 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to assign yourself to (shorthand for `--pr`) | Required if no `--pr` |
 | `-p, --pr` | Global flag: target a specific PR number | - |
+| `-a, --all` | Assign yourself to all pending reviews at once | `false` |
+| `-n, --pr-numbers` | PR number(s) to assign (comma-separated, e.g. `123,456`) | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -32,6 +35,12 @@ review-dispatcher assign 4821
 
 # Assign using global --pr flag
 review-dispatcher --pr 4821 assign
+
+# Assign to all pending reviews at once
+review-dispatcher assign --all
+
+# Assign to multiple specific PRs
+review-dispatcher assign --pr-numbers 4821,4822,4823
 
 # Assign with JSON output (for scripting)
 review-dispatcher assign 4821 --json
@@ -53,3 +62,9 @@ When `--json` is used, returns an array of results:
   }
 ]
 ```
+
+## Tips
+
+- Use `--all` to quickly assign yourself to ALL pending reviews without prompting
+- Use `--pr-numbers` to assign to multiple specific PRs in one command
+- Parallel requests are used when assigning to multiple PRs for speed

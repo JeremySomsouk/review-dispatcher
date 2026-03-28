@@ -207,6 +207,12 @@ pub enum Commands {
     },
     /// Assign yourself as a reviewer on a PR
     Assign {
+        /// Assign yourself to all pending reviews at once
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to assign to (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
         /// PR number to assign yourself to (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
@@ -216,6 +222,12 @@ pub enum Commands {
     },
     /// Remove yourself as a reviewer from a PR
     Unassign {
+        /// Unassign yourself from all pending reviews at once
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to unassign from (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
         /// PR number to unassign yourself from (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
@@ -225,6 +237,12 @@ pub enum Commands {
     },
     /// Post a comment on a PR directly from the CLI
     Comment {
+        /// Comment on all pending reviews at once
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to comment on (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
         /// PR number to comment on
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
@@ -237,6 +255,12 @@ pub enum Commands {
     },
     /// Approve a PR directly from the CLI
     Approve {
+        /// Approve all pending reviews at once
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to approve (comma-separated)
+        #[arg(value_name = "PR_NUMBERS")]
+        pr_numbers: Option<String>,
         /// PR number to approve
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,

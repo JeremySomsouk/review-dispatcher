@@ -1664,37 +1664,66 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Assign { pr_number, json } => {
+        Commands::Assign { all, pr_numbers, pr_number, json } => {
             let target_pr = cli.pr.or(pr_number);
 
-            let prs = match target_pr {
-                Some(num) => {
+            let prs: Vec<github::PendingReview> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = results.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
                 }
-                None => {
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to assign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
-                        }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to assign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
                     }
                 }
             };
@@ -1789,37 +1818,66 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { pr_number, json } => {
+        Commands::Unassign { all, pr_numbers, pr_number, json } => {
             let target_pr = cli.pr.or(pr_number);
 
-            let prs = match target_pr {
-                Some(num) => {
+            let prs: Vec<github::PendingReview> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = results.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
                 }
-                None => {
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to unassign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
-                        }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to unassign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
                     }
                 }
             };
@@ -1914,37 +1972,66 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { pr_number, text, json } => {
+        Commands::Comment { all, pr_numbers, pr_number, text, json } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
-            let prs = match target_pr {
-                Some(num) => {
+            let prs: Vec<github::PendingReview> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = results.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
                 }
-                None => {
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to comment on [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
-                        }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to comment on [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
                     }
                 }
             };
@@ -2041,37 +2128,66 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { pr_number, message, json } => {
+        Commands::Approve { all, pr_numbers, pr_number, message, json } => {
             let target_pr = cli.pr.or(pr_number);
 
-            let prs = match target_pr {
-                Some(num) => {
+            let prs: Vec<github::PendingReview> = if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = results.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
                 }
-                None => {
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to approve [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
-                        }
+                logger::print_reviews(&reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to approve [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| reviews[i].clone()).collect()
                     }
                 }
             };

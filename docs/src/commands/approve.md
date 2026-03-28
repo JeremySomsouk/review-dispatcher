@@ -9,6 +9,7 @@ No more switching to GitHub UI for simple approvals. Approve and add a comment i
 - Code looks good after review
 - Small PR you trust the author on
 - Quick approval to unblock CI
+- Batch approval: Use `--all` to approve all pending reviews at once
 
 ## Synopsis
 
@@ -18,23 +19,31 @@ review-dispatcher approve [OPTIONS]
 
 ## Options
 
-| Flag | Description |
-|------|-------------|
-| `-p, --pr <NUM>` | PR number to approve |
-| `-m, --message <TEXT>` | Approval comment (optional) |
-| `--json` | Output as JSON (useful for scripting) |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-p, --pr <NUM>` | PR number to approve | - |
+| `-a, --all` | Approve all pending reviews at once | `false` |
+| `-n, --pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
+| `-m, --message <TEXT>` | Approval comment (optional, default: "LGTM!") | `LGTM!` |
+| `--json` | Output as JSON (useful for scripting) | `false` |
 
 ## Examples
 
 ```bash
-# Approve with default message
+# Approve a specific PR with default message
 review-dispatcher approve --pr 4821
 
-# Approve with a comment
+# Approve with a custom comment
 review-dispatcher approve --pr 4821 -m "LGTM! Nice work on the tests."
 
 # Approve without comment
 review-dispatcher approve --pr 4821 -m ""
+
+# Approve all pending reviews at once
+review-dispatcher approve --all
+
+# Approve multiple specific PRs
+review-dispatcher approve --pr-numbers 4821,4822,4823
 
 # Approve with JSON output (for scripting)
 review-dispatcher approve --pr 4821 --json
@@ -42,5 +51,8 @@ review-dispatcher approve --pr 4821 --json
 
 ## Tips
 
-- Requires PR to already be reviewed
-- Use `--pr` flag or positional argument
+- Use `--all` to quickly approve ALL pending reviews at once
+- Use `--pr-numbers` to approve multiple specific PRs in one command
+- Parallel requests are used when approving multiple PRs for speed
+- If no PR number is provided and `--all` is not used, shows your pending reviews and lets you select interactively
+- Requires PR to already be reviewed (or at least have the PR in a reviewable state)
