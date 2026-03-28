@@ -81,7 +81,11 @@ pub enum Commands {
         json: bool,
     },
     /// Show team review summary (how many PRs each crew member has waiting)
-    TeamSummary,
+    TeamSummary {
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
+    },
     /// Show review workload distribution across team members (load balance analysis)
     Load {
         /// Minimum number of PRs to be considered "loaded" (default: 3)

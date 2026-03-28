@@ -450,8 +450,9 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary => {
+        Commands::TeamSummary { json } => {
             use std::collections::HashMap;
+            use serde::Serialize;
 
             let mut team_counts: HashMap<String, usize> = HashMap::new();
             let mut unassigned = 0usize;
@@ -464,36 +465,55 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            println!("\n👥 Team Review Summary\n{}", "─".repeat(40));
-            println!("  Total pending reviews: {}", reviews.len());
-
-            if !team_counts.is_empty() {
-                println!("\n  By author:");
-                let mut sorted: Vec<_> = team_counts.iter().collect();
-                sorted.sort_by(|a, b| b.1.cmp(a.1)); // descending by count
-                for (author, count) in sorted {
-                    let bar = "█".repeat(*count).cyan();
-                    println!("    {}  {}", author.bold(), bar);
-                }
-            }
-
-            if unassigned > 0 {
-                println!("\n  Unassigned/Unknown: {}", unassigned);
-            }
-
             // Show breakdown by repository
             let mut repo_counts: HashMap<String, usize> = HashMap::new();
             for review in &reviews {
                 *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
             }
-            println!("\n  By repository:");
-            let mut repo_sorted: Vec<_> = repo_counts.iter().collect();
-            repo_sorted.sort_by(|a, b| b.1.cmp(a.1));
-            for (repo, count) in repo_sorted {
-                println!("    {}: {}", repo, count);
-            }
 
-            println!();
+            if json {
+                #[derive(Serialize)]
+                struct TeamSummaryOutput {
+                    total_pending: usize,
+                    by_author: HashMap<String, usize>,
+                    unassigned: usize,
+                    by_repository: HashMap<String, usize>,
+                }
+
+                let output = TeamSummaryOutput {
+                    total_pending: reviews.len(),
+                    by_author: team_counts,
+                    unassigned,
+                    by_repository: repo_counts,
+                };
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                println!("\n👥 Team Review Summary\n{}", "─".repeat(40));
+                println!("  Total pending reviews: {}", reviews.len());
+
+                if !team_counts.is_empty() {
+                    println!("\n  By author:");
+                    let mut sorted: Vec<_> = team_counts.iter().collect();
+                    sorted.sort_by(|a, b| b.1.cmp(a.1)); // descending by count
+                    for (author, count) in sorted {
+                        let bar = "█".repeat(*count).cyan();
+                        println!("    {}  {}", author.bold(), bar);
+                    }
+                }
+
+                if unassigned > 0 {
+                    println!("\n  Unassigned/Unknown: {}", unassigned);
+                }
+
+                println!("\n  By repository:");
+                let mut repo_sorted: Vec<_> = repo_counts.iter().collect();
+                repo_sorted.sort_by(|a, b| b.1.cmp(a.1));
+                for (repo, count) in repo_sorted {
+                    println!("    {}: {}", repo, count);
+                }
+
+                println!();
+            }
         }
 
         Commands::Load { threshold, json } => {
