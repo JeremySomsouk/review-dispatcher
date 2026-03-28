@@ -753,6 +753,12 @@ pub enum Commands {
         /// Show priority scores for listed snoozed PRs
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Send a follow-up reminder to authors of stale PRs to get their attention
     Chase {

@@ -4524,7 +4524,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Snooze { action, pr_numbers, days, json, priority } => {
+        Commands::Snooze { action, pr_numbers, days, json, priority, repo, author } => {
             use serde::{Deserialize, Serialize};
 
             // Snooze storage file
@@ -4674,6 +4674,18 @@ async fn main() -> anyhow::Result<()> {
                         })
                         .collect();
 
+                    // Apply --repo filter (partial match, case-insensitive)
+                    if let Some(ref repo_filter) = repo {
+                        let pattern = repo_filter.to_lowercase();
+                        active.retain(|e| e.repo.to_lowercase().contains(&pattern));
+                    }
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    if let Some(ref author_filter) = author {
+                        let pattern = author_filter.to_lowercase();
+                        active.retain(|e| e.author.to_lowercase().contains(&pattern));
+                    }
+
                     if active.is_empty() {
                         if json {
                             println!("[]");
@@ -4785,6 +4797,18 @@ async fn main() -> anyhow::Result<()> {
                             }
                         })
                         .collect();
+
+                    // Apply --repo filter (partial match, case-insensitive)
+                    if let Some(ref repo_filter) = repo {
+                        let pattern = repo_filter.to_lowercase();
+                        active.retain(|e| e.repo.to_lowercase().contains(&pattern));
+                    }
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    if let Some(ref author_filter) = author {
+                        let pattern = author_filter.to_lowercase();
+                        active.retain(|e| e.author.to_lowercase().contains(&pattern));
+                    }
 
                     if active.is_empty() {
                         println!("\n😴 No currently snoozed PRs.\n");
