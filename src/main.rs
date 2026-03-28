@@ -6730,8 +6730,6 @@ async fn main() -> anyhow::Result<()> {
                 blockers: Vec<String>,
             }
 
-            let mut blocked_prs: Vec<BlockedPr> = Vec::new();
-
             // Filter reviews by repo if specified
             let filtered_reviews: Vec<_> = if let Some(ref repo_filter) = repo {
                 reviews.iter().filter(|r| r.repo.to_lowercase().contains(&repo_filter.to_lowercase())).cloned().collect()
@@ -6739,64 +6737,102 @@ async fn main() -> anyhow::Result<()> {
                 reviews.clone()
             };
 
-            for review in &filtered_reviews {
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
+            if filtered_reviews.is_empty() {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&serde_json::json!([]))?);
+                } else {
+                    println!("\n🚧 Blocked PRs — 0 total\n{}", "─".repeat(50));
+                    println!("  🎉 No pending reviews found.");
+                }
+                return Ok(());
+            }
 
-                let pr_details = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .get(review.pr_number)
-                    .await
-                    .ok();
+            // Phase 1: Parallel fetch all PR details
+            let pr_detail_futures = filtered_reviews.iter().map(|review| {
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+                let repo_name = review.repo.clone();
+                let pr_number = review.pr_number;
+                async move {
+                    let client = octocrab::Octocrab::builder()
+                        .personal_token(token)
+                        .build()?;
+                    client.pulls(org, repo_name).get(pr_number).await
+                }
+            });
+            let pr_results: Vec<Result<_, _>> = join_all(pr_detail_futures).await;
 
-                let (ci_status, has_conflicts, mergeable, blockers) = if let Some(pr) = pr_details {
-                    let mut block_list = Vec::new();
-
-                    // Check CI status
-                    #[derive(serde::Deserialize)]
-                    struct CombinedStatus { state: String }
-                    let ci_state: String = client
+            // Phase 2: Parallel fetch CI status for each PR (only for successful PR fetches)
+            #[derive(serde::Deserialize)]
+            struct CombinedStatus {
+                state: String,
+            }
+            let ci_futures = pr_results.iter().enumerate().filter_map(|(idx, r)| {
+                let pr = r.as_ref().ok()?;
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+                let repo_name = pr.base.repo.clone().map(|r| r.name).unwrap_or_default();
+                let sha = pr.head.sha.clone();
+                Some(async move {
+                    let client = octocrab::Octocrab::builder()
+                        .personal_token(token)
+                        .build()?;
+                    let state: String = client
                         .get(
-                            format!(
-                                "/repos/{}/{}/commits/{}/status",
-                                cfg.github_org,
-                                review.repo,
-                                pr.head.sha
-                            ),
+                            format!("/repos/{}/{}/commits/{}/status", org, repo_name, sha),
                             None::<&str>,
                         )
                         .await
                         .map(|s: CombinedStatus| s.state)
                         .unwrap_or_else(|_| "unknown".to_string());
+                    anyhow::Ok((idx, state))
+                })
+            });
+            let ci_results: Vec<Result<(usize, String), _>> = join_all(ci_futures).await;
 
-                    if ci_state == "failure" || ci_state == "error" {
-                        block_list.push("CI failing".to_string());
+            // Build a map of idx -> ci_status for fast lookup
+            let mut ci_map: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+            for ci_result in ci_results {
+                if let Ok((idx, state)) = ci_result {
+                    ci_map.insert(idx, state);
+                }
+            }
+
+            // Build blocked_prs from parallel results
+            let mut blocked_prs: Vec<BlockedPr> = Vec::new();
+
+            for (idx, (review, pr_result)) in filtered_reviews.iter().zip(pr_results.into_iter()).enumerate() {
+                let ci_status = ci_map.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+
+                let (has_conflicts, mergeable, blockers) = match pr_result {
+                    Ok(pr) => {
+                        let mut block_list = Vec::new();
+
+                        if ci_status == "failure" || ci_status == "error" {
+                            block_list.push("CI failing".to_string());
+                        }
+
+                        let conflicts = pr.mergeable == Some(false);
+                        if conflicts {
+                            block_list.push("Merge conflict".to_string());
+                        }
+
+                        let can_merge = pr.mergeable == Some(true);
+                        if !can_merge && !conflicts {
+                            block_list.push("Not mergeable".to_string());
+                        }
+
+                        if pr.draft.unwrap_or(false) {
+                            block_list.push("Draft PR".to_string());
+                        }
+
+                        (conflicts, can_merge, block_list)
                     }
-
-                    // Check conflicts
-                    let conflicts = pr.mergeable == Some(false);
-                    if conflicts {
-                        block_list.push("Merge conflict".to_string());
+                    Err(_) => {
+                        (false, false, vec!["Unable to fetch PR details".to_string()])
                     }
-
-                    // Check mergeable status
-                    let can_merge = pr.mergeable == Some(true);
-                    if !can_merge && !conflicts {
-                        block_list.push("Not mergeable".to_string());
-                    }
-
-                    // Check if draft
-                    if pr.draft.unwrap_or(false) {
-                        block_list.push("Draft PR".to_string());
-                    }
-
-                    (ci_state, conflicts, can_merge, block_list)
-                } else {
-                    (String::from("unknown"), false, false, vec!["Unable to fetch PR details".to_string()])
                 };
 
-                // A PR is "blocked" if it has any blockers
                 let is_blocked = !blockers.is_empty();
 
                 // Apply filters
