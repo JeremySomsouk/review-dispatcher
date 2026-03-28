@@ -978,12 +978,18 @@ pub enum Commands {
         /// Filter to specific repository
         #[arg(long, short = 'r')]
         repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Only show PRs with failing CI
         #[arg(long, short = 'c')]
         ci_only: bool,
         /// Only show PRs with merge conflicts
         #[arg(long, short = 'm')]
         conflicts_only: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Limit the number of results shown (default: 20)
         #[arg(long, short = 'n')]
         limit: Option<usize>,

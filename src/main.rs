@@ -9013,7 +9013,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Blocked { repo, ci_only, conflicts_only, limit, json } => {
+        Commands::Blocked { repo, author, ci_only, conflicts_only, priority, limit, json } => {
             let limit = limit.unwrap_or(20);
 
             #[derive(Clone, serde::Serialize)]
@@ -9031,13 +9031,27 @@ async fn main() -> anyhow::Result<()> {
                 has_conflicts: bool,
                 mergeable: bool,
                 blockers: Vec<String>,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                priority_score: Option<u8>,
             }
 
-            // Filter reviews by repo if specified
-            let filtered_reviews: Vec<_> = if let Some(ref repo_filter) = repo {
-                reviews.iter().filter(|r| r.repo.to_lowercase().contains(&repo_filter.to_lowercase())).cloned().collect()
-            } else {
-                reviews.clone()
+            // Filter reviews by repo and author if specified
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
             };
 
             if filtered_reviews.is_empty() {
@@ -9162,15 +9176,20 @@ async fn main() -> anyhow::Result<()> {
                         has_conflicts,
                         mergeable,
                         blockers,
+                        priority_score: if priority { Some(logger::calculate_priority_score(review)) } else { None },
                     });
                 }
             }
 
-            // Sort by blockers count (most blocked first), then by age
+            // Sort by blockers count (most blocked first), then by priority/age
             blocked_prs.sort_by(|a, b| {
                 let blk_cmp = b.blockers.len().cmp(&a.blockers.len());
                 if blk_cmp == std::cmp::Ordering::Equal {
-                    b.age_days.cmp(&a.age_days)
+                    // When priority is enabled, sort by priority score; otherwise by age
+                    match (a.priority_score, b.priority_score) {
+                        (Some(score_a), Some(score_b)) => score_b.cmp(&score_a),
+                        _ => b.age_days.cmp(&a.age_days),
+                    }
                 } else {
                     blk_cmp
                 }
@@ -9207,6 +9226,11 @@ async fn main() -> anyhow::Result<()> {
                             .join("  ");
 
                         println!("  🚫 #{} {}  ({})", pr.pr_number, pr.pr_title.bold(), pr.repo.dimmed());
+                        if priority {
+                            if let Some(score) = pr.priority_score {
+                                println!("     ⭐ {}/5  {}", score, logger::priority_stars(score));
+                            }
+                        }
                         println!("     👤 {}  •  📦 {} lines  •  ⏱️ {} days", pr.pr_author.cyan(), total, pr.age_days);
                         println!("     {}", blocker_tags);
                         println!("     🔗 {}", pr.pr_url.blue().underline());
@@ -9221,6 +9245,8 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", "─".repeat(50));
                 println!("  💡 Use `--ci-only` to show only CI failures");
                 println!("  💡 Use `--conflicts-only` to show only merge conflicts");
+                println!("  💡 Use `--priority` to show priority scores");
+                println!("  💡 Use `--author` to filter by author");
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
