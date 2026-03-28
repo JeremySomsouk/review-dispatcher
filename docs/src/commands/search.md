@@ -20,6 +20,7 @@ review-dispatcher search [OPTIONS] <KEYWORD>
 | Flag | Description | Default |
 |------|-------------|---------|
 | `<KEYWORD>` | Keyword to search for in PR titles | Required |
+| `-p, --pr <NUM>` | Target a specific PR by number (bypasses search filters and snooze exclusion) | None |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author` | Filter by author username (partial match, case-insensitive) | None |
 | `-P, --priority` | Show priority scores | `false` |
@@ -39,6 +40,9 @@ review-dispatcher search feature --author johndoe
 
 # Combine filters
 review-dispatcher search fix --repo api --author alice --priority
+
+# Target a specific PR (even if snoozed)
+review-dispatcher search anything --pr 1234
 
 # JSON output for scripting
 review-dispatcher search auth --json
