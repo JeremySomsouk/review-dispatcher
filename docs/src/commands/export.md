@@ -27,6 +27,8 @@ review-dispatcher export [OPTIONS]
 | `-c, --columns <COLS>` | Columns to include (comma-separated) | all |
 | `-a, --all` | Fetch fresh data for all reviews | current session |
 | `--json` | Output as JSON (useful for scripting) | false |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | none |
+| `--author <USER>` | Filter by author username (partial match, case-insensitive) | none |
 
 ### Available Columns
 
@@ -61,6 +63,15 @@ review-dispatcher export --all --output full-report.csv
 
 # Export as JSON for scripting or API integration
 review-dispatcher export --json --output reviews.json
+
+# Export only PRs from a specific repository
+review-dispatcher export --repo backend --output backend-reviews.csv
+
+# Export only PRs by a specific author
+review-dispatcher export --author alice --output alice-reviews.csv
+
+# Combine filters with other options
+review-dispatcher export --repo frontend --author alice --format markdown --output report.md
 ```
 
 ## Output Examples

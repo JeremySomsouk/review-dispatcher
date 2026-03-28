@@ -7989,7 +7989,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, all, json } => {
+        Commands::Export { format, output, columns, all, json, repo, author } => {
             use chrono::Utc;
 
             let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
@@ -8009,6 +8009,28 @@ async fn main() -> anyhow::Result<()> {
                 .await?
             } else {
                 reviews.clone()
+            };
+
+            // Apply --repo filter (partial match, case-insensitive)
+            let reviews_to_export: Vec<_> = if let Some(ref repo_filter) = repo {
+                let pattern = repo_filter.to_lowercase();
+                reviews_to_export
+                    .into_iter()
+                    .filter(|r| r.repo.to_lowercase().contains(&pattern))
+                    .collect()
+            } else {
+                reviews_to_export
+            };
+
+            // Apply --author filter (partial match, case-insensitive)
+            let reviews_to_export: Vec<_> = if let Some(ref author_filter) = author {
+                let pattern = author_filter.to_lowercase();
+                reviews_to_export
+                    .into_iter()
+                    .filter(|r| r.pr_author.to_lowercase().contains(&pattern))
+                    .collect()
+            } else {
+                reviews_to_export
             };
 
             if reviews_to_export.is_empty() {
