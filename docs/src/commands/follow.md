@@ -33,6 +33,8 @@ review-dispatcher follow <ACTION> [OPTIONS]
 |------|-------------|---------|
 | `<PR_NUMBERS>` | PR number(s) to follow (comma-separated, format: `repo#123` or `123`) | Required for `add`/`remove` |
 | `--json` | Output as JSON for scripting | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | `none` |
+| `--author` | Filter by author username (partial match, case-insensitive) | `none` |
 
 ## PR Format
 
@@ -59,14 +61,29 @@ review-dispatcher follow list
 # List followed PRs as JSON (for scripting)
 review-dispatcher follow list --json
 
+# List followed PRs for a specific repo
+review-dispatcher follow list --repo frontend
+
+# List followed PRs by a specific author
+review-dispatcher follow list --author alice
+
+# List followed PRs filtering by both repo and author
+review-dispatcher follow list --repo frontend --author alice
+
 # Remove a PR from following
 review-dispatcher follow remove 123
+
+# Remove all followed PRs by a specific author
+review-dispatcher follow remove --author alice
 
 # Clear all followed PRs
 review-dispatcher follow clear
 
 # Check for status changes
 review-dispatcher follow status
+
+# Check for status changes for a specific repo
+review-dispatcher follow status --repo backend
 
 # Check for changes and output as JSON
 review-dispatcher follow status --json

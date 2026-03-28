@@ -5178,7 +5178,7 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_numbers, json } => {
+        Commands::Follow { action, pr_numbers, json, repo, author } => {
             use serde::{Deserialize, Serialize};
 
             // Follow storage file
@@ -5327,6 +5327,33 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
+                    // Apply --repo filter (partial match, case-insensitive)
+                    let followed: Vec<_> = match repo {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    let mut followed: Vec<_> = match author {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    if followed.is_empty() {
+                        if json {
+                            println!("[]");
+                        } else {
+                            println!("\n👁️  No followed PRs match your filters.\n");
+                        }
+                        return Ok(());
+                    }
+
                     if json {
                         // JSON output for scripting
                         #[derive(Serialize)]
@@ -5416,6 +5443,29 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
+                    // Apply --repo filter (partial match, case-insensitive)
+                    let followed: Vec<_> = match repo {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    let mut followed: Vec<_> = match author {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    if followed.is_empty() {
+                        println!("\n👁️  No followed PRs match your filters to remove.\n");
+                        return Ok(());
+                    }
+
                     let to_remove: Vec<(String, u64)> = if let Some(ref nums) = pr_numbers {
                         nums.split(',')
                             .filter_map(|part| {
@@ -5488,6 +5538,33 @@ async fn main() -> anyhow::Result<()> {
                             println!("[]");
                         } else {
                             println!("\n👁️  Not following any PRs. Run `follow add` first.\n");
+                        }
+                        return Ok(());
+                    }
+
+                    // Apply --repo filter (partial match, case-insensitive)
+                    let followed: Vec<_> = match repo {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    let mut followed: Vec<_> = match author {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                        }
+                        None => followed,
+                    };
+
+                    if followed.is_empty() {
+                        if json {
+                            println!("[]");
+                        } else {
+                            println!("\n👁️  No followed PRs match your filters.\n");
                         }
                         return Ok(());
                     }

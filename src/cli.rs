@@ -924,6 +924,12 @@ pub enum Commands {
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show PRs that are blocked from merging (CI failures, conflicts, or other issues)
     Blocked {
