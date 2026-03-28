@@ -8332,7 +8332,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, since_days, json } => {
+        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, since_days, priority, json } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             let targets: Vec<_> = if let Some(num) = target_pr {
@@ -8427,10 +8427,18 @@ async fn main() -> anyhow::Result<()> {
             .await
             {
                 Ok(statuses) => {
+                    // Pair CI statuses with original pending reviews for priority calculation
+                    let statuses_with_reviews: Vec<(&github::CiStatus, &github::PendingReview)> = statuses
+                        .iter()
+                        .filter_map(|s| {
+                            targets.iter().find(|r| r.pr_number == s.pr_number && r.repo == s.repo).map(|r| (s, r))
+                        })
+                        .collect();
+
                     // Apply filters
-                    let filtered: Vec<_> = statuses
-                        .into_iter()
-                        .filter(|s| {
+                    let filtered: Vec<_> = statuses_with_reviews
+                        .iter()
+                        .filter(|(s, _)| {
                             if failed_only {
                                 // Failing: overall failure OR any check failed
                                 s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))
@@ -8441,6 +8449,7 @@ async fn main() -> anyhow::Result<()> {
                                 true
                             }
                         })
+                        .map(|(s, r)| (*s, *r))
                         .collect();
 
                     if filtered.is_empty() {
@@ -8454,11 +8463,35 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
-                    let failure_count = filtered.iter().filter(|s| s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))).count();
+                    let failure_count = filtered.iter().filter(|(s, _)| s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))).count();
                     let success_count = filtered.len() - failure_count;
 
                     if json {
-                        println!("{}", serde_json::to_string_pretty(&filtered)?);
+                        // For JSON output, include priority score if enabled
+                        if priority {
+                            #[derive(serde::Serialize)]
+                            struct CiStatusWithPriority<'a> {
+                                #[serde(flatten)]
+                                status: &'a github::CiStatus,
+                                priority_score: u8,
+                                priority_stars: String,
+                            }
+                            let output: Vec<CiStatusWithPriority> = filtered
+                                .iter()
+                                .map(|(s, r)| {
+                                    let score = logger::calculate_priority_score(r);
+                                    CiStatusWithPriority {
+                                        status: s,
+                                        priority_score: score,
+                                        priority_stars: logger::priority_stars(score),
+                                    }
+                                })
+                                .collect();
+                            println!("{}", serde_json::to_string_pretty(&output)?);
+                        } else {
+                            let statuses_only: Vec<_> = filtered.iter().map(|(s, _)| s).collect();
+                            println!("{}", serde_json::to_string_pretty(&statuses_only)?);
+                        }
                     } else {
                         println!("\n🔧 CI Status Report\n{}", "─".repeat(50));
                         println!("  ❌ Failing:  {}", failure_count.to_string().red().bold());
@@ -8467,7 +8500,7 @@ async fn main() -> anyhow::Result<()> {
 
                         // Sort: failures first, then by repo
                         let mut sorted = filtered.clone();
-                        sorted.sort_by(|a, b| {
+                        sorted.sort_by(|(a, _), (b, _)| {
                             let a_fail = if a.overall_status == "failure" || a.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
                             let b_fail = if b.overall_status == "failure" || b.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
                             if a_fail != b_fail {
@@ -8477,7 +8510,7 @@ async fn main() -> anyhow::Result<()> {
                             }
                         });
 
-                        for status in &sorted {
+                        for (status, review) in &sorted {
                             let has_failure = status.overall_status == "failure" || status.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"));
                             let has_success = status.checks.iter().all(|c| c.conclusion.as_deref() == Some("success"));
                             let has_in_progress = status.checks.iter().any(|c| c.status == "in_progress");
@@ -8502,11 +8535,19 @@ async fn main() -> anyhow::Result<()> {
                                 "UNKNOWN".dimmed().to_string()
                             };
 
+                            let priority_display = if priority {
+                                let score = logger::calculate_priority_score(review);
+                                format!("  ⭐ {}/5", score)
+                            } else {
+                                String::new()
+                            };
+
                             println!(
-                                "\n{} #{}  {}  ({})\n    Status: {}",
+                                "\n{} #{}  {}{}  ({})\n    Status: {}",
                                 status_icon,
                                 status.pr_number,
                                 status.pr_title.bold(),
+                                priority_display,
                                 status.repo.dimmed(),
                                 status_label
                             );

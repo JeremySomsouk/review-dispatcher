@@ -29,6 +29,7 @@ review-dispatcher ci [OPTIONS]
 | `-r, --repo <REPO>` | Filter by repository name (partial match) | - |
 | `--author <AUTHOR>` | Filter by author username (partial match) | - |
 | `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
@@ -45,4 +46,6 @@ review-dispatcher ci --pr 123
 review-dispatcher ci 123
 review-dispatcher ci --since-days 7
 review-dispatcher ci --since-days 3 --failing-only
+review-dispatcher ci --priority
+review-dispatcher ci -f --priority
 ```
