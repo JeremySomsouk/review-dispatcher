@@ -20,15 +20,19 @@ review-dispatcher ci [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-f, --failing` | Only show PRs with failing checks | `false` |
-| `-p, --passing` | Only show PRs with passing checks | `false` |
+| `-f, --failing-only` | Only show PRs with failing checks | `false` |
+| `-P, --passing-only` | Only show PRs with passing checks | `false` |
 | `-a, --all` | Show CI status for all pending reviews | `false` |
-| `-n, --prs <NUMS>` | PR number(s) to check (comma-separated) | - |
+| `-n, --pr-numbers <NUMS>` | PR number(s) to check (comma-separated) | - |
 | `--json` | Output as JSON | `false` |
+
+Note: `-p` is reserved globally for `--pr` (target specific PR). Use `-P` (uppercase) for `--passing-only`.
 
 ## Examples
 
 ```bash
 review-dispatcher ci
-review-dispatcher ci --failing
+review-dispatcher ci --failing-only
+review-dispatcher ci --passing-only
+review-dispatcher ci -f -a
 ```

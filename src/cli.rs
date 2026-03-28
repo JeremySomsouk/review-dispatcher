@@ -272,7 +272,7 @@ pub enum Commands {
         #[arg(long, short = 'f')]
         failed_only: bool,
         /// Only show PRs with passing checks
-        #[arg(long, short = 'p')]
+        #[arg(long, short = 'P')]
         passing_only: bool,
         /// Show CI status for all pending reviews
         #[arg(long, short = 'a')]
