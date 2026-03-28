@@ -19,7 +19,8 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | PR number to show labels for | - |
+| `PR_NUMBER` | PR number to show labels for (shorthand for --pr) | - |
+| `-p, --pr <NUMBER>` | Target a specific PR by number (global) | - |
 | `-n, --pr-numbers <NUMS>` | PR number(s) to show labels for (comma-separated) | - |
 | `-a, --all` | Show labels for all pending reviews | `false` |
 | `-l, --filter-by <LABEL>` | Filter by label name (partial match, case-insensitive) | - |
@@ -31,12 +32,15 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 # Show labels for a specific PR
 review-dispatcher labels 4821
 
+# Show labels for specific PR (using --pr flag)
+review-dispatcher labels --pr 4821
+
 # Show labels for multiple PRs
-review-dispatcher labels -p 4821,4822,4823
+review-dispatcher labels -n 4821,4822,4823
 
 # Filter labels by name containing "security"
 review-dispatcher labels -a -l security
 
 # Output as JSON for scripting
-review-dispatcher labels -p 4821,4822 --json
+review-dispatcher labels --pr 4821 --json
 ```

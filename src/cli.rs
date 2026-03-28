@@ -350,6 +350,9 @@ pub enum Commands {
         /// PR number(s) to show labels for (comma-separated)
         #[arg(long, short = 'n')]
         pr_numbers: Option<String>,
+        /// Show labels for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Show labels for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,

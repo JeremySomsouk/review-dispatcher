@@ -2472,8 +2472,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Labels { pr_number, pr_numbers, all, filter_by, json } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Labels { pr_number, pr_numbers, pr, all, filter_by, json } => {
+            let target_pr = pr.or(cli.pr).or(pr_number);
 
             let targets: Vec<_> = if all {
                 if reviews.is_empty() {
