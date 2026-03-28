@@ -1267,7 +1267,28 @@ async fn main() -> anyhow::Result<()> {
 
             let mut results: Vec<AssignResult> = Vec::new();
 
-            for review in &prs {
+            // Parallelize assign requests
+            let assign_futures = prs.iter().map(|review| {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                let username = cfg.github_username.clone();
+
+                async move {
+                    client
+                        .pulls(&org, &repo)
+                        .request_reviews(pr_number, vec![username], Vec::<String>::new())
+                        .await
+                }
+            });
+
+            let assign_results: Vec<Result<_, _>> = join_all(assign_futures).await;
+
+            for (review, result) in prs.iter().zip(assign_results.into_iter()) {
                 if !json {
                     print!(
                         "\n⏳ Requesting review on #{} {}... ",
@@ -1276,19 +1297,6 @@ async fn main() -> anyhow::Result<()> {
                     );
                     io::stdout().flush()?;
                 }
-
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
-
-                let result = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .request_reviews(
-                        review.pr_number,
-                        vec![cfg.github_username.clone()],
-                        Vec::<String>::new(),
-                    )
-                    .await;
 
                 match result {
                     Ok(_) => {
@@ -1384,7 +1392,28 @@ async fn main() -> anyhow::Result<()> {
 
             let mut results: Vec<UnassignResult> = Vec::new();
 
-            for review in &prs {
+            // Parallelize unassign requests
+            let unassign_futures = prs.iter().map(|review| {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                let username = cfg.github_username.clone();
+
+                async move {
+                    client
+                        .pulls(&org, &repo)
+                        .request_reviews(pr_number, Vec::<String>::new(), vec![username])
+                        .await
+                }
+            });
+
+            let unassign_results: Vec<Result<_, _>> = join_all(unassign_futures).await;
+
+            for (review, result) in prs.iter().zip(unassign_results.into_iter()) {
                 if !json {
                     print!(
                         "\n⏳ Removing yourself from review on #{} {}... ",
@@ -1393,19 +1422,6 @@ async fn main() -> anyhow::Result<()> {
                     );
                     io::stdout().flush()?;
                 }
-
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
-
-                let result = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .request_reviews(
-                        review.pr_number,
-                        Vec::<String>::new(),
-                        vec![cfg.github_username.clone()],
-                    )
-                    .await;
 
                 match result {
                     Ok(_) => {
