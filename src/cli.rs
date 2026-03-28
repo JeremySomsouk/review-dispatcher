@@ -457,7 +457,7 @@ pub enum Commands {
         #[arg(long, short = 'f')]
         failed_only: bool,
         /// Only show PRs with passing checks
-        #[arg(long, short = 'p')]
+        #[arg(long)]
         passing_only: bool,
         /// Show CI status for all pending reviews
         #[arg(long, short = 'a')]
@@ -477,6 +477,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

@@ -8029,7 +8029,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, json } => {
+        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, since_days, json } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             let targets: Vec<_> = if let Some(num) = target_pr {
@@ -8087,7 +8087,7 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Apply --repo and --author filters (skip if --pr was used since we already targeted exact PR)
+            // Apply --repo, --author, and --since-days filters (skip if --pr was used since we already targeted exact PR)
             let targets: Vec<_> = if target_pr.is_some() {
                 targets
             } else {
@@ -8099,6 +8099,11 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    filtered.retain(|r| r.created_at >= cutoff);
                 }
                 filtered
             };
