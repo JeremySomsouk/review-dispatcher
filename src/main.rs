@@ -2222,7 +2222,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Files { pr_number, pr_numbers, pr, all, priority, json } => {
-            let target_pr = pr.or(pr_number);
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
             let targets: Vec<_> = if all {
                 // Show files for all pending reviews
