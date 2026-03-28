@@ -1289,8 +1289,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, json } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Browse { pr_number, pr_numbers, pr, json } => {
+            let target_pr = pr.or(pr_number);
 
             let targets: Vec<_> = if let Some(num) = target_pr {
                 // Single PR via --pr or positional
@@ -2121,8 +2121,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Files { pr_number, pr_numbers, all, json } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Files { pr_number, pr_numbers, pr, all, json } => {
+            let target_pr = pr.or(pr_number);
 
             let targets: Vec<_> = if all {
                 // Show files for all pending reviews

@@ -205,6 +205,9 @@ pub enum Commands {
         /// PR number(s) to open (comma-separated)
         #[arg(long, short = 'n')]
         pr_numbers: Option<String>,
+        /// Open specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
         json: bool,
@@ -217,6 +220,9 @@ pub enum Commands {
         /// PR number(s) to show files for (comma-separated)
         #[arg(long, short = 'n')]
         pr_numbers: Option<String>,
+        /// Show files for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Show files for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,

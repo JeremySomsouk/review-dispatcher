@@ -20,7 +20,7 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to open (shorthand for `--pr`) | - |
-| `-p, --pr <PR>` | Open specific PR (shorthand for `--pr`) | - |
+| `-p, --pr <NUM>` | Open specific PR (shorthand for `--pr`) | - |
 | `-n, --pr-numbers <NUMS>` | PR number(s) to open (comma-separated) | - |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 
