@@ -7910,8 +7910,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ci { failed_only, passing_only, all, pr_numbers, repo, author, json } => {
-            let targets: Vec<_> = if all {
+        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, json } => {
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
+            let targets: Vec<_> = if let Some(num) = target_pr {
+                // When --pr is specified, bypass filters and fetch directly
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if all {
                 if reviews.is_empty() {
                     println!("No pending reviews found.");
                     return Ok(());
@@ -7957,8 +7968,10 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Apply --repo and --author filters to targets
-            let targets: Vec<_> = {
+            // Apply --repo and --author filters (skip if --pr was used since we already targeted exact PR)
+            let targets: Vec<_> = if target_pr.is_some() {
+                targets
+            } else {
                 let mut filtered = targets;
                 if let Some(ref repo_filter) = repo {
                     let pattern = repo_filter.to_lowercase();

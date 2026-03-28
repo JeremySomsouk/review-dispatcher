@@ -459,6 +459,12 @@ pub enum Commands {
         /// PR number(s) to check (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
+        /// PR number to check CI for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Show CI status for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
