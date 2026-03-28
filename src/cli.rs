@@ -202,6 +202,9 @@ pub enum Commands {
         /// Show files for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Generate a weekly review report from processed review files
     Report {

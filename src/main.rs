@@ -1965,7 +1965,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Files { pr_number, pr_numbers, all } => {
+        Commands::Files { pr_number, pr_numbers, all, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let targets: Vec<_> = if all {
@@ -2053,47 +2053,86 @@ async fn main() -> anyhow::Result<()> {
                 .collect();
 
             // Process and display results
+            #[derive(serde::Serialize)]
+            struct FilesOutput {
+                pr_number: u64,
+                pr_title: String,
+                repo: String,
+                url: String,
+                total_files: usize,
+                total_additions: u64,
+                total_deletions: u64,
+                files: Vec<github::PullRequestFile>,
+            }
+
+            let mut outputs: Vec<FilesOutput> = Vec::new();
+
             for (review, result) in file_results {
                 match result {
                     Ok(files) => {
-                        println!("\n{}", "─".repeat(60));
-                        println!("📄 {}  #{}  ({} files)", review.pr_title.bold(), review.pr_number, files.len());
-                        println!("{}", "─".repeat(60));
+                        let total_additions: u64 = files.iter().map(|f| f.additions).sum();
+                        let total_deletions: u64 = files.iter().map(|f| f.deletions).sum();
 
-                        if files.is_empty() {
-                            println!("  (no file changes)");
+                        if json {
+                            outputs.push(FilesOutput {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title,
+                                repo: review.repo,
+                                url: review.pr_url,
+                                total_files: files.len(),
+                                total_additions,
+                                total_deletions,
+                                files,
+                            });
                         } else {
-                            for file in &files {
-                                let status_icon = match file.status.as_str() {
-                                    "added" => "+".green(),
-                                    "removed" => "-".red(),
-                                    "modified" => "M".yellow(),
-                                    "renamed" => "R".cyan(),
-                                    _ => "?".normal(),
-                                };
-                                let total = file.additions + file.deletions;
-                                let size_indicator = if total > 500 {
-                                    format!(" ({} lines)", total).red()
-                                } else if total > 200 {
-                                    format!(" ({} lines)", total).yellow()
-                                } else {
-                                    format!(" ({} lines)", total).dimmed()
-                                };
-                                println!(
-                                    "  {}  {}{}",
-                                    status_icon,
-                                    file.filename.dimmed(),
-                                    size_indicator
-                                );
+                            println!("\n{}", "─".repeat(60));
+                            println!("📄 {}  #{}  ({} files)", review.pr_title.bold(), review.pr_number, files.len());
+                            println!("{}", "─".repeat(60));
+
+                            if files.is_empty() {
+                                println!("  (no file changes)");
+                            } else {
+                                for file in &files {
+                                    let status_icon = match file.status.as_str() {
+                                        "added" => "+".green(),
+                                        "removed" => "-".red(),
+                                        "modified" => "M".yellow(),
+                                        "renamed" => "R".cyan(),
+                                        _ => "?".normal(),
+                                    };
+                                    let total = file.additions + file.deletions;
+                                    let size_indicator = if total > 500 {
+                                        format!(" ({} lines)", total).red()
+                                    } else if total > 200 {
+                                        format!(" ({} lines)", total).yellow()
+                                    } else {
+                                        format!(" ({} lines)", total).dimmed()
+                                    };
+                                    println!(
+                                        "  {}  {}{}",
+                                        status_icon,
+                                        file.filename.dimmed(),
+                                        size_indicator
+                                    );
+                                }
                             }
+                            println!("{}", "─".repeat(60));
                         }
-                        println!("{}", "─".repeat(60));
                     }
                     Err(e) => {
-                        println!("\n❌ Failed to fetch files for #{} {}: {}", review.pr_number, review.pr_title, e);
+                        if json {
+                            // Skip failed PRs in JSON mode (consistent with other commands)
+                        } else {
+                            println!("\n❌ Failed to fetch files for #{} {}: {}", review.pr_number, review.pr_title, e);
+                        }
                     }
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&outputs)?);
+            }
+
             println!();
         }
 

@@ -304,7 +304,7 @@ pub async fn fetch_my_open_prs(
 
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PullRequestFile {
     pub filename: String,
     pub status: String,

@@ -22,6 +22,7 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 | `PR_NUMBER` | PR number to show files for (shorthand) | - |
 | `-p, --pr <PR_NUMBERS>` | PR number(s) to show files for (comma-separated) | - |
 | `-a, --all` | Show files for all pending reviews | `false` |
+| `--json` | Output as JSON (useful for scripting) | `false` |
 
 ## Examples
 
@@ -30,4 +31,13 @@ review-dispatcher files 4821
 review-dispatcher files --pr 4821
 review-dispatcher files --pr 4821,3156,2890
 review-dispatcher files --all
+review-dispatcher files --pr 4821 --json
 ```
+
+## JSON Output
+
+When `--json` is specified, output includes for each PR:
+
+- `pr_number`, `pr_title`, `repo`, `url`
+- `total_files`, `total_additions`, `total_deletions`
+- `files[]` - array of file objects with `filename`, `status`, `additions`, `deletions`
