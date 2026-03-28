@@ -589,6 +589,9 @@ pub enum Commands {
         /// PR number(s) to follow (comma-separated, for add/remove)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
+        /// Output as JSON for scripting
+        #[arg(long)]
+        json: bool,
     },
     /// Show PRs that are blocked from merging (CI failures, conflicts, or other issues)
     Blocked {

@@ -56,6 +56,9 @@ review-dispatcher follow add frontend#4821,backend#1024
 # List all followed PRs
 review-dispatcher follow list
 
+# List followed PRs as JSON (for scripting)
+review-dispatcher follow list --json
+
 # Remove a PR from following
 review-dispatcher follow remove 123
 
@@ -64,6 +67,9 @@ review-dispatcher follow clear
 
 # Check for status changes
 review-dispatcher follow status
+
+# Check for changes and output as JSON
+review-dispatcher follow status --json
 ```
 
 ## Tracked Changes
@@ -101,6 +107,52 @@ The `status` command detects:
       CI: pending → success
 
   ✅ No changes detected in followed PRs.
+```
+
+## JSON Output
+
+When using `--json`, the output is structured for scripting:
+
+**`follow list --json`** returns an array of followed PRs:
+```json
+[
+  {
+    "repo": "myorg/frontend",
+    "pr_number": 123,
+    "pr_title": "Add user authentication",
+    "pr_url": "https://github.com/myorg/frontend/pull/123",
+    "followed_at": "2026-03-27T10:00:00Z",
+    "last_check": "2026-03-28T02:00:00Z",
+    "last_known_state": "open",
+    "last_ci_status": "pending",
+    "last_review_state": "none",
+    "last_commit_sha": "abc1234",
+    "additions": 340,
+    "deletions": 25,
+    "author": "alice",
+    "draft": false
+  }
+]
+```
+
+**`follow status --json`** returns an array of changes detected:
+```json
+[
+  {
+    "repo": "myorg/frontend",
+    "pr_number": 123,
+    "pr_title": "Add user authentication",
+    "state_changed": true,
+    "old_state": "open",
+    "new_state": "merged",
+    "ci_changed": false,
+    "old_ci": "pending",
+    "new_ci": "pending",
+    "has_new_commit": false,
+    "old_commit": "abc1234",
+    "new_commit_sha": "abc1234"
+  }
+]
 ```
 
 ## How It Works

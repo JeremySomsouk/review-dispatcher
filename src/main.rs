@@ -4124,7 +4124,7 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_numbers } => {
+        Commands::Follow { action, pr_numbers, json } => {
             use serde::{Deserialize, Serialize};
 
             // Follow storage file
@@ -4262,54 +4262,96 @@ async fn main() -> anyhow::Result<()> {
 
                 cli::FollowAction::List => {
                     if followed.is_empty() {
-                        println!("\n👁️  Not following any PRs.\n");
-                        println!("  Use `review-dispatcher follow add <PR_NUMBER>` to start following.");
+                        if json {
+                            println!("[]");
+                        } else {
+                            println!("\n👁️  Not following any PRs.\n");
+                            println!("  Use `review-dispatcher follow add <PR_NUMBER>` to start following.");
+                        }
                         return Ok(());
                     }
 
-                    println!(
-                        "\n👁️  Following {} PR(s)\n{}",
-                        followed.len(),
-                        "─".repeat(50)
-                    );
-
-                    for pr in &followed {
-                        let state_icon = match pr.last_known_state.as_str() {
-                            "merged" => "🔀",
-                            "closed" => "❌",
-                            "draft" => "📝",
-                            _ => "🟢",
-                        };
-                        let ci_icon = match pr.last_ci_status.as_str() {
-                            "success" => "✅",
-                            "failure" => "❌",
-                            "pending" => "⏳",
-                            _ => "❓",
-                        };
-                        let review_icon = match pr.last_review_state.as_str() {
-                            "approved" => "✅",
-                            "changes_requested" => "🔁",
-                            "commented" => "💬",
-                            _ => "─",
-                        };
-
+                    if json {
+                        // JSON output for scripting
+                        #[derive(Serialize)]
+                        struct FollowListItem {
+                            repo: String,
+                            pr_number: u64,
+                            pr_title: String,
+                            pr_url: String,
+                            followed_at: String,
+                            last_check: String,
+                            last_known_state: String,
+                            last_ci_status: String,
+                            last_review_state: String,
+                            last_commit_sha: String,
+                            additions: u64,
+                            deletions: u64,
+                            author: String,
+                            draft: bool,
+                        }
+                        let items: Vec<FollowListItem> = followed.iter().map(|pr| FollowListItem {
+                            repo: pr.repo.clone(),
+                            pr_number: pr.pr_number,
+                            pr_title: pr.pr_title.clone(),
+                            pr_url: pr.pr_url.clone(),
+                            followed_at: pr.followed_at.clone(),
+                            last_check: pr.last_check.clone(),
+                            last_known_state: pr.last_known_state.clone(),
+                            last_ci_status: pr.last_ci_status.clone(),
+                            last_review_state: pr.last_review_state.clone(),
+                            last_commit_sha: pr.last_commit_sha.clone(),
+                            additions: pr.additions,
+                            deletions: pr.deletions,
+                            author: pr.author.clone(),
+                            draft: pr.draft,
+                        }).collect();
+                        println!("{}", serde_json::to_string_pretty(&items)?);
+                    } else {
                         println!(
-                            "  {} {} #{} — {}",
-                            state_icon,
-                            pr.repo.bold(),
-                            pr.pr_number,
-                            pr.pr_title
+                            "\n👁️  Following {} PR(s)\n{}",
+                            followed.len(),
+                            "─".repeat(50)
                         );
-                        println!(
-                            "      📊 +{}/-{} lines  |  CI: {}  |  Review: {}  |  Author: {}",
-                            pr.additions,
-                            pr.deletions,
-                            ci_icon,
-                            review_icon,
-                            pr.author.dimmed()
-                        );
+
+                        for pr in &followed {
+                            let state_icon = match pr.last_known_state.as_str() {
+                                "merged" => "🔀",
+                                "closed" => "❌",
+                                "draft" => "📝",
+                                _ => "🟢",
+                            };
+                            let ci_icon = match pr.last_ci_status.as_str() {
+                                "success" => "✅",
+                                "failure" => "❌",
+                                "pending" => "⏳",
+                                _ => "❓",
+                            };
+                            let review_icon = match pr.last_review_state.as_str() {
+                                "approved" => "✅",
+                                "changes_requested" => "🔁",
+                                "commented" => "💬",
+                                _ => "─",
+                            };
+
+                            println!(
+                                "  {} {} #{} — {}",
+                                state_icon,
+                                pr.repo.bold(),
+                                pr.pr_number,
+                                pr.pr_title
+                            );
+                            println!(
+                                "      📊 +{}/-{} lines  |  CI: {}  |  Review: {}  |  Author: {}",
+                                pr.additions,
+                                pr.deletions,
+                                ci_icon,
+                                review_icon,
+                                pr.author.dimmed()
+                            );
+                        }
+                        println!();
                     }
-                    println!();
                 }
 
                 cli::FollowAction::Remove => {
@@ -4386,7 +4428,152 @@ async fn main() -> anyhow::Result<()> {
 
                 cli::FollowAction::Status => {
                     if followed.is_empty() {
-                        println!("\n👁️  Not following any PRs. Run `follow add` first.\n");
+                        if json {
+                            println!("[]");
+                        } else {
+                            println!("\n👁️  Not following any PRs. Run `follow add` first.\n");
+                        }
+                        return Ok(());
+                    }
+
+                    if json {
+                        // JSON output for scripting - just check for changes without human-readable output
+                        #[derive(Serialize)]
+                        struct StatusChange {
+                            repo: String,
+                            pr_number: u64,
+                            pr_title: String,
+                            state_changed: bool,
+                            old_state: String,
+                            new_state: String,
+                            ci_changed: bool,
+                            old_ci: String,
+                            new_ci: String,
+                            has_new_commit: bool,
+                            old_commit: String,
+                            new_commit_sha: String,
+                        }
+                        let mut changes = Vec::new();
+                        let now = chrono::Utc::now().to_rfc3339();
+
+                        // Phase 1: Fetch all PR details in parallel
+                        let client = octocrab::Octocrab::builder()
+                            .personal_token(cfg.github_token.clone())
+                            .build()?;
+
+                        let pr_futures = followed.iter().map(|pr| {
+                            let client = client.clone();
+                            let org = cfg.github_org.clone();
+                            let repo = pr.repo.clone();
+                            let pr_number = pr.pr_number;
+
+                            async move {
+                                let current = client.pulls(&org, &repo).get(pr_number).await;
+                                (pr_number, repo, current)
+                            }
+                        });
+
+                        let pr_results: Vec<(u64, String, Result<octocrab::models::pulls::PullRequest, octocrab::Error>)> =
+                            join_all(pr_futures).await;
+
+                        // Phase 2: Fetch CI statuses in parallel for successful PR fetches
+                        let ci_futures: Vec<_> = pr_results
+                            .iter()
+                            .filter_map(|(pr_number, repo, result)| {
+                                let pr = result.as_ref().ok()?;
+                                let current_commit = pr.head.sha.clone();
+
+                                let client = client.clone();
+                                let org = cfg.github_org.clone();
+                                let repo = repo.clone();
+
+                                Some(async move {
+                                    #[derive(serde::Deserialize)]
+                                    struct CombinedStatus {
+                                        state: String,
+                                    }
+
+                                    let combined_status_url = format!(
+                                        "/repos/{}/{}/commits/{}/status",
+                                        org, repo, current_commit
+                                    );
+
+                                    let current_ci: String = client
+                                        .get(&combined_status_url, None::<&str>)
+                                        .await
+                                        .map(|s: CombinedStatus| s.state)
+                                        .unwrap_or_else(|_| "unknown".to_string());
+
+                                    (*pr_number, current_commit, current_ci)
+                                })
+                            })
+                            .collect();
+
+                        let ci_results: Vec<(u64, String, String)> = join_all(ci_futures).await;
+                        let ci_map: std::collections::HashMap<u64, (String, String)> = ci_results
+                            .into_iter()
+                            .map(|(pr_number, commit, ci)| (pr_number, (commit, ci)))
+                            .collect();
+
+                        // Process and collect changes
+                        for pr in followed.iter_mut() {
+                            let pr_result = pr_results.iter().find(|(num, _, _)| *num == pr.pr_number);
+                            let current = match pr_result.and_then(|(_, _, r)| r.as_ref().ok()) {
+                                Some(current) => current,
+                                None => continue,
+                            };
+
+                            let current_state = if current.merged.unwrap_or(false) {
+                                "merged"
+                            } else {
+                                match current.state.as_ref() {
+                                    Some(octocrab::models::IssueState::Open) => "open",
+                                    Some(octocrab::models::IssueState::Closed) => "closed",
+                                    _ => "unknown",
+                                }
+                            };
+
+                            let current_commit = current.head.sha.clone();
+
+                            let current_ci = ci_map
+                                .get(&pr.pr_number)
+                                .map(|(_, ci)| ci.clone())
+                                .unwrap_or_else(|| "unknown".to_string());
+
+                            let state_changed = pr.last_known_state != current_state;
+                            let ci_changed = pr.last_ci_status != current_ci;
+                            let new_commit = pr.last_commit_sha != current_commit;
+
+                            if state_changed || ci_changed || new_commit {
+                                changes.push(StatusChange {
+                                    repo: pr.repo.clone(),
+                                    pr_number: pr.pr_number,
+                                    pr_title: pr.pr_title.clone(),
+                                    state_changed,
+                                    old_state: pr.last_known_state.clone(),
+                                    new_state: current_state.to_string(),
+                                    ci_changed,
+                                    old_ci: pr.last_ci_status.clone(),
+                                    new_ci: current_ci.clone(),
+                                    has_new_commit: new_commit,
+                                    old_commit: pr.last_commit_sha[..7.min(pr.last_commit_sha.len())].to_string(),
+                                    new_commit_sha: current_commit[..7.min(current_commit.len())].to_string(),
+                                });
+
+                                // Update stored state
+                                pr.last_known_state = current_state.to_string();
+                                pr.last_ci_status = current_ci;
+                                pr.last_commit_sha = current_commit;
+                                pr.last_check = now.clone();
+                            }
+                        }
+
+                        println!("{}", serde_json::to_string_pretty(&changes)?);
+
+                        // Save updated status
+                        if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                            println!("  ⚠️ Failed to update follow data: {}", e);
+                        }
                         return Ok(());
                     }
 
