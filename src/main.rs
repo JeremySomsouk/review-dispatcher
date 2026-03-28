@@ -6544,7 +6544,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mentions { unread_only, limit, pr, json } => {
+        Commands::Mentions { unread_only, limit, pr, since_days, repo, json } => {
             let limit = limit.unwrap_or(20);
 
             println!("\n🔔 Fetching your GitHub notifications...\n");
@@ -6562,6 +6562,30 @@ async fn main() -> anyhow::Result<()> {
                     let filtered_mentions: Vec<_> = match pr {
                         Some(num) => mentions.into_iter().filter(|m| m.pr_number == num).collect(),
                         None => mentions,
+                    };
+
+                    // Apply --since-days filter (based on updated_at)
+                    let filtered_mentions: Vec<_> = match since_days {
+                        Some(days) => {
+                            let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                            filtered_mentions
+                                .into_iter()
+                                .filter(|m| m.updated_at >= cutoff)
+                                .collect()
+                        }
+                        None => filtered_mentions,
+                    };
+
+                    // Apply --repo filter (partial match, case-insensitive)
+                    let filtered_mentions: Vec<_> = match repo {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            filtered_mentions
+                                .into_iter()
+                                .filter(|m| m.repo.to_lowercase().contains(&pattern_lower))
+                                .collect()
+                        }
+                        None => filtered_mentions,
                     };
 
                     if filtered_mentions.is_empty() {

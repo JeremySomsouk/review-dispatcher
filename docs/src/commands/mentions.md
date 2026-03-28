@@ -23,6 +23,8 @@ review-dispatcher mentions [OPTIONS]
 | `-u, --unread` | Only show unread notifications | `false` |
 | `-n, --limit <NUM>` | Limit results shown | `20` |
 | `-p, --pr <NUM>` | Filter to specific PR number | all |
+| `-s, --since-days <DAYS>` | Only show notifications from the last N days | all |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | all |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -39,6 +41,12 @@ review-dispatcher mentions --pr 123
 
 # Combine with unread filter
 review-dispatcher mentions --pr 123 --unread
+
+# Only show notifications from the last 3 days
+review-dispatcher mentions --since-days 3
+
+# Filter by repository and time window
+review-dispatcher mentions --repo myorg --since-days 7
 
 # JSON output for scripting
 review-dispatcher mentions --json

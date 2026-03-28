@@ -531,6 +531,12 @@ pub enum Commands {
         /// Filter to specific PR number
         #[arg(long, short = 'p')]
         pr: Option<u64>,
+        /// Only show notifications from the last N days
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
