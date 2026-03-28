@@ -24,6 +24,8 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 | `-n, --pr-numbers <NUMS>` | PR number(s) to open (comma-separated) | - |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 
+**Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
+
 ## Examples
 
 ```bash
