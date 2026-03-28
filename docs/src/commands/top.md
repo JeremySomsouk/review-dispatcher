@@ -20,11 +20,28 @@ review-dispatcher top [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-n, --limit <NUM>` | Maximum results shown | `10` |
-| `-m, --min-score <NUM>` | Minimum priority score (1-5) | `3` |
+| `-s, --min-score <NUM>` | Minimum priority score (1-5) | `3` |
+| `--repo <PATTERN>` | Filter by repository (partial match, case-insensitive) | |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 
 ## Examples
 
 ```bash
+# Show top 10 priority PRs
 review-dispatcher top
+
+# Show top 5 priority PRs
 review-dispatcher top --limit 5
+
+# Show only critical PRs (score >= 4)
+review-dispatcher top --min-score 4
+
+# Show top PRs from a specific repo
+review-dispatcher top --repo my-service
+
+# Show top PRs from a specific author
+review-dispatcher top --author johndoe
+
+# Combine filters
+review-dispatcher top --repo my-service --author johndoe --min-score 4
 ```

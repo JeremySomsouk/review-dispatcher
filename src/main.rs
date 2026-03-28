@@ -3473,7 +3473,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Top { limit, min_score, json } => {
+        Commands::Top { limit, min_score, repo, author, json } => {
             let limit = limit.unwrap_or(10);
             let min_score = min_score.unwrap_or(3).min(5);
 
@@ -3486,6 +3486,18 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .filter(|(_, score)| *score >= min_score)
                 .collect();
+
+            // Apply --repo filter (partial match, case-insensitive)
+            if let Some(ref repo_filter) = repo {
+                let pattern = repo_filter.to_lowercase();
+                scored.retain(|(r, _)| r.repo.to_lowercase().contains(&pattern));
+            }
+
+            // Apply --author filter (partial match, case-insensitive)
+            if let Some(ref author_filter) = author {
+                let pattern = author_filter.to_lowercase();
+                scored.retain(|(r, _)| r.pr_author.to_lowercase().contains(&pattern));
+            }
 
             // Sort by priority score descending, then by age ascending
             scored.sort_by(|a, b| {
