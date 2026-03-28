@@ -4013,19 +4013,34 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Size { filter_size, grouped, priority, json } => {
-            
+        Commands::Size { filter_size, grouped, priority, repo, author, json } => {
+            // Apply --repo and --author filters first (consistent with other commands)
+            let filtered: Vec<_> = {
+                let mut result = reviews.clone();
 
-            // Size buckets: (label, emoji, min_lines, max_lines)
-            // XS: 0-30, S: 31-100, M: 101-300, L: 301-800, XL: 801+
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
+            // Size buckets: XS, S, M, L, XL (non-overlapping ranges)
+            // XS: 0-50, S: 51-200, M: 201-500, L: 501-1000, XL: 1001+
             #[derive(Clone, Copy)]
             struct SizeBucket(&'static str, u64, Option<u64>);
             const SIZE_BUCKETS: [SizeBucket; 5] = [
-                SizeBucket("XS", 0, Some(30)),
-                SizeBucket("S",  31, Some(100)),
-                SizeBucket("M",  101, Some(300)),
-                SizeBucket("L",  301, Some(800)),
-                SizeBucket("XL", 801, None),
+                SizeBucket("XS", 0, Some(50)),
+                SizeBucket("S",  51, Some(200)),
+                SizeBucket("M",  201, Some(500)),
+                SizeBucket("L",  501, Some(1000)),
+                SizeBucket("XL", 1001, None),
             ];
 
             // Parse filter_size if provided
@@ -4060,7 +4075,7 @@ async fn main() -> anyhow::Result<()> {
             let mut buckets: Vec<(SizeBucket, Vec<&github::PendingReview>)> =
                 SIZE_BUCKETS.iter().cloned().map(|b| (b, vec![])).collect();
 
-            for r in &reviews {
+            for r in &filtered {
                 let total_lines = r.additions + r.deletions;
 
                 // Apply size filter if specified
