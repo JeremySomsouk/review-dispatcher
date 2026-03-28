@@ -1643,8 +1643,62 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let mut results: Vec<ApproveResult> = Vec::new();
+            let approval_message = message.clone().unwrap_or_else(|| "LGTM!".to_string());
 
-            for review in prs {
+            // Phase 1: Fetch PR details (to get commit SHAs) in parallel
+            let detail_futures = prs.iter().map(|review| {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+
+                async move {
+                    client.pulls(&org, &repo).get(pr_number).await
+                }
+            });
+
+            let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
+
+            // Phase 2: Approve all PRs in parallel using the fetched commit SHAs
+            let approve_futures = prs.iter().zip(detail_results.iter()).filter_map(|(review, detail_result)| {
+                let commit_id = match detail_result {
+                    Ok(pr) => pr.head.sha.clone(),
+                    Err(_) => return None,
+                };
+
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                let msg = approval_message.clone();
+
+                Some(async move {
+                    #[allow(deprecated)]
+                    client
+                        .pulls(&org, &repo)
+                        .pull_number(pr_number)
+                        .reviews()
+                        .create_review(
+                            commit_id,
+                            msg,
+                            octocrab::models::pulls::ReviewAction::Approve,
+                            Vec::new(),
+                        )
+                        .await
+                })
+            });
+
+            let approve_results: Vec<Result<_, _>> = join_all(approve_futures).await;
+
+            // Process results, matching them with failed detail fetches
+            let mut approve_iter = approve_results.into_iter();
+            for (review, detail_result) in prs.iter().zip(detail_results.iter()) {
                 if !json {
                     print!(
                         "\n⏳ Approving #{} {}... ",
@@ -1654,18 +1708,7 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                 }
 
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
-
-                // Get the latest commit SHA for this PR
-                let pr_details = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .get(review.pr_number)
-                    .await;
-
-                let commit_id = match pr_details {
-                    Ok(pr) => pr.head.sha.clone(),
+                match detail_result {
                     Err(e) => {
                         if json {
                             results.push(ApproveResult {
@@ -1680,54 +1723,57 @@ async fn main() -> anyhow::Result<()> {
                             println!("{}", "❌ Failed".red());
                             println!("   Error getting PR details: {}", e);
                         }
-                        continue;
                     }
-                };
-
-                // Use the pull request review API to approve
-                #[allow(deprecated)]
-                let result = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .pull_number(review.pr_number)
-                    .reviews()
-                    .create_review(
-                        commit_id,
-                        message.clone().unwrap_or_else(|| "LGTM!".to_string()),
-                        octocrab::models::pulls::ReviewAction::Approve,
-                        Vec::new(),
-                    )
-                    .await;
-
-                match result {
                     Ok(_) => {
-                        if json {
-                            results.push(ApproveResult {
-                                pr_number: review.pr_number,
-                                pr_title: review.pr_title.clone(),
-                                repo: review.repo.clone(),
-                                url: review.pr_url.clone(),
-                                success: true,
-                                error: None,
-                            });
-                        } else {
-                            println!("{}", "✅ Approved".green());
-                            println!("   👍 You approved {} ({})", review.pr_title, review.repo);
-                            println!("   🔗 {}", review.pr_url.blue().underline());
-                        }
-                    }
-                    Err(e) => {
-                        if json {
-                            results.push(ApproveResult {
-                                pr_number: review.pr_number,
-                                pr_title: review.pr_title.clone(),
-                                repo: review.repo.clone(),
-                                url: review.pr_url.clone(),
-                                success: false,
-                                error: Some(e.to_string()),
-                            });
-                        } else {
-                            println!("{}", "❌ Failed".red());
-                            println!("   Error: {}", e);
+                        // Now get the approval result
+                        match approve_iter.next() {
+                            Some(Ok(_)) => {
+                                if json {
+                                    results.push(ApproveResult {
+                                        pr_number: review.pr_number,
+                                        pr_title: review.pr_title.clone(),
+                                        repo: review.repo.clone(),
+                                        url: review.pr_url.clone(),
+                                        success: true,
+                                        error: None,
+                                    });
+                                } else {
+                                    println!("{}", "✅ Approved".green());
+                                    println!("   👍 You approved {} ({})", review.pr_title, review.repo);
+                                    println!("   🔗 {}", review.pr_url.blue().underline());
+                                }
+                            }
+                            Some(Err(e)) => {
+                                if json {
+                                    results.push(ApproveResult {
+                                        pr_number: review.pr_number,
+                                        pr_title: review.pr_title.clone(),
+                                        repo: review.repo.clone(),
+                                        url: review.pr_url.clone(),
+                                        success: false,
+                                        error: Some(e.to_string()),
+                                    });
+                                } else {
+                                    println!("{}", "❌ Failed".red());
+                                    println!("   Error: {}", e);
+                                }
+                            }
+                            None => {
+                                // This shouldn't happen but handle gracefully
+                                if json {
+                                    results.push(ApproveResult {
+                                        pr_number: review.pr_number,
+                                        pr_title: review.pr_title.clone(),
+                                        repo: review.repo.clone(),
+                                        url: review.pr_url.clone(),
+                                        success: false,
+                                        error: Some("Internal error: missing approval result".to_string()),
+                                    });
+                                } else {
+                                    println!("{}", "❌ Failed".red());
+                                    println!("   Internal error",);
+                                }
+                            }
                         }
                     }
                 }
