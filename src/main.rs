@@ -1222,7 +1222,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers } => {
+        Commands::Browse { pr_number, pr_numbers, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let targets: Vec<_> = if let Some(num) = target_pr {
@@ -1287,6 +1287,25 @@ async fn main() -> anyhow::Result<()> {
 
             if targets.is_empty() {
                 println!("No PRs found to open.");
+                return Ok(());
+            }
+
+            // JSON mode: output URLs without opening browser
+            if json {
+                #[derive(serde::Serialize)]
+                struct BrowseOutput<'a> {
+                    pr_number: u64,
+                    pr_title: &'a str,
+                    repo: &'a str,
+                    url: &'a str,
+                }
+                let output: Vec<BrowseOutput> = targets.iter().map(|r| BrowseOutput {
+                    pr_number: r.pr_number,
+                    pr_title: &r.pr_title,
+                    repo: &r.repo,
+                    url: &r.pr_url,
+                }).collect();
+                println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
                 return Ok(());
             }
 

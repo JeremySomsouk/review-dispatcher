@@ -199,6 +199,9 @@ pub enum Commands {
         /// PR number(s) to open (comma-separated)
         #[arg(long, short = 'p')]
         pr_numbers: Option<String>,
+        /// Output URLs as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
     },
     /// Show changed files for one or more PRs
     Files {
