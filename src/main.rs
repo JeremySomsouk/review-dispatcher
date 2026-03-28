@@ -2067,17 +2067,20 @@ async fn main() -> anyhow::Result<()> {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
                 }
-                // Fetch all specified PRs
-                let mut all_prs = Vec::new();
-                for num in &results {
-                    let prs = github::fetch_pr_by_number(
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
                         *num,
                     )
-                    .await?;
-                    all_prs.extend(prs);
+                });
+                let mut all_prs = Vec::new();
+                for result in join_all(fetch_futures).await {
+                    if let Ok(prs) = result {
+                        all_prs.extend(prs);
+                    }
                 }
                 all_prs
             } else {
