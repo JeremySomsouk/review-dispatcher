@@ -558,6 +558,15 @@ pub enum Commands {
         /// Output as JSON (includes full PR details)
         #[arg(long)]
         json: bool,
+        /// Show priority score for the focused PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show GitHub API health status and rate limits
     Health {

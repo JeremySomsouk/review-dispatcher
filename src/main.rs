@@ -7425,25 +7425,47 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Focus { open, json } => {
+        Commands::Focus { open, json, priority, repo, author } => {
             use chrono::Utc;
 
-            if reviews.is_empty() {
+            // Apply --repo and --author filters (consistent with other commands)
+            let filtered: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
+            if filtered.is_empty() {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&serde_json::json!({
                         "focused": null,
-                        "total_pending": 0,
-                        "message": "No pending reviews — you're all clear!"
+                        "total_pending": reviews.len(),
+                        "message": "No matching reviews found."
                     }))?);
                 } else {
-                    println!("🎉 No pending reviews. You're all clear!");
-                    println!("   No PR needs your focus right now.");
+                    println!("🎯 No matching PRs found.");
+                    println!("   No PR matches your filters (--repo, --author).");
+                    if !reviews.is_empty() {
+                        println!("   You have {} total pending PRs.", reviews.len());
+                    }
                 }
                 return Ok(());
             }
 
             // Find the highest-priority PR (by score, then oldest by age)
-            let focused = reviews
+            let focused = filtered
                 .iter()
                 .max_by_key(|r| {
                     let score = logger::calculate_priority_score(r);
@@ -7485,7 +7507,7 @@ async fn main() -> anyhow::Result<()> {
                     };
                     println!("{}", serde_json::to_string_pretty(&output)?);
                 } else {
-                    let score_stars = "★".repeat(score as usize).to_string();
+                    let score_stars = logger::priority_stars(score);
                     let age_label = if age_days == 0 {
                         "today".green().to_string()
                     } else if age_days == 1 {
@@ -7498,13 +7520,13 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} days ago!!", age_days).red().bold().to_string()
                     };
 
-                    let _draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
 
                     println!();
                     println!("🎯 YOUR FOCUS PR");
                     println!("{}", "─".repeat(50));
                     println!();
-                    println!("  #{}  {}", pr.pr_number, pr.pr_title.bold());
+                    println!("  #{}  {}{}", pr.pr_number, pr.pr_title.bold(), draft_label);
                     println!();
                     println!("  📁 {}  👤 {}  ⏱️ {}  📊 {}/{}",
                         pr.repo.split('/').last().unwrap_or(&pr.repo).dimmed(),
@@ -7514,11 +7536,14 @@ async fn main() -> anyhow::Result<()> {
                         pr.deletions.to_string().red()
                     );
                     println!("  📏 Total: {} lines  {}", total_lines, score_stars.red().bold());
+                    if priority {
+                        println!("  ⭐ Priority: {}/5  {}", score, logger::priority_stars(score));
+                    }
                     println!("  🔗 {}", pr.pr_url.blue().underline());
                     println!();
                     println!("{}", "─".repeat(50));
-                    println!("  Total pending: {} PRs", reviews.len());
-                    if reviews.len() > 1 {
+                    println!("  Total pending: {} PRs ({} matching filters)", reviews.len(), filtered.len());
+                    if filtered.len() > 1 {
                         println!("  Run `review-dispatcher top` to see more");
                     }
                     println!();

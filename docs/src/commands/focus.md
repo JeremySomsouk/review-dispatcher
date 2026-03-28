@@ -23,6 +23,9 @@ review-dispatcher focus [OPTIONS]
 |------|-------------|---------|
 | `-o, --open` | Open the focused PR in your browser | `false` |
 | `--json` | Output as JSON (includes full PR details) | `false` |
+| `-P, --priority` | Show priority score for the focused PR (1-5 stars) | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | |
+| `--author` | Filter by author username (partial match, case-insensitive) | |
 
 ## Examples
 
@@ -35,6 +38,15 @@ review-dispatcher focus --open
 
 # Get full details as JSON for scripting
 review-dispatcher focus --json
+
+# Focus on a specific repository
+review-dispatcher focus --repo myservice
+
+# Focus on PRs from a specific author
+review-dispatcher focus --author johndoe
+
+# Show priority score with stars
+review-dispatcher focus --priority
 ```
 
 ## Priority Calculation
@@ -55,7 +67,7 @@ When run normally, `focus` shows:
 - Author
 - Age (days since created)
 - Size (total lines changed)
-- Priority score (1-5 stars)
+- Priority score (1-5 stars, if `--priority` is set)
 - Direct link to the PR
 
 When run with `--open`, it opens the PR directly in your default browser.
@@ -64,4 +76,5 @@ When run with `--open`, it opens the PR directly in your default browser.
 
 - Pair with `claim` to assign yourself to the focused PR immediately
 - Use `--open` to jump straight into reviewing without copy-pasting URLs
+- Use `--repo` and `--author` filters to narrow down which PRs to consider
 - If you have no pending reviews, you'll see an encouraging "You're all clear!" message
