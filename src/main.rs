@@ -9712,7 +9712,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ping { emoji, pr_numbers, pr_number, pr, all, send, repo, author } => {
+        Commands::Ping { emoji, pr_numbers, pr_number, pr, dry_run, all, send, repo, author, json } => {
             // Priority: global --pr flag > local --pr > local pr_number > pr_numbers > interactive
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -9772,21 +9772,56 @@ async fn main() -> anyhow::Result<()> {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered_reviews, false);
-                print!(
-                    "\n{} ",
-                    "Select PR(s) to ping [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                );
-                io::stdout().flush()?;
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), filtered_reviews.len()) {
-                    Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                // Skip interactive selection in dry-run mode
+                if dry_run {
+                    filtered_reviews
+                } else {
+                    logger::print_reviews(&filtered_reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR(s) to ping [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), filtered_reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => {
+                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                        }
                     }
                 }
             };
+
+            // Build output (shared between JSON and text modes)
+            #[derive(serde::Serialize)]
+            struct PingOutput<'a> {
+                repo: &'a str,
+                pr_number: u64,
+                pr_title: &'a str,
+                pr_author: &'a str,
+                pr_url: &'a str,
+                age_days: i64,
+                emoji: &'a str,
+            }
+
+            let outputs: Vec<PingOutput> = targets
+                .iter()
+                .map(|r| PingOutput {
+                    repo: &r.repo,
+                    pr_number: r.pr_number,
+                    pr_title: &r.pr_title,
+                    pr_author: &r.pr_author,
+                    pr_url: &r.pr_url,
+                    age_days: (chrono::Utc::now() - r.created_at).num_days(),
+                    emoji: &emoji,
+                })
+                .collect();
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&outputs)?);
+                return Ok(());
+            }
 
             println!("\n👀 Ping Command");
             println!("{}", "─".repeat(50));
@@ -9846,7 +9881,7 @@ async fn main() -> anyhow::Result<()> {
                     failed.to_string().red()
                 );
             } else {
-                // Preview mode
+                // Preview mode (dry_run or no --send)
                 for review in &targets {
                     let age_days = (chrono::Utc::now() - review.created_at).num_days();
                     println!(
@@ -9856,12 +9891,18 @@ async fn main() -> anyhow::Result<()> {
                         review.pr_author.cyan(),
                         if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
                     );
-                    println!("    Preview only — use `--send` to actually ping");
+                    if dry_run {
+                        println!("    (dry-run)");
+                    } else {
+                        println!("    Preview only — use `--send` to actually ping");
+                    }
                 }
 
                 println!();
                 println!("{}", "─".repeat(50));
-                println!("  💡 Use `--send` to actually send the emoji reactions");
+                if dry_run {
+                    println!("  💡 Use `--send` to actually send the emoji reactions");
+                }
                 println!("  💡 Available emojis: eyes (default), rocket, heart, +1, hooray");
                 println!("  💡 Use `-e rocket` or `-e heart` to change emoji\n");
             }

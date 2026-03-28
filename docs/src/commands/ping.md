@@ -24,11 +24,13 @@ review-dispatcher ping [OPTIONS]
 | `-e, --emoji <EMOJI>` | Reaction emoji to send | `eyes` |
 | `-p, --pr <PR>` | Target specific PR by number (shorthand, use with --send) | - |
 | `--pr-number <PR_NUMBER>` | Target specific PR by number | - |
-| `PR_NUMBERS` | PR number(s) to ping (comma-separated) | Interactive |
+| `--pr-numbers <PR_NUMBERS>` | PR number(s) to ping (comma-separated) | Interactive |
+| `-n, --dry-run` | Preview what would be pinged without sending | `false` |
 | `-a, --all` | Ping all pending reviews | `false` |
 | `-s, --send` | Actually send the reaction (preview by default) | `false` |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | - |
+| `--json` | Output as JSON (useful for scripting) | `false` |
 
 ## Available Emojis
 
@@ -69,6 +71,36 @@ Unlike comments, reactions:
   💡 Use `-e rocket` or `-e heart` to change emoji
 ```
 
+**Dry-run mode:**
+```
+👀 Ping Command
+──────────────────────────────────────────────────
+  Emoji: eyes
+
+  🔍 Would send #4821 — Fix authentication bug by @alice (3 days old)
+    (dry-run)
+
+──────────────────────────────────────────────────
+  💡 Use `--send` to actually send the emoji reactions
+  💡 Available emojis: eyes (default), rocket, heart, +1, hooray
+  💡 Use `-e rocket` or `-e heart` to change emoji
+```
+
+**JSON output:**
+```json
+[
+  {
+    "repo": "my-service",
+    "pr_number": 4821,
+    "pr_title": "Fix authentication bug",
+    "pr_author": "alice",
+    "pr_url": "https://github.com/org/my-service/pull/4821",
+    "age_days": 3,
+    "emoji": "eyes"
+  }
+]
+```
+
 **Send mode:**
 ```
 👀 Ping Command
@@ -91,6 +123,13 @@ Unlike comments, reactions:
 ```bash
 # Preview what would happen (default)
 review-dispatcher ping
+
+# Preview with dry-run flag (explicit preview mode)
+review-dispatcher ping --dry-run
+review-dispatcher ping -n
+
+# Output as JSON (useful for scripting)
+review-dispatcher ping --all --json
 
 # Ping specific PRs (interactive selection)
 review-dispatcher ping 4821

@@ -1074,6 +1074,9 @@ pub enum Commands {
         /// Ping specific PR (use with --send to ping a single PR)
         #[arg(long, short = 'p')]
         pr: Option<u64>,
+        /// Preview what would be pinged without actually sending
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Ping all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
@@ -1086,6 +1089,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
     },
 }
 
