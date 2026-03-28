@@ -411,10 +411,10 @@ pub enum Commands {
         /// PR number to filter to (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
-        /// Filter by repository name (partial match)
+        /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
-        /// Filter by author username (partial match)
+        /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
         /// Minimum total lines changed (+additions -deletions)
@@ -867,10 +867,10 @@ pub enum Commands {
     },
     /// Search and filter your review history from processed files
     History {
-        /// Filter by repository name (partial match)
+        /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
-        /// Filter by author username (partial match)
+        /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
         /// Filter by review state (APPROVED, CHANGES_REQUESTED, COMMENTED)
