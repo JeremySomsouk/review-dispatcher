@@ -20,12 +20,26 @@ review-dispatcher conflicts [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--conflicts-only` | Hide PRs without conflicts | `false` |
+| `--conflicts-only`, `-c` | Hide PRs without conflicts | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `--pr` | Target a specific PR by number | - |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
+# Check all pending PRs for conflicts
 review-dispatcher conflicts
+
+# Show only PRs with conflicts
 review-dispatcher conflicts --conflicts-only
-```
+
+# Check conflicts for a specific repo
+review-dispatcher conflicts --repo myservice
+
+# Check conflicts for PRs by a specific author
+review-dispatcher conflicts --author johndoe
+
+# Check a specific PR
+review-dispatcher conflicts --pr 123

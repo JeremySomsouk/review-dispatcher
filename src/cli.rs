@@ -444,6 +444,12 @@ pub enum Commands {
         /// Only show PRs with conflicts (hide clean PRs)
         #[arg(long, short = 'c')]
         only_conflicts: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

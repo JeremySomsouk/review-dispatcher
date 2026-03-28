@@ -7416,14 +7416,41 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Conflicts { only_conflicts, json } => {
-            println!("\n🔍 Checking merge conflict status for {} PRs...\n", reviews.len());
+        Commands::Conflicts { only_conflicts, repo, author, json } => {
+            // Apply filters before fetching conflict status
+            let filtered: Vec<_> = {
+                let mut result = match cli.pr {
+                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    None => reviews.clone(),
+                };
+
+                // Apply --repo filter
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
+            if filtered.is_empty() {
+                println!("No matching PRs found.");
+                return Ok(());
+            }
+
+            println!("\n🔍 Checking merge conflict status for {} PRs...\n", filtered.len());
             io::stdout().flush()?;
 
             match github::fetch_merge_conflict_status(
                 &cfg.github_token,
                 &cfg.github_org,
-                &reviews,
+                &filtered,
             )
             .await
             {
