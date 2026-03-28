@@ -180,7 +180,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { pr_positional, json, dry_run } => {
+        Commands::Delegate { pr_positional, json, dry_run, priority } => {
             // --pr flag takes precedence, then positional arg
             let pr_number = cli.pr.or(pr_positional);
 
@@ -257,11 +257,18 @@ async fn main() -> anyhow::Result<()> {
             if dry_run {
                 println!("\n🔍 Dry-run mode — the following PRs would be delegated:\n");
                 for (i, review) in targets.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
-                        review.repo.cyan()
+                        review.repo.cyan(),
+                        priority_label
                     );
                 }
                 println!("\n  Total: {} PR(s)\n", targets.len());

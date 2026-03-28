@@ -71,6 +71,9 @@ pub enum Commands {
         /// Preview delegation without executing (show what would be delegated)
         #[arg(long, short = 'n')]
         dry_run: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// List your own open PRs (draft or not)
     Mine,

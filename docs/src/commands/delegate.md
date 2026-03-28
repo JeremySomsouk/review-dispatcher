@@ -23,6 +23,7 @@ review-dispatcher delegate [OPTIONS] [PR_NUMBER]
 | `PR_NUMBER` | Target specific PR (optional, shorthand for --pr) | All pending |
 | `--json` | Output results as JSON (useful for scripting) | `false` |
 | `--dry-run`, `-n` | Preview delegation without executing | `false` |
+| `--priority`, `-P` | Show priority scores (1-5 stars) in dry-run output | `false` |
 
 ## Examples
 
@@ -38,6 +39,9 @@ review-dispatcher delegate --dry-run
 
 # Preview specific PR without delegating
 review-dispatcher delegate 4821 --dry-run
+
+# Preview delegation with priority scores to identify urgent PRs first
+review-dispatcher delegate --dry-run --priority
 
 # JSON output for scripting
 review-dispatcher delegate --json
