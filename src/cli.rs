@@ -777,6 +777,15 @@ pub enum Commands {
         /// Group output by time category (lightning/quick/moderate/substantial/lengthy)
         #[arg(long, short = 'g')]
         grouped: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

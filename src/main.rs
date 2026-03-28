@@ -5852,13 +5852,32 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewTime { pr_numbers, all, grouped, json } => {
+        Commands::ReviewTime { pr_numbers, all, grouped, priority, repo, author, json } => {
+            // Apply --repo and --author filters first (consistent with other commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let targets: Vec<_> = if all {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews
             } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
@@ -5887,11 +5906,11 @@ async fn main() -> anyhow::Result<()> {
                 }
                 all_prs
             } else {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&reviews, false);
+                logger::print_reviews(&filtered_reviews, false);
                 print!(
                     "\n{} ",
                     "Select PRs to estimate review time [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
@@ -5899,10 +5918,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), reviews.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };
@@ -6156,10 +6175,14 @@ async fn main() -> anyhow::Result<()> {
                         format!("{:.1}h", hours)
                     };
 
-                    let stars = "★".repeat(est.priority_score as usize);
+                    let priority_display = if priority {
+                        format!("  ⭐ {}/5", est.priority_score)
+                    } else {
+                        String::new()
+                    };
 
                     println!(
-                        "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}\n     {} ⭐{}",
+                        "  {} {}  #{}  {}\n     👤 {}  •  📦 {} ({} lines)  •  ⏱️ {}  {}{}",
                         est.size_category.color(size_color),
                         est.pr_title.bold(),
                         est.pr_number,
@@ -6169,8 +6192,7 @@ async fn main() -> anyhow::Result<()> {
                         est.total_lines,
                         time_str.green(),
                         est.time_category,
-                        stars.red(),
-                        est.priority_score
+                        priority_display
                     );
                     println!();
                 }
@@ -6179,6 +6201,7 @@ async fn main() -> anyhow::Result<()> {
                 println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
                 println!("  💡 Time estimates based on lines changed, adjusted for size complexity");
                 println!("  💡 Use `--grouped` to see PRs organized by time category");
+                println!("  💡 Use `--priority` or `-P` to show priority scores");
                 println!("  💡 Use `--json` for scripting\n");
             }
         }

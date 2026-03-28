@@ -24,6 +24,9 @@ review-dispatcher review-time [OPTIONS]
 | `PR_NUMBERS` | PR number(s) to estimate (comma-separated) | Interactive |
 | `-a, --all` | Show estimates for all pending reviews | `false` |
 | `-g, --grouped` | Group output by time category | `false` |
+| `-P, --priority` | Show priority scores for each PR | `false` |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | None |
+| `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | None |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## How It Works
@@ -66,6 +69,18 @@ review-dispatcher review-time --all
 
 # Group by time category for session planning
 review-dispatcher review-time --all --grouped
+
+# Show priority scores with estimates
+review-dispatcher review-time --all --priority
+
+# Filter by repository
+review-dispatcher review-time --all --repo my-repo
+
+# Filter by author
+review-dispatcher review-time --all --author alice
+
+# Combine filters
+review-dispatcher review-time --all --repo api --author alice --priority
 
 # Get JSON output for scripting
 review-dispatcher review-time --all --json
