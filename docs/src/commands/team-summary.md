@@ -25,6 +25,7 @@ review-dispatcher team-summary [OPTIONS]
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority breakdown (stars by age/size score) | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 
 **Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
 
@@ -49,6 +50,9 @@ review-dispatcher team-summary --priority
 # Team summary for a specific PR
 review-dispatcher team-summary 4821
 review-dispatcher team-summary --pr 4821
+
+# Team summary for PRs created in the last 7 days only
+review-dispatcher team-summary --since-days 7
 ```
 
 ## Sample JSON Output

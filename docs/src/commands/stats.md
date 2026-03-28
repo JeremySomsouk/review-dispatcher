@@ -25,6 +25,7 @@ review-dispatcher stats [OPTIONS]
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority breakdown and highlight most urgent PR | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 
 **Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
 
@@ -49,6 +50,9 @@ review-dispatcher stats --pr 4821
 
 # Stats with priority breakdown (includes most urgent PR highlight)
 review-dispatcher stats --priority
+
+# Stats for PRs created in the last 7 days only
+review-dispatcher stats --since-days 7
 ```
 
 ## Output

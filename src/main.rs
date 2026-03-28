@@ -433,7 +433,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats { json, pr_number, repo, author, priority } => {
+        Commands::Stats { json, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use chrono::Duration;
 
@@ -450,6 +450,11 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
                 result
             };
@@ -617,7 +622,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json, pr_number, repo, author, priority } => {
+        Commands::TeamSummary { json, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
@@ -634,6 +639,11 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
                 result
             };
