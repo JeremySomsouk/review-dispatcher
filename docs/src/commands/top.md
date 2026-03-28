@@ -21,6 +21,7 @@ review-dispatcher top [OPTIONS]
 |------|-------------|---------|
 | `-n, --limit <NUM>` | Maximum results shown | `10` |
 | `-s, --min-score <NUM>` | Minimum priority score (1-5) | `3` |
+| `-P, --priority` | Show priority stars (1-5) for each PR | |
 | `--repo <PATTERN>` | Filter by repository (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 
@@ -44,4 +45,7 @@ review-dispatcher top --author johndoe
 
 # Combine filters
 review-dispatcher top --repo my-service --author johndoe --min-score 4
+
+# Show priority stars alongside scores
+review-dispatcher top --priority
 ```

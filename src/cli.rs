@@ -654,6 +654,9 @@ pub enum Commands {
         /// Minimum priority score threshold (1-5, default: 3)
         #[arg(long, short = 's')]
         min_score: Option<u8>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

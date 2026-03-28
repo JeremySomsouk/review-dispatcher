@@ -3606,7 +3606,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Top { limit, min_score, repo, author, json } => {
+        Commands::Top { limit, min_score, priority, repo, author, json } => {
             let limit = limit.unwrap_or(10);
             let min_score = min_score.unwrap_or(3).min(5);
 
@@ -3709,9 +3709,16 @@ async fn main() -> anyhow::Result<()> {
 
                     let draft_label = if r.draft { " [DRAFT]".yellow() } else { "".normal() };
 
+                    let priority_display = if priority {
+                        format!(" {}", logger::priority_stars(*score))
+                    } else {
+                        String::new()
+                    };
+
                     println!(
-                        "  ⭐{}  {}  #{} ({}){}",
+                        "  ⭐{}{}  {}  #{} ({}){}",
                         score,
+                        priority_display,
                         r.pr_title.bold(),
                         r.pr_number,
                         r.repo.dimmed(),
