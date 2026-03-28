@@ -528,75 +528,117 @@ pub async fn fetch_my_review_activity(
     username: &str,
     days: u32,
 ) -> Result<Vec<ReviewActivity>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
-
     let since = chrono::Utc::now() - chrono::Duration::days(days as i64);
-    let mut all_reviews = vec![];
 
-    for repo in repos {
-        // List all PRs (open + closed) and check if the user reviewed them
-        let prs = client
-            .pulls(org, repo)
-            .list()
-            .state(octocrab::params::State::All)
-            .per_page(100)
-            .send()
-            .await?;
+    // Phase 1: Fetch all PRs from all repos in parallel
+    let pr_futures = repos.iter().map(|repo| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let org = org.to_string();
+        let repo = repo.clone();
+        let since = since;
 
-        for pr in prs.items {
-            // Check if this PR was updated within our window
-            let updated_at = pr.updated_at
-                .unwrap_or_else(|| pr.created_at.unwrap_or_else(chrono::Utc::now));
-            if updated_at < since {
-                continue;
-            }
-
-            // Get the timeline (includes reviews) for this PR
-            let timeline: Vec<serde_json::Value> = client
-                .get(
-                    format!(
-                        "/repos/{}/{}/issues/{}/timeline",
-                        org, repo, pr.number
-                    ),
-                    None::<&str>,
-                )
+        async move {
+            let prs = client
+                .pulls(&org, &repo)
+                .list()
+                .state(octocrab::params::State::All)
+                .per_page(100)
+                .send()
                 .await
                 .unwrap_or_default();
 
-            for event in timeline {
-                // Look for "PullRequestReview" events by our username
-                if event.get("event").and_then(|e| e.as_str()) == Some("pull_request_review") {
-                    if let Some(user_obj) = event.get("user") {
-                        if user_obj.get("login").and_then(|l| l.as_str()) == Some(username) {
-                            let reviewed_at = event
-                                .get("submitted_at")
-                                .and_then(|t| t.as_str())
-                                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-                                .map(|dt| dt.with_timezone(&chrono::Utc))
-                                .unwrap_or(updated_at);
+            // Filter PRs updated within our window
+            let candidates: Vec<_> = prs.items
+                .into_iter()
+                .filter(|pr| {
+                    let updated_at = pr.updated_at
+                        .unwrap_or_else(|| pr.created_at.unwrap_or_else(chrono::Utc::now));
+                    updated_at >= since
+                })
+                .map(|pr| {
+                    (repo.clone(), pr.number, pr.title.clone().unwrap_or_default(), pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default())
+                })
+                .collect();
 
-                            let state = event
-                                .get("state")
-                                .and_then(|s| s.as_str())
-                                .unwrap_or("COMMENTED")
-                                .to_string();
+            (org, repo, candidates)
+        }
+    });
 
-                            let author = pr.user.as_ref()
-                                .map(|u| u.login.clone())
-                                .unwrap_or_default();
+    let repo_results: Vec<(String, String, Vec<(String, u64, String, String)>)> = join_all(pr_futures).await;
 
-                            all_reviews.push(ReviewActivity {
-                                repo: repo.clone(),
-                                pr_number: pr.number,
-                                pr_title: pr.title.clone().unwrap_or_default(),
-                                author,
-                                reviewed_at,
-                                state,
-                            });
-                            break; // one review per user per PR
-                        }
+    // Phase 2: Fetch timelines for all candidate PRs in parallel
+    let timeline_futures: Vec<_> = repo_results.iter().flat_map(|(org, repo, prs)| {
+        prs.iter().map(|(_, pr_number, _, _)| {
+            let client = Octocrab::builder()
+                .personal_token(token.to_string())
+                .build()
+                .unwrap();
+            let org = org.clone();
+            let repo = repo.clone();
+            let pr_number = *pr_number;
+
+            async move {
+                let timeline: Vec<serde_json::Value> = client
+                    .get(
+                        format!(
+                            "/repos/{}/{}/issues/{}/timeline",
+                            org, repo, pr_number
+                        ),
+                        None::<&str>,
+                    )
+                    .await
+                    .unwrap_or_default();
+
+                (pr_number, repo, timeline)
+            }
+        }).collect::<Vec<_>>()
+    }).collect();
+
+    let timeline_results: Vec<(u64, String, Vec<serde_json::Value>)> = join_all(timeline_futures).await;
+
+    // Phase 3: Parse timeline results and extract reviews
+    let mut all_reviews = Vec::new();
+    for (pr_number, repo, timeline) in timeline_results {
+        // Find the PR info from repo_results
+        let pr_info = repo_results.iter()
+            .find(|(_, r, _)| r == &repo)
+            .and_then(|(_, _, prs)| prs.iter().find(|(_, num, _, _)| *num == pr_number));
+
+        let (pr_title, pr_author) = match pr_info {
+            Some((_, _, title, author)) => (title.clone(), author.clone()),
+            None => continue,
+        };
+
+        for event in timeline {
+            // Look for "PullRequestReview" events by our username
+            if event.get("event").and_then(|e| e.as_str()) == Some("pull_request_review") {
+                if let Some(user_obj) = event.get("user") {
+                    if user_obj.get("login").and_then(|l| l.as_str()) == Some(username) {
+                        let reviewed_at = event
+                            .get("submitted_at")
+                            .and_then(|t| t.as_str())
+                            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                            .map(|dt| dt.with_timezone(&chrono::Utc))
+                            .unwrap_or_else(chrono::Utc::now);
+
+                        let state = event
+                            .get("state")
+                            .and_then(|s| s.as_str())
+                            .unwrap_or("COMMENTED")
+                            .to_string();
+
+                        all_reviews.push(ReviewActivity {
+                            repo,
+                            pr_number,
+                            pr_title,
+                            author: pr_author.clone(),
+                            reviewed_at,
+                            state,
+                        });
+                        break; // one review per user per PR
                     }
                 }
             }
