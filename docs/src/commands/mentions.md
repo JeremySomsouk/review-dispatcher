@@ -25,6 +25,8 @@ review-dispatcher mentions [OPTIONS]
 | `-p, --pr <NUM>` | Filter to specific PR number | all |
 | `-s, --since-days <DAYS>` | Only show notifications from the last N days | all |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | all |
+| `--author <PATTERN>` | Filter by repo pattern (partial match, case-insensitive) | all |
+| `-P, --priority` | Show priority scores (1-5 stars based on age) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -47,6 +49,15 @@ review-dispatcher mentions --since-days 3
 
 # Filter by repository and time window
 review-dispatcher mentions --repo myorg --since-days 7
+
+# Filter by repo pattern (author alias for consistency)
+review-dispatcher mentions --author myorg
+
+# Show priority scores for urgent notifications
+review-dispatcher mentions --priority
+
+# Combine filters with priority
+review-dispatcher mentions --repo myorg --priority --since-days 3
 
 # JSON output for scripting
 review-dispatcher mentions --json

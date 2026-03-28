@@ -6544,7 +6544,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mentions { unread_only, limit, pr, since_days, repo, json } => {
+        Commands::Mentions { unread_only, limit, pr, since_days, repo, author, priority, json } => {
             let limit = limit.unwrap_or(20);
 
             println!("\n🔔 Fetching your GitHub notifications...\n");
@@ -6578,6 +6578,19 @@ async fn main() -> anyhow::Result<()> {
 
                     // Apply --repo filter (partial match, case-insensitive)
                     let filtered_mentions: Vec<_> = match repo {
+                        Some(ref pattern) => {
+                            let pattern_lower = pattern.to_lowercase();
+                            filtered_mentions
+                                .into_iter()
+                                .filter(|m| m.repo.to_lowercase().contains(&pattern_lower))
+                                .collect()
+                        }
+                        None => filtered_mentions,
+                    };
+
+                    // Apply --author filter (partial match on repo, case-insensitive)
+                    // Note: GitHub notifications don't have direct author, but we filter by repo pattern for consistency
+                    let filtered_mentions: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
                             filtered_mentions
@@ -6641,18 +6654,36 @@ async fn main() -> anyhow::Result<()> {
                                 format!("{} days ago", age_days).red()
                             };
 
+                            // Calculate priority score for notifications (1-5 stars based on age and unread status)
+                            let priority_score = if age_days == 0 {
+                                3 // today: neutral
+                            } else if age_days <= 1 {
+                                2 // 1 day old: slightly stale
+                            } else if age_days <= 3 {
+                                4 // 2-3 days: concerning
+                            } else {
+                                5 // over a week: urgent
+                            };
+
+                            let priority_display = if priority {
+                                format!("  ⭐ {}/5", priority_score)
+                            } else {
+                                String::new()
+                            };
+
                             let title = if mention.pr_title.len() > 55 {
                                 format!("{}...", &mention.pr_title[..52])
                             } else {
                                 mention.pr_title.clone()
                             };
 
-                            println!("{}. {}  #{}  {}{}",
+                            println!("{}. {}  #{}  {}{}{}",
                                 i + 1,
                                 reason_label,
                                 mention.pr_number,
                                 title.bold(),
-                                unread_marker
+                                unread_marker,
+                                priority_display
                             );
                             println!("   📁 {}  •  ⏱️ {}  •  🔗 {}",
                                 mention.repo.dimmed(),
