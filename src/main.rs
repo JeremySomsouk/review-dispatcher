@@ -2658,8 +2658,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, context, output_file, language, priority, json } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Review { pr_number, pr, all, context, output_file, language, priority, json } => {
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
             let prs = match target_pr {
                 Some(num) => {
@@ -2670,6 +2670,9 @@ async fn main() -> anyhow::Result<()> {
                         num,
                     )
                     .await?
+                }
+                None if all && !reviews.is_empty() => {
+                    reviews.clone()
                 }
                 None => {
                     if reviews.is_empty() {

@@ -488,9 +488,15 @@ pub enum Commands {
     },
     /// Fetch and display a PR diff in the terminal with syntax highlighting
     Review {
-        /// PR number to review
+        /// PR number to review (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Show diff for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// Show diffs for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Number of context lines around changes (default: 3)
         #[arg(long, short = 'C', default_value_t = 3)]
         context: u8,
