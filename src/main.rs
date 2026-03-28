@@ -7394,10 +7394,74 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Summary { json } => {
+        Commands::Summary { json, repo, author } => {
             use chrono::Utc;
 
-            if reviews.is_empty() {
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match repo {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    reviews
+                        .iter()
+                        .filter(|r| r.repo.to_lowercase().contains(&pattern_lower))
+                        .cloned()
+                        .collect()
+                }
+                None => reviews.clone(),
+            };
+
+            // Apply --author filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match author {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.pr_author.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Filter out snoozed PRs
+            let snooze_file = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"))
+                .join(".snoozed.json");
+
+            let now = chrono::Utc::now();
+            let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                    if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        entries
+                            .into_iter()
+                            .filter_map(|e| {
+                                let repo = e.get("repo")?.as_str()?.to_string();
+                                let pr_number = e.get("pr_number")?.as_u64()?;
+                                let until_str = e.get("snoozed_until")?.as_str()?;
+                                if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if until.with_timezone(&chrono::Utc) > now {
+                                        return Some((repo, pr_number));
+                                    }
+                                }
+                                None
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            let filtered: Vec<_> = filtered
+                .into_iter()
+                .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                .collect();
+
+            if filtered.is_empty() {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&serde_json::json!({
                         "total": 0,
@@ -7415,13 +7479,13 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let now = Utc::now();
-            let total = reviews.len();
-            let total_additions: u64 = reviews.iter().map(|r| r.additions).sum();
-            let total_deletions: u64 = reviews.iter().map(|r| r.deletions).sum();
-            let draft_count = reviews.iter().filter(|r| r.draft).count();
+            let total = filtered.len();
+            let total_additions: u64 = filtered.iter().map(|r| r.additions).sum();
+            let total_deletions: u64 = filtered.iter().map(|r| r.deletions).sum();
+            let draft_count = filtered.iter().filter(|r| r.draft).count();
 
             // Find oldest PR age
-            let oldest_age_days = reviews
+            let oldest_age_days = filtered
                 .iter()
                 .map(|r| (now - r.created_at).num_days())
                 .max()
@@ -7433,7 +7497,7 @@ async fn main() -> anyhow::Result<()> {
             let mut medium = 0usize;   // score 3
             let mut low = 0usize;       // score 1-2
 
-            for r in &reviews {
+            for r in &filtered {
                 let score = logger::calculate_priority_score(r);
                 match score {
                     5 => critical += 1,
@@ -7446,7 +7510,7 @@ async fn main() -> anyhow::Result<()> {
             // By repo breakdown
             use std::collections::HashMap;
             let mut by_repo: HashMap<String, usize> = HashMap::new();
-            for r in &reviews {
+            for r in &filtered {
                 *by_repo.entry(r.repo.clone()).or_insert(0) += 1;
             }
 

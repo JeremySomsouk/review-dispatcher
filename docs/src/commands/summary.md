@@ -20,12 +20,16 @@ review-dispatcher summary [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--json` | Output as JSON | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | |
+| `--author` | Filter by author username (partial match, case-insensitive) | |
 
 ## Examples
 
 ```bash
 review-dispatcher summary
 review-dispatcher summary --json
+review-dispatcher summary --repo myrepo
+review-dispatcher summary --author johndoe
 ```
 
 ## Output Example
