@@ -564,6 +564,15 @@ pub enum Commands {
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
+        /// Show all neglected PRs without limit (no truncation)
+        #[arg(long, short = 'l')]
+        all: bool,
     },
     /// Categorize pending PRs by age brackets (new/aging/stale/overdue) with visual buckets
     Age {

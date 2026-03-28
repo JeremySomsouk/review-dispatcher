@@ -3598,7 +3598,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Catchup { min_age, limit, json, priority } => {
+        Commands::Catchup { min_age, limit, json, priority, repo, author, all } => {
             let min_age = min_age as i64;
             let limit = limit.unwrap_or(10);
 
@@ -3611,9 +3611,24 @@ async fn main() -> anyhow::Result<()> {
                 .filter(|r| r.created_at <= cutoff)
                 .cloned()
                 .collect();
+
+            // Apply --repo filter
+            if let Some(ref repo_filter) = repo {
+                let pattern = repo_filter.to_lowercase();
+                neglected.retain(|r| r.repo.to_lowercase().contains(&pattern));
+            }
+
+            // Apply --author filter
+            if let Some(ref author_filter) = author {
+                let pattern = author_filter.to_lowercase();
+                neglected.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+            }
+
             neglected.sort_by_key(|r| r.created_at); // oldest first
 
-            let shown: Vec<_> = neglected.iter().take(limit).cloned().collect();
+            // Apply --all flag (no limit) or use --limit
+            let effective_limit = if all { neglected.len() } else { limit };
+            let shown: Vec<_> = neglected.iter().take(effective_limit).cloned().collect();
 
             if shown.is_empty() {
                 println!("\n🎯 No neglected PRs found (all younger than {} days)\n", min_age);
@@ -3731,15 +3746,16 @@ async fn main() -> anyhow::Result<()> {
                     println!();
                 }
 
-                if total_neglected > limit {
+                if !all && total_neglected > limit {
                     println!(
-                        "  ...and {} more. Use `--limit 20` to see additional.\n",
+                        "  ...and {} more. Use `--all` to see all.\n",
                         total_neglected - limit
                     );
                 }
                 println!("{}", "─".repeat(50));
                 println!("  💡 Use `--min-age 7` to focus on week-old+ PRs");
-                println!("  💡 Use `--priority` to show priority scores\n");
+                println!("  💡 Use `--priority` to show priority scores");
+                println!("  💡 Use `--all` to show all neglected PRs without limit\n");
             }
         }
 
