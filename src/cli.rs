@@ -53,6 +53,12 @@ pub enum Commands {
         /// Show priority score (1-5 stars) based on age and size
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Ask Claude to triage each pending review
     Delegate {

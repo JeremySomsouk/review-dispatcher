@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(PathBuf::from("./reviews")));
 
     match cli.command {
-        Commands::List { json, since_days, priority } => {
+        Commands::List { json, since_days, priority, repo, author } => {
             // --pr on list: filter the review list to that PR
             let filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
@@ -57,6 +57,30 @@ async fn main() -> anyhow::Result<()> {
                     filtered
                         .into_iter()
                         .filter(|r| r.created_at >= cutoff)
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match repo {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.repo.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Apply --author filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match author {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.pr_author.to_lowercase().contains(&pattern_lower))
                         .collect()
                 }
                 None => filtered,

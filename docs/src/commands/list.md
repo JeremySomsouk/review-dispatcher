@@ -19,12 +19,12 @@ review-dispatcher list [OPTIONS]
 ## Options
 
 | Flag | Description | Default |
-|------|-------------|---------|
+|------|-------------||
 | `--json` | Output as JSON (great for scripting) | `false` |
 | `-s, --since-days <DAYS>` | Only show PRs from the last N days | all |
 | `-P, --priority` | Add priority scores (1-5 stars based on age + size) | `false` |
-| `--repo <NAME>` | Filter by repository (partial match) | - |
-| `--author <NAME>` | Filter by author (partial match) | - |
+| `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
+| `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 
 ## Examples
 
@@ -40,6 +40,12 @@ review-dispatcher list --priority
 
 # Filter to one repo
 review-dispatcher list --repo frontend
+
+# Filter by author
+review-dispatcher list --author alice
+
+# Combine filters
+review-dispatcher list --repo api --author bob --priority
 
 # JSON output for scripts
 review-dispatcher list --json | jq '.[] | select(.author == "alice")'
