@@ -864,6 +864,12 @@ pub enum Commands {
         /// Snooze action: add, list, remove, or clear
         #[command(subcommand)]
         action: SnoozeAction,
+        /// PR number to snooze (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Snooze specific PR (use with --send to snooze a single PR)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// PR number(s) to snooze (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,

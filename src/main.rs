@@ -4785,7 +4785,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Snooze { action, pr_numbers, days, json, priority, repo, author } => {
+        Commands::Snooze { action, pr_number, pr, pr_numbers, days, json, priority, repo, author } => {
             use serde::{Deserialize, Serialize};
 
             // Snooze storage file
@@ -4825,8 +4825,20 @@ async fn main() -> anyhow::Result<()> {
                     let snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
                         .to_rfc3339();
 
+                    // Priority: global --pr flag > local --pr > local pr_number > pr_numbers
+                    let target_pr = cli.pr.or(pr).or(pr_number);
+
                     // If no PR numbers provided, show interactive picker
-                    let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
+                    let targets: Vec<_> = if let Some(num) = target_pr {
+                        // Single PR via --pr or positional
+                        github::fetch_pr_by_number(
+                            &cfg.github_token,
+                            &cfg.github_org,
+                            &cfg.github_repos,
+                            num,
+                        )
+                        .await?
+                    } else if let Some(ref nums) = pr_numbers {
                         let mut results = Vec::new();
                         for part in nums.split(',') {
                             if let Ok(num) = part.trim().parse::<u64>() {

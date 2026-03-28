@@ -12,14 +12,16 @@ Snooze PRs you're not ready to review yet.
 ## Synopsis
 
 ```bash
-review-dispatcher snooze [OPTIONS] [PR_NUMBERS]
+review-dispatcher snooze [OPTIONS] [PR_NUMBER] [PR_NUMBERS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBERS` | PR number(s) to snooze | Required |
+| `PR_NUMBER` | PR number to snooze (shorthand for --pr) | `none` |
+| `-p, --pr <NUM>` | Snooze specific PR | `none` |
+| `PR_NUMBERS` | PR number(s) to snooze (comma-separated) | `none` |
 | `-d, --days <NUM>` | Days to snooze | `3` |
 | `--json` | Output as JSON (useful for scripting) | `false` |
 | `-P, --priority` | Show priority scores for listed snoozed PRs | `false` |
@@ -54,7 +56,7 @@ Add PR(s) to the snooze list.
 
 ```bash
 review-dispatcher snooze add 4821
-review-dispatcher snooze add 4821 --days 7
+review-dispatcher snooze 4821 --days 7
 review-dispatcher snooze add 4821,4822,4823
 ```
 
@@ -93,8 +95,11 @@ review-dispatcher snooze extend 4821 --days 7
 ## Examples
 
 ```bash
-# Snooze a single PR for 3 days
+# Snooze a single PR for 3 days (using positional argument)
 review-dispatcher snooze 4821
+
+# Snooze a single PR using --pr flag
+review-dispatcher snooze add --pr 4821
 
 # Snooze for 7 days
 review-dispatcher snooze 4821 --days 7
