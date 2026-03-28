@@ -1580,17 +1580,36 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json, repo, author } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
+            // Apply --repo and --author filters when using interactive selection or --all
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let targets: Vec<_> = if all {
-                // --all flag: use all pending reviews
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                // --all flag: use all pending reviews (already filtered)
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews
             } else if let Some(num) = target_pr {
                 // Single PR via --pr or positional
                 let prs = github::fetch_pr_by_number(
@@ -1630,12 +1649,12 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else {
-                // Interactive: show list and let user pick
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                // Interactive: show list and let user pick (using filtered reviews)
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&reviews, false);
+                logger::print_reviews(&filtered_reviews, false);
                 print!(
                     "\n{} ",
                     "Select PRs to open [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
@@ -1643,10 +1662,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), reviews.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };

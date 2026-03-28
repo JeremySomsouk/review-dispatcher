@@ -333,6 +333,12 @@ pub enum Commands {
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
         json: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show changed files for one or more PRs
     Files {
