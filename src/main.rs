@@ -8005,9 +8005,11 @@ async fn main() -> anyhow::Result<()> {
                         .into_iter()
                         .filter(|s| {
                             if failed_only {
+                                // Failing: overall failure OR any check failed
                                 s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))
                             } else if passing_only {
-                                s.overall_status == "success" || s.checks.iter().all(|c| c.conclusion.as_deref() == Some("success"))
+                                // Passing: overall success AND all checks passed (or no checks configured)
+                                s.overall_status == "success" && (s.checks.is_empty() || s.checks.iter().all(|c| c.conclusion.as_deref() == Some("success")))
                             } else {
                                 true
                             }
