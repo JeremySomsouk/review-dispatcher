@@ -27,6 +27,7 @@ review-dispatcher timeline [OPTIONS]
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | All repos |
 | `--author` | Filter by author username (partial match, case-insensitive) | All authors |
+| `-P, --priority` | Show priority score for each PR (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -48,7 +49,9 @@ review-dispatcher timeline --author sarah_dev
 
 # Combine filters
 review-dispatcher timeline --repo myorg --author reviewer1
-```
+
+# Show with priority scores to identify urgent PRs
+review-dispatcher timeline --priority
 
 ## Output
 
@@ -112,6 +115,7 @@ When `--json` is specified, outputs a structured JSON array of events:
   "pr_title": "feat: add CSV export",
   "repo": "myorg/frontend",
   "url": "https://github.com/myorg/frontend/pull/4821",
+  "priority_score": 4,
   "events": [
     {
       "event": "PullRequestReview",

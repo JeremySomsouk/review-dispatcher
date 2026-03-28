@@ -1407,7 +1407,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Timeline { pr_number, json, repo, author } => {
+        Commands::Timeline { pr_number, json, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             // When --pr is specified, bypass filters and fetch directly
@@ -1486,6 +1486,7 @@ async fn main() -> anyhow::Result<()> {
                     "pr_title": review.pr_title,
                     "repo": review.repo,
                     "url": review.pr_url,
+                    "priority_score": if priority { Some(logger::calculate_priority_score(review)) } else { None },
                     "events": timeline.clone(),
                 });
 
@@ -1494,8 +1495,14 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     // Add PR number prefix when showing multiple PRs
                     let prefix = if total_prs > 1 { format!("[{} of {}] ", i + 1, total_prs) } else { String::new() };
+                    let priority_display = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!("  {}", logger::priority_stars(score))
+                    } else {
+                        String::new()
+                    };
                     println!("\n{}", "═".repeat(60));
-                    println!("{}📜 PR #{} — {} Timeline", prefix, review.pr_number, review.pr_title.bold());
+                    println!("{}📜 PR #{} — {} Timeline{}", prefix, review.pr_number, review.pr_title.bold(), priority_display);
                     println!("{}", "═".repeat(60));
                     println!();
 
