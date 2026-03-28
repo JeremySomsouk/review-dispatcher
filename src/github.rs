@@ -65,10 +65,6 @@ pub async fn fetch_pending_reviews(
     exclude_prefixes: &[String],
     crew_members: &[String],
 ) -> Result<Vec<PendingReview>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
-
     // First, collect all candidate PRs across all repos (without details)
     #[derive(Clone)]
     struct CandidatePr {
@@ -84,16 +80,39 @@ pub async fn fetch_pending_reviews(
 
     let mut candidates: Vec<CandidatePr> = Vec::new();
 
-    for repo in repos {
-        let prs = client
-            .pulls(org, repo)
-            .list()
-            .state(octocrab::params::State::Open)
-            .per_page(50)
-            .send()
-            .await?;
+    // Parallel fetch PR lists from all repos
+    let repo_futures = repos.iter().map(|repo| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = repo.clone();
+        async move {
+            client
+                .pulls(org, &repo)
+                .list()
+                .state(octocrab::params::State::Open)
+                .per_page(50)
+                .send()
+                .await
+                .map(|prs| (repo, prs.items))
+        }
+    });
 
-        for pr in prs.items {
+    let repo_results: Vec<(String, Vec<_>)> = join_all(repo_futures)
+        .await
+        .into_iter()
+        .filter_map(|result| match result {
+            Ok((repo, items)) => Some((repo, items)),
+            Err(e) => {
+                eprintln!("Warning: Failed to fetch PRs from a repo: {}", e);
+                None
+            }
+        })
+        .collect();
+
+    for (repo, prs) in repo_results {
+        for pr in prs {
             if !include_drafts && pr.draft.unwrap_or(false) {
                 continue;
             }
@@ -202,10 +221,6 @@ pub async fn fetch_my_open_prs(
     include_drafts: bool,
     exclude_prefixes: &[String],
 ) -> Result<Vec<PendingReview>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
-
     // First pass: collect candidate PRs across all repos
     #[derive(Clone)]
     struct CandidatePr {
@@ -221,16 +236,39 @@ pub async fn fetch_my_open_prs(
 
     let mut candidates: Vec<CandidatePr> = Vec::new();
 
-    for repo in repos {
-        let prs = client
-            .pulls(org, repo)
-            .list()
-            .state(octocrab::params::State::Open)
-            .per_page(50)
-            .send()
-            .await?;
+    // Parallel fetch PR lists from all repos
+    let repo_futures = repos.iter().map(|repo| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = repo.clone();
+        async move {
+            client
+                .pulls(org, &repo)
+                .list()
+                .state(octocrab::params::State::Open)
+                .per_page(50)
+                .send()
+                .await
+                .map(|prs| (repo, prs.items))
+        }
+    });
 
-        for pr in prs.items {
+    let repo_results: Vec<(String, Vec<_>)> = join_all(repo_futures)
+        .await
+        .into_iter()
+        .filter_map(|result| match result {
+            Ok((repo, items)) => Some((repo, items)),
+            Err(e) => {
+                eprintln!("Warning: Failed to fetch PRs from a repo: {}", e);
+                None
+            }
+        })
+        .collect();
+
+    for (repo, prs) in repo_results {
+        for pr in prs {
             if !include_drafts && pr.draft.unwrap_or(false) {
                 continue;
             }
