@@ -6502,7 +6502,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Report { days, json } => {
+        Commands::Report { days, json, repo, author, priority } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -6512,6 +6512,25 @@ async fn main() -> anyhow::Result<()> {
                 println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", report_output_dir.display());
                 return Ok(());
             }
+
+            // Apply filters to pending reviews for display (--repo, --author, --priority)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
 
             // Read all review files from the output directory
             let mut processed_count = 0u32;
@@ -6540,15 +6559,21 @@ async fn main() -> anyhow::Result<()> {
 
                                                 for line in &lines {
                                                     if line.starts_with("- **Author**:") {
-                                                        if let Some(author) = line.strip_prefix("- **Author**:") {
-                                                            let author = author.trim();
-                                                            *processed_by_author.entry(author.to_string()).or_insert(0) += 1;
+                                                        if let Some(a) = line.strip_prefix("- **Author**:") {
+                                                            let a = a.trim();
+                                                            // Apply --author filter if specified
+                                                            if author.is_none() || a.to_lowercase().contains(&author.as_ref().unwrap().to_lowercase()) {
+                                                                *processed_by_author.entry(a.to_string()).or_insert(0) += 1;
+                                                            }
                                                         }
                                                     }
                                                     if line.starts_with("- **Repository**:") {
-                                                        if let Some(repo) = line.strip_prefix("- **Repository**:") {
-                                                            let repo = repo.trim();
-                                                            *processed_by_repo.entry(repo.to_string()).or_insert(0) += 1;
+                                                        if let Some(r) = line.strip_prefix("- **Repository**:") {
+                                                            let r = r.trim();
+                                                            // Apply --repo filter if specified
+                                                            if repo.is_none() || r.to_lowercase().contains(&repo.as_ref().unwrap().to_lowercase()) {
+                                                                *processed_by_repo.entry(r.to_string()).or_insert(0) += 1;
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -6562,14 +6587,14 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            let pending_total = reviews.len();
-            let pending_old = reviews.iter().filter(|r| {
+            let pending_total = filtered_reviews.len();
+            let pending_old = filtered_reviews.iter().filter(|r| {
                 let age_days = (Utc::now() - r.created_at).num_days() as i64;
                 age_days >= days as i64
             }).count();
 
-            let pending_additions: u64 = reviews.iter().map(|r| r.additions).sum();
-            let pending_deletions: u64 = reviews.iter().map(|r| r.deletions).sum();
+            let pending_additions: u64 = filtered_reviews.iter().map(|r| r.additions).sum();
+            let pending_deletions: u64 = filtered_reviews.iter().map(|r| r.deletions).sum();
 
             let report = serde_json::json!({
                 "period_days": days,
@@ -6616,6 +6641,46 @@ async fn main() -> anyhow::Result<()> {
                     pending_deletions.to_string().red()
                 );
                 println!();
+
+                // Priority breakdown if --priority flag is set
+                if priority && !filtered_reviews.is_empty() {
+                    println!("  ⭐ Priority Breakdown:");
+                    let mut scored: Vec<_> = filtered_reviews.iter()
+                        .map(|r| {
+                            let score = logger::calculate_priority_score(r);
+                            (r, score)
+                        })
+                        .collect();
+                    scored.sort_by(|a, b| b.1.cmp(&a.1)); // highest priority first
+
+                    // Group by score
+                    let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
+                    for (review, score) in &scored {
+                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                    }
+
+                    for score in (1..=5).rev() {
+                        if let Some(prs) = score_groups.get(&score) {
+                            let stars = logger::priority_stars(score);
+                            let age_days = (chrono::Utc::now() - prs[0].created_at).num_days();
+                            let age_str = if age_days == 0 {
+                                "today".to_string()
+                            } else if age_days == 1 {
+                                "1 day".to_string()
+                            } else {
+                                format!("{} days", age_days)
+                            };
+                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                                stars,
+                                prs.len(),
+                                age_str,
+                                prs.iter().map(|r| r.additions).sum::<u64>(),
+                                prs.iter().map(|r| r.deletions).sum::<u64>()
+                            );
+                        }
+                    }
+                    println!();
+                }
 
                 if !recent_reviews.is_empty() {
                     println!("  🕐 Recent Activity (last {} days):", days);

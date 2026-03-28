@@ -384,6 +384,15 @@ pub enum Commands {
         /// Number of days to look back (default: 7)
         #[arg(long, default_value_t = 7)]
         days: u32,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
+        /// Show priority scores for pending PRs (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
