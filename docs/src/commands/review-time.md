@@ -30,14 +30,15 @@ review-dispatcher review-time [OPTIONS]
 The estimation algorithm considers:
 
 1. **Lines changed** — Base formula: ~2 min per 50 lines
-2. **Size complexity** — Larger PRs get a complexity multiplier:
+2. **File count** — Number of files changed (fetched in parallel for performance)
+3. **Size complexity** — Larger PRs get a complexity multiplier:
    - XS (<50 lines): 0.8x (quick win)
    - S (50-200 lines): 1.0x (standard)
    - M (200-500 lines): 1.2x (moderate complexity)
    - L (500-1000 lines): 1.5x (higher complexity)
    - XL (1000+ lines): 2.0x (large, likely complex)
-3. **Age factor** — PRs older than 14 days get 0.9x (context lost)
-4. **Minimum floor** — No estimate under 5 minutes
+4. **Age factor** — PRs older than 14 days get 0.9x (context lost)
+5. **Minimum floor** — No estimate under 5 minutes
 
 ## Time Categories
 

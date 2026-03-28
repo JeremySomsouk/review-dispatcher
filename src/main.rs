@@ -4966,6 +4966,25 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Parallel fetch file counts for all PRs
+            let file_count_futures = targets.iter().map(|review| {
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                async move {
+                    match github::fetch_pr_files(&token, &org, &repo, pr_number).await {
+                        Ok(files) => (review.pr_number, Some(files.len() as u64)),
+                        Err(_) => (review.pr_number, None),
+                    }
+                }
+            });
+            let file_count_results = join_all(file_count_futures).await;
+            let file_count_map: std::collections::HashMap<u64, u64> = file_count_results
+                .into_iter()
+                .filter_map(|(pr_num, count)| count.map(|c| (pr_num, c)))
+                .collect();
+
             // Fetch file counts for each PR to improve estimates
             #[derive(Debug, Clone, serde::Serialize)]
             struct ReviewTimeEstimate {
@@ -5041,7 +5060,7 @@ async fn main() -> anyhow::Result<()> {
                     additions: review.additions,
                     deletions: review.deletions,
                     total_lines,
-                    file_count: None,
+                    file_count: file_count_map.get(&review.pr_number).copied(),
                     estimated_minutes,
                     time_category,
                     size_category: size_cat.to_string(),
