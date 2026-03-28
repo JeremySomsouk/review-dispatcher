@@ -1092,7 +1092,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Info { pr_number, json } => {
+        Commands::Info { pr_number, json, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1207,6 +1207,7 @@ async fn main() -> anyhow::Result<()> {
                     "requested_teams": requested_teams,
                     "labels": full_pr.labels.as_ref().map(|l| l.iter().map(|label| label.name.clone()).collect::<Vec<_>>()).unwrap_or_default(),
                     "assignees": full_pr.assignees.as_ref().map(|a| a.iter().map(|u| u.login.clone()).collect::<Vec<_>>()).unwrap_or_default(),
+                    "priority_score": logger::calculate_priority_score(&review),
                 });
 
                 if json {
@@ -1222,6 +1223,10 @@ async fn main() -> anyhow::Result<()> {
                     println!("  🌿 Branch:    {}", review.branch.dimmed());
                     println!("  📊 State:     {}", if review.draft { "DRAFT".yellow() } else { "OPEN".green() });
                     println!("  📁 Repository: {}", review.repo);
+                    if priority {
+                        let score = logger::calculate_priority_score(&review);
+                        println!("  ⭐ Priority:  {}/5  {}", score, logger::priority_stars(score));
+                    }
                     println!();
                     println!("  👥 Requested Reviewers:");
                     if requested_reviewers.is_empty() && requested_teams.is_empty() {

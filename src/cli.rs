@@ -180,6 +180,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Show priority score for the PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Show the chronological timeline of events on a PR (reviews, comments, labels, CI, etc.)
     Timeline {

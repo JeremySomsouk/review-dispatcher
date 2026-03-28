@@ -24,6 +24,7 @@ review-dispatcher info [OPTIONS]
 |------|-------------|---------|
 | `PR_NUMBER` | Target a specific PR by number | Interactive selection |
 | `--pr, -p` | Target a specific PR by number (global) | Interactive selection |
+| `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -31,6 +32,9 @@ review-dispatcher info [OPTIONS]
 ```bash
 # Show info for a specific PR
 review-dispatcher info --pr 4821
+
+# Show info with priority score
+review-dispatcher info --pr 4821 --priority
 
 # Interactive mode (select from pending reviews)
 review-dispatcher info
@@ -48,6 +52,7 @@ When run normally, `info` shows:
 - **Branch**: Source branch name
 - **State**: DRAFT or OPEN status
 - **Repository**: Full repo name
+- **Priority Score** (with `--priority`): 1-5 stars based on age and size
 - **Requested Reviewers**: Individual users requested
 - **Requested Teams**: Team slugs requested
 - **Labels**: All labels attached to the PR
@@ -65,6 +70,7 @@ When run normally, `info` shows:
 ║   🌿 Branch:    feature/export                           ║
 ║   📊 State:     OPEN                                     ║
 ║   📁 Repository: myorg/frontend                          ║
+║   ⭐ Priority:  4/5  ⭐⭐⭐⭐☆                            ║
 ║                                                           ║
 ║   👥 Requested Reviewers:                                ║
 ║     @reviewer1                                           ║
@@ -109,7 +115,8 @@ When `--json` is specified, outputs a structured JSON object:
   "requested_reviewers": ["reviewer1", "reviewer2"],
   "requested_teams": ["team-slug"],
   "labels": ["feature", "exports"],
-  "assignees": []
+  "assignees": [],
+  "priority_score": 4
 }
 ```
 
