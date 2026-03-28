@@ -8940,13 +8940,32 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ping { emoji, pr_numbers, all, send } => {
+        Commands::Ping { emoji, pr_numbers, all, send, repo, author } => {
+            // Apply --repo and --author filters (consistent with browse, ci, assign commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let targets: Vec<_> = if all {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews
             } else if let Some(ref nums) = pr_numbers {
                 let nums: Vec<u64> = nums
                     .split(',')
@@ -8955,7 +8974,7 @@ async fn main() -> anyhow::Result<()> {
                 let nums_for_display = nums.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ");
                 let mut matched = Vec::new();
                 for num in nums {
-                    if let Some(review) = reviews.iter().find(|r| r.pr_number == num) {
+                    if let Some(review) = filtered_reviews.iter().find(|r| r.pr_number == num) {
                         matched.push(review.clone());
                     }
                 }
@@ -8965,11 +8984,11 @@ async fn main() -> anyhow::Result<()> {
                 }
                 matched
             } else {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&reviews, false);
+                logger::print_reviews(&filtered_reviews, false);
                 print!(
                     "\n{} ",
                     "Select PR(s) to ping [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -8977,10 +8996,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), reviews.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };

@@ -24,6 +24,8 @@ review-dispatcher ping [OPTIONS]
 | `-e, --emoji <EMOJI>` | Reaction emoji to send | `eyes` |
 | `-s, --send` | Actually send the reaction (preview by default) | `false` |
 | `-a, --all` | Ping all pending reviews | `false` |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | - |
 | `PR_NUMBERS` | PR number(s) to ping (comma-separated) | Interactive |
 
 ## Available Emojis
@@ -103,6 +105,15 @@ review-dispatcher ping --all --send
 
 # Use thumbs up 👍 instead
 review-dispatcher ping -e +1 4821 --send
+
+# Ping PRs from a specific repository
+review-dispatcher ping --repo my-service --all --send
+
+# Ping PRs from a specific author
+review-dispatcher ping --author alice --all --send
+
+# Combine filters for targeted pinging
+review-dispatcher ping --repo api --author bob --send
 ```
 
 ## Tips

@@ -951,6 +951,12 @@ pub enum Commands {
         /// Send actual pings instead of previewing
         #[arg(long, short = 's')]
         send: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
 }
 
