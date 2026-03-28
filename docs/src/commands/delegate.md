@@ -101,6 +101,6 @@ Returns an array of results with:
 - Create `instruction.md` for project-specific review criteria
 - Use `--dry-run` to verify targeting before committing to delegation
 - Use `--json` for automation scripts or piping to other tools
-- In interactive mode, PRs are delegated sequentially with progress feedback
-- In JSON mode, all PRs are delegated in parallel for speed
+- All PRs are delegated in parallel for speed (both modes)
+- Progress feedback shows completion status for each PR as it finishes
 - Combine filters (`--since-days`, `--repo`, `--author`) with `--dry-run` to preview targeted delegation

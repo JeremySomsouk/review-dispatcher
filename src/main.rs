@@ -348,28 +348,28 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            if json {
-                // Parallel delegation in JSON mode
-                let delegate_futures = targets.iter().map(|review| {
-                    let instruction_path = cli.instruction_path.clone();
-                    async move {
-                        let summary = dispatcher::delegate_to_claude(review, instruction_path);
-                        (review.clone(), summary)
-                    }
-                });
-                let results: Vec<_> = join_all(delegate_futures).await;
+            #[derive(serde::Serialize)]
+            struct DelegateResult {
+                pr_number: u64,
+                pr_title: String,
+                repo: String,
+                url: String,
+                success: bool,
+                summary: Option<String>,
+                error: Option<String>,
+            }
 
-                #[derive(serde::Serialize)]
-                struct DelegateResult {
-                    pr_number: u64,
-                    pr_title: String,
-                    repo: String,
-                    url: String,
-                    success: bool,
-                    summary: Option<String>,
-                    error: Option<String>,
+            // Parallel delegation for both modes
+            let delegate_futures = targets.iter().map(|review| {
+                let instruction_path = cli.instruction_path.clone();
+                async move {
+                    let summary = dispatcher::delegate_to_claude(review, instruction_path);
+                    (review.clone(), summary)
                 }
+            });
+            let results: Vec<(github::PendingReview, Result<String, anyhow::Error>)> = join_all(delegate_futures).await;
 
+            if json {
                 let output: Vec<DelegateResult> = results
                     .into_iter()
                     .map(|(review, summary)| {
@@ -398,23 +398,32 @@ async fn main() -> anyhow::Result<()> {
 
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
-                // Sequential delegation with progress indicators (existing behavior)
-                for (i, review) in targets.iter().enumerate() {
+                // Show results as they complete with progress
+                let total = targets.len();
+                for (i, (review, summary)) in results.into_iter().enumerate() {
                     print!(
-                        "\n⏳ Delegating [{}/{}] #{} {}... ",
+                        "\n[{:>2}/{:<2}] #{} {}... ",
                         i + 1,
-                        targets.len(),
+                        total,
                         review.pr_number,
                         review.pr_title
                     );
                     io::stdout().flush()?;
-                    let summary = dispatcher::delegate_to_claude(review, cli.instruction_path.clone())?;
-                    println!("{}", "done".green());
-                    logger::print_delegate_result(review, &summary);
 
-                    if let Some(ref dir) = output_dir {
-                        let path = writer::write_review(dir, review, Some(&summary))?;
-                        println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                    match summary {
+                        Ok(summary) => {
+                            println!("{}", "✅ Done".green());
+                            logger::print_delegate_result(&review, &summary);
+
+                            if let Some(ref dir) = output_dir {
+                                let path = writer::write_review(dir, &review, Some(&summary))?;
+                                println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                            }
+                        }
+                        Err(e) => {
+                            println!("{}", "❌ Failed".red());
+                            eprintln!("   Error: {}", e);
+                        }
                     }
                 }
 
