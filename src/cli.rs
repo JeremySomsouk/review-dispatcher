@@ -397,6 +397,9 @@ pub enum Commands {
         /// Language hint for syntax highlighting (auto-detected if not specified)
         #[arg(long, short = 'l')]
         language: Option<String>,
+        /// Show priority score for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Show your highest priority pending PRs based on age, size, and urgency
     Top {

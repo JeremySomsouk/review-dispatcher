@@ -2581,7 +2581,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, context, output_file, language } => {
+        Commands::Review { pr_number, context, output_file, language, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -2643,8 +2643,15 @@ async fn main() -> anyhow::Result<()> {
                         let total_additions: u64 = files.iter().map(|f| f.additions).sum();
                         let total_deletions: u64 = files.iter().map(|f| f.deletions).sum();
 
+                        let priority_display = if priority {
+                            let score = logger::calculate_priority_score(&review);
+                            format!("  ⭐ {}/5", score)
+                        } else {
+                            String::new()
+                        };
+
                         println!("\n{}", "─".repeat(60));
-                        println!("📄 {}  #{}", review.pr_title.bold(), review.pr_number);
+                        println!("📄 {}  #{}{}", review.pr_title.bold(), review.pr_number, priority_display);
                         println!("   👤 {}  •  📁 {}  •  +{} / -{} lines",
                             review.pr_author.cyan(),
                             review.repo,
