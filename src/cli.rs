@@ -65,6 +65,9 @@ pub enum Commands {
         /// PR number (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_positional: Option<u64>,
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
     },
     /// List your own open PRs (draft or not)
     Mine,

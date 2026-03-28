@@ -20,15 +20,52 @@ review-dispatcher delegate [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | Target specific PR (optional) | All pending |
+| `PR_NUMBER` | Target specific PR (optional, shorthand for --pr) | All pending |
+| `--json` | Output results as JSON (useful for scripting) | `false` |
 
 ## Examples
 
 ```bash
+# Interactive: select PR(s) to delegate
 review-dispatcher delegate
+
+# Target a specific PR
 review-dispatcher delegate 4821
+
+# JSON output for scripting
+review-dispatcher delegate --json
+
+# Delegate multiple PRs to Claude in parallel (JSON mode)
+review-dispatcher delegate --pr 4821 --json
+```
+
+## Output
+
+### Interactive Mode (default)
+Each delegation shows:
+- Delegation progress indicator
+- Summary from Claude
+- Review file saved to output directory
+
+### JSON Mode
+Returns an array of results with:
+```json
+[
+  {
+    "pr_number": 4821,
+    "pr_title": "feat: add dark mode",
+    "repo": "frontend",
+    "url": "https://github.com/org/frontend/pull/4821",
+    "success": true,
+    "summary": "Summary text from Claude",
+    "error": null
+  }
+]
 ```
 
 ## Tips
 
 - Create `instruction.md` for project-specific review criteria
+- Use `--json` for automation scripts or piping to other tools
+- In interactive mode, PRs are delegated sequentially with progress feedback
+- In JSON mode, all PRs are delegated in parallel for speed

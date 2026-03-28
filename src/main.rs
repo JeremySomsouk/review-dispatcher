@@ -180,7 +180,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { pr_positional } => {
+        Commands::Delegate { pr_positional, json } => {
             // --pr flag takes precedence, then positional arg
             let pr_number = cli.pr.or(pr_positional);
 
@@ -253,27 +253,79 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for (i, review) in targets.iter().enumerate() {
-                print!(
-                    "\n⏳ Delegating [{}/{}] #{} {}... ",
-                    i + 1,
-                    targets.len(),
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
-                let summary = dispatcher::delegate_to_claude(review, cli.instruction_path.clone())?;
-                println!("{}", "done".green());
-                logger::print_delegate_result(review, &summary);
+            if json {
+                // Parallel delegation in JSON mode
+                let delegate_futures = targets.iter().map(|review| {
+                    let instruction_path = cli.instruction_path.clone();
+                    async move {
+                        let summary = dispatcher::delegate_to_claude(review, instruction_path);
+                        (review.clone(), summary)
+                    }
+                });
+                let results: Vec<_> = join_all(delegate_futures).await;
+
+                #[derive(serde::Serialize)]
+                struct DelegateResult {
+                    pr_number: u64,
+                    pr_title: String,
+                    repo: String,
+                    url: String,
+                    success: bool,
+                    summary: Option<String>,
+                    error: Option<String>,
+                }
+
+                let output: Vec<DelegateResult> = results
+                    .into_iter()
+                    .map(|(review, summary)| {
+                        match summary {
+                            Ok(s) => DelegateResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title,
+                                repo: review.repo,
+                                url: review.pr_url,
+                                success: true,
+                                summary: Some(s),
+                                error: None,
+                            },
+                            Err(e) => DelegateResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title,
+                                repo: review.repo,
+                                url: review.pr_url,
+                                success: false,
+                                summary: None,
+                                error: Some(e.to_string()),
+                            },
+                        }
+                    })
+                    .collect();
+
+                println!("{}", serde_json::to_string_pretty(&output)?);
+            } else {
+                // Sequential delegation with progress indicators (existing behavior)
+                for (i, review) in targets.iter().enumerate() {
+                    print!(
+                        "\n⏳ Delegating [{}/{}] #{} {}... ",
+                        i + 1,
+                        targets.len(),
+                        review.pr_number,
+                        review.pr_title
+                    );
+                    io::stdout().flush()?;
+                    let summary = dispatcher::delegate_to_claude(review, cli.instruction_path.clone())?;
+                    println!("{}", "done".green());
+                    logger::print_delegate_result(review, &summary);
+
+                    if let Some(ref dir) = output_dir {
+                        let path = writer::write_review(dir, review, Some(&summary))?;
+                        println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                    }
+                }
 
                 if let Some(ref dir) = output_dir {
-                    let path = writer::write_review(dir, review, Some(&summary))?;
-                    println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                    writer::write_index(dir, &reviews)?;
                 }
-            }
-
-            if let Some(ref dir) = output_dir {
-                writer::write_index(dir, &reviews)?;
             }
         }
 
