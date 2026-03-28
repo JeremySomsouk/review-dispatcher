@@ -20,7 +20,7 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to show labels for | - |
-| `-p, --pr-numbers <NUMS>` | PR number(s) to show labels for (comma-separated) | - |
+| `-n, --pr-numbers <NUMS>` | PR number(s) to show labels for (comma-separated) | - |
 | `-a, --all` | Show labels for all pending reviews | `false` |
 | `-l, --filter-by <LABEL>` | Filter by label name (partial match, case-insensitive) | - |
 | `--json` | Output as JSON | `false` |

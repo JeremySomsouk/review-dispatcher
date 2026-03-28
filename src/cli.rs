@@ -311,7 +311,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// PR number(s) to show labels for (comma-separated)
-        #[arg(long, short = 'p')]
+        #[arg(long, short = 'n')]
         pr_numbers: Option<String>,
         /// Show labels for all pending reviews
         #[arg(long, short = 'a')]
