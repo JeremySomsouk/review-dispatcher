@@ -420,24 +420,6 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// Fetch and display a PR diff in the terminal with syntax highlighting
-    Review {
-        /// PR number to review
-        #[arg(value_name = "PR_NUMBER")]
-        pr_number: Option<u64>,
-        /// Number of context lines around changes (default: 3)
-        #[arg(long, short = 'C', default_value_t = 3)]
-        context: u8,
-        /// Output diff to file instead of terminal
-        #[arg(long, short = 'o')]
-        output_file: Option<PathBuf>,
-        /// Language hint for syntax highlighting (auto-detected if not specified)
-        #[arg(long, short = 'l')]
-        language: Option<String>,
-        /// Show priority score for each PR (1-5 stars based on age and size)
-        #[arg(long, short = 'P')]
-        priority: bool,
-    },
     /// Show your highest priority pending PRs based on age, size, and urgency
     Top {
         /// Limit the number of results shown (default: 10)
@@ -498,6 +480,27 @@ pub enum Commands {
         #[arg(long, short = 'g', default_value_t = false)]
         grouped: bool,
         /// Show priority scores for each PR
+        #[arg(long, short = 'P')]
+        priority: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Fetch and display a PR diff in the terminal with syntax highlighting
+    Review {
+        /// PR number to review
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Number of context lines around changes (default: 3)
+        #[arg(long, short = 'C', default_value_t = 3)]
+        context: u8,
+        /// Output diff to file instead of terminal
+        #[arg(long, short = 'o')]
+        output_file: Option<PathBuf>,
+        /// Language hint for syntax highlighting (auto-detected if not specified)
+        #[arg(long, short = 'l')]
+        language: Option<String>,
+        /// Show priority score for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Output as JSON

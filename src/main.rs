@@ -2658,7 +2658,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, context, output_file, language, priority } => {
+        Commands::Review { pr_number, context, output_file, language, priority, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -2698,158 +2698,211 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for review in prs {
-                print!(
-                    "\n⏳ Fetching diff for #{} {}... ",
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
-
-                match github::fetch_pr_diff(
+            // Fetch all diffs in parallel
+            let diff_futures = prs.iter().map(|review| {
+                github::fetch_pr_diff(
                     &cfg.github_token,
                     &cfg.github_org,
                     &review.repo,
                     review.pr_number,
                 )
-                .await
-                {
-                    Ok(files) => {
-                        println!("{}", "done".green());
+            });
 
-                        let total_additions: u64 = files.iter().map(|f| f.additions).sum();
-                        let total_deletions: u64 = files.iter().map(|f| f.deletions).sum();
+            let diff_results: Vec<Result<Vec<github::PullRequestDiff>, anyhow::Error>> =
+                join_all(diff_futures).await;
 
-                        let priority_display = if priority {
-                            let score = logger::calculate_priority_score(&review);
-                            format!("  ⭐ {}/5", score)
-                        } else {
-                            String::new()
-                        };
+            #[derive(serde::Serialize)]
+            struct ReviewOutput<'a> {
+                pr_number: u64,
+                pr_title: &'a str,
+                repo: &'a str,
+                url: &'a str,
+                author: &'a str,
+                total_files: usize,
+                total_additions: u64,
+                total_deletions: u64,
+                priority_score: Option<u8>,
+                file_summaries: Vec<FileSummary<'a>>,
+            }
 
-                        println!("\n{}", "─".repeat(60));
-                        println!("📄 {}  #{}{}", review.pr_title.bold(), review.pr_number, priority_display);
-                        println!("   👤 {}  •  📁 {}  •  +{} / -{} lines",
-                            review.pr_author.cyan(),
-                            review.repo,
-                            total_additions.to_string().green(),
-                            total_deletions.to_string().red()
-                        );
-                        println!("{}", "─".repeat(60));
+            #[derive(serde::Serialize)]
+            struct FileSummary<'a> {
+                filename: &'a str,
+                status: &'a str,
+                additions: u64,
+                deletions: u64,
+                language: Option<&'a String>,
+            }
 
-                        if files.is_empty() {
-                            println!("  (no file changes)");
-                        } else {
-                            // Build unified diff output
-                            let mut unified_diff = String::new();
-                            for file in &files {
-                                let status_icon = match file.status.as_str() {
-                                    "added" => "+",
-                                    "removed" => "-",
-                                    "modified" => "M",
-                                    "renamed" => "R",
-                                    _ => "?",
-                                };
-                                let lang = language.as_ref().or(file.language.as_ref()).map(|s| s.as_str()).unwrap_or("");
-                                let header = format!(
-                                    "diff --git a/{} b/{} {}",
-                                    file.filename, file.filename,
-                                    if file.status == "renamed" { "(renamed)" } else { "" }
-                                );
-                                let hunk_header = if file.patch.is_some() {
-                                    format!(
-                                        "@@ -{},{} +{},{} @@ [{}] {}",
-                                        1, file.deletions,
-                                        1, file.additions,
-                                        lang,
-                                        status_icon
-                                    )
-                                } else {
-                                    format!(
-                                        "@@ -0,0 +0,0 @@ [{}] {}",
-                                        lang,
-                                        status_icon
-                                    )
-                                };
+            let mut outputs: Vec<ReviewOutput> = Vec::new();
 
-                                unified_diff.push_str(&format!("{}\n", header));
-                                unified_diff.push_str(&format!("{}{}\n", hunk_header, status_icon));
+            for (review, result) in prs.iter().zip(diff_results.iter()) {
+                let files = match result {
+                    Ok(f) => f,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to fetch diff for PR #{}: {}", review.pr_number, e);
+                        continue;
+                    }
+                };
 
-                                if let Some(ref patch) = file.patch {
-                                    // Normalize patch context lines
-                                    let context_str = " ".repeat(context as usize);
-                                    for line in patch.lines() {
-                                        let line = line.trim_end();
-                                        if line.is_empty() {
-                                            unified_diff.push_str(&format!("{}{}\n", context_str, line));
-                                        } else if line.starts_with('+') && !line.starts_with("+++") {
-                                            unified_diff.push_str(&format!("{}{}\n", "+".yellow(), &line[1..]));
-                                        } else if line.starts_with('-') && !line.starts_with("---") {
-                                            unified_diff.push_str(&format!("{}{}\n", "-".red(), &line[1..]));
-                                        } else if line.starts_with(' ') || line.starts_with("@@") {
-                                            unified_diff.push_str(&format!(" {}\n", line));
-                                        } else {
-                                            unified_diff.push_str(&format!("{}\n", line));
-                                        }
-                                    }
-                                } else {
-                                    unified_diff.push_str(&format!(
-                                        "  (binary or no preview available)\n"
-                                    ));
-                                }
-                                unified_diff.push_str("\n");
-                            }
+                let total_additions: u64 = files.iter().map(|f| f.additions).sum();
+                let total_deletions: u64 = files.iter().map(|f| f.deletions).sum();
 
-                            if let Some(ref path) = output_file {
-                                std::fs::write(path, &unified_diff)?;
-                                println!("   💾 Diff written to {} ({:.1} KB)",
-                                    path.display().to_string().cyan(),
-                                    unified_diff.len() as f64 / 1024.0
-                                );
+                let priority_score = if priority {
+                    Some(logger::calculate_priority_score(review))
+                } else {
+                    None
+                };
+
+                if json {
+                    outputs.push(ReviewOutput {
+                        pr_number: review.pr_number,
+                        pr_title: &review.pr_title,
+                        repo: &review.repo,
+                        url: &review.pr_url,
+                        author: &review.pr_author,
+                        total_files: files.len(),
+                        total_additions,
+                        total_deletions,
+                        priority_score,
+                        file_summaries: files.iter().map(|f| FileSummary {
+                            filename: &f.filename,
+                            status: &f.status,
+                            additions: f.additions,
+                            deletions: f.deletions,
+                            language: f.language.as_ref(),
+                        }).collect(),
+                    });
+                } else {
+                    let priority_display = if let Some(score) = priority_score {
+                        format!("  ⭐ {}/5", score)
+                    } else {
+                        String::new()
+                    };
+
+                    println!("\n{}", "─".repeat(60));
+                    println!("📄 {}  #{}{}", review.pr_title.bold(), review.pr_number, priority_display);
+                    println!("   👤 {}  •  📁 {}  •  +{} / -{} lines",
+                        review.pr_author.cyan(),
+                        review.repo,
+                        total_additions.to_string().green(),
+                        total_deletions.to_string().red()
+                    );
+                    println!("{}", "─".repeat(60));
+
+                    if files.is_empty() {
+                        println!("  (no file changes)");
+                    } else {
+                        // Build unified diff output
+                        let mut unified_diff = String::new();
+                        for file in files {
+                            let status_icon = match file.status.as_str() {
+                                "added" => "+",
+                                "removed" => "-",
+                                "modified" => "M",
+                                "renamed" => "R",
+                                _ => "?",
+                            };
+                            let lang = language.as_ref().or(file.language.as_ref()).map(|s| s.as_str()).unwrap_or("");
+                            let header = format!(
+                                "diff --git a/{} b/{} {}",
+                                file.filename, file.filename,
+                                if file.status == "renamed" { "(renamed)" } else { "" }
+                            );
+                            let hunk_header = if file.patch.is_some() {
+                                format!(
+                                    "@@ -{},{} +{},{} @@ [{}] {}",
+                                    1, file.deletions,
+                                    1, file.additions,
+                                    lang,
+                                    status_icon
+                                )
                             } else {
-                                // Try to use bat for syntax highlighting, fallback to plain print
-                                let use_bat = std::process::Command::new("which")
-                                    .arg("bat")
-                                    .output()
-                                    .map(|o| o.status.success())
-                                    .unwrap_or(false);
+                                format!(
+                                    "@@ -0,0 +0,0 @@ [{}] {}",
+                                    lang,
+                                    status_icon
+                                )
+                            };
 
-                                if use_bat {
-                                    // Pipe diff through bat with appropriate language
-                                    let mut cmd = std::process::Command::new("bat");
-                                    cmd.arg("--style=changes")
-                                       .arg("--color=always")
-                                       .arg("--language=diff");
-                                    cmd.arg("--");
-                                    cmd.arg("-");
+                            unified_diff.push_str(&format!("{}\n", header));
+                            unified_diff.push_str(&format!("{}{}\n", hunk_header, status_icon));
 
-                                    match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                                        Ok(child) => {
-                                            use std::io::Write;
-                                            if let Some(ref stdin) = child.stdin {
-                                                let mut w = stdin;
-                                                let _ = w.write_all(unified_diff.as_bytes());
-                                            }
-                                            let _ = child.wait_with_output();
-                                        }
-                                        Err(_) => {
-                                            println!("{}", unified_diff);
-                                        }
+                            if let Some(ref patch) = file.patch {
+                                // Normalize patch context lines
+                                let context_str = " ".repeat(context as usize);
+                                for line in patch.lines() {
+                                    let line = line.trim_end();
+                                    if line.is_empty() {
+                                        unified_diff.push_str(&format!("{}{}\n", context_str, line));
+                                    } else if line.starts_with('+') && !line.starts_with("+++") {
+                                        unified_diff.push_str(&format!("{}{}\n", "+".yellow(), &line[1..]));
+                                    } else if line.starts_with('-') && !line.starts_with("---") {
+                                        unified_diff.push_str(&format!("{}{}\n", "-".red(), &line[1..]));
+                                    } else if line.starts_with(' ') || line.starts_with("@@") {
+                                        unified_diff.push_str(&format!(" {}\n", line));
+                                    } else {
+                                        unified_diff.push_str(&format!("{}\n", line));
                                     }
-                                } else {
-                                    // Fallback: print with basic coloring
-                                    println!("\n{}\n", unified_diff);
                                 }
+                            } else {
+                                unified_diff.push_str(&format!(
+                                    "  (binary or no preview available)\n"
+                                ));
+                            }
+                            unified_diff.push_str("\n");
+                        }
+
+                        if let Some(ref path) = output_file {
+                            std::fs::write(path, &unified_diff)?;
+                            println!("   💾 Diff written to {} ({:.1} KB)",
+                                path.display().to_string().cyan(),
+                                unified_diff.len() as f64 / 1024.0
+                            );
+                        } else {
+                            // Try to use bat for syntax highlighting, fallback to plain print
+                            let use_bat = std::process::Command::new("which")
+                                .arg("bat")
+                                .output()
+                                .map(|o| o.status.success())
+                                .unwrap_or(false);
+
+                            if use_bat {
+                                // Pipe diff through bat with appropriate language
+                                let mut cmd = std::process::Command::new("bat");
+                                cmd.arg("--style=changes")
+                                   .arg("--color=always")
+                                   .arg("--language=diff");
+                                cmd.arg("--");
+                                cmd.arg("-");
+
+                                match cmd.stdin(std::process::Stdio::piped()).spawn() {
+                                    Ok(child) => {
+                                        use std::io::Write;
+                                        if let Some(ref stdin) = child.stdin {
+                                            let mut w = stdin;
+                                            let _ = w.write_all(unified_diff.as_bytes());
+                                        }
+                                        let _ = child.wait_with_output();
+                                    }
+                                    Err(_) => {
+                                        println!("{}", unified_diff);
+                                    }
+                                }
+                            } else {
+                                // Fallback: print with basic coloring
+                                println!("\n{}\n", unified_diff);
                             }
                         }
-                        println!("{}", "─".repeat(60));
                     }
-                    Err(e) => {
-                        println!("{}", "failed".red());
-                        println!("  ❌ Error fetching diff: {}", e);
-                    }
+                    println!("{}", "─".repeat(60));
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&outputs)?);
+            }
+
             println!();
         }
 

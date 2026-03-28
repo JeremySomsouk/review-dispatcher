@@ -22,7 +22,9 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 | `PR_NUMBER` | PR number to review | Required |
 | `-c, --context <NUM>` | Context lines around changes | `3` |
 | `-o, --output <FILE>` | Output diff to file | Terminal |
+| `-l, --language <LANG>` | Language hint for syntax highlighting | Auto-detected |
 | `-P, --priority` | Show priority score (1-5 stars) | `false` |
+| `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
 
@@ -30,4 +32,6 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 review-dispatcher review 4821
 review-dispatcher review 4821 --context 5
 review-dispatcher review --priority 4821
+review-dispatcher review 4821 --json
+review-dispatcher review --pr 4821 --output diff.patch
 ```
