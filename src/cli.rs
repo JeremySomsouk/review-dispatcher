@@ -362,7 +362,7 @@ pub enum Commands {
         #[arg(long, short = 'C', default_value_t = 3)]
         context: u8,
         /// Output diff to file instead of terminal
-        #[arg(long)]
+        #[arg(long, short = 'o')]
         output_file: Option<PathBuf>,
         /// Language hint for syntax highlighting (auto-detected if not specified)
         #[arg(long, short = 'l')]
