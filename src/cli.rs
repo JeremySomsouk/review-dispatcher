@@ -807,6 +807,9 @@ pub enum Commands {
         /// Show bottleneck analysis (which repos/authors take longest)
         #[arg(long, short = 'b')]
         bottlenecks: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

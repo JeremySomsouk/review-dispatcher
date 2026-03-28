@@ -7214,9 +7214,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewVelocity { days, bottlenecks, repo, author, json } => {
+        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, json } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
+            use crate::logger;
 
             let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
 
@@ -7238,6 +7239,7 @@ async fn main() -> anyhow::Result<()> {
                 hours_to_review: f64,
                 additions: u64,
                 deletions: u64,
+                priority_score: u8,
             }
 
             let mut velocity_data: Vec<VelocityData> = vec![];
@@ -7316,6 +7318,21 @@ async fn main() -> anyhow::Result<()> {
                                                 by_author.entry(pr_author.clone()).or_insert_with(Vec::new).push(hours);
                                                 by_repo.entry(pr_repo.clone()).or_insert_with(Vec::new).push(hours);
 
+                                                // Calculate priority score for this PR
+                                                let mock_review = github::PendingReview {
+                                                    repo: pr_repo.clone(),
+                                                    pr_number,
+                                                    pr_title: pr_title.clone(),
+                                                    pr_author: pr_author.clone(),
+                                                    pr_url: String::new(),
+                                                    created_at: created_at_tz,
+                                                    additions,
+                                                    deletions,
+                                                    draft: false,
+                                                    branch: String::new(),
+                                                };
+                                                let priority_score = logger::calculate_priority_score(&mock_review);
+
                                                 velocity_data.push(VelocityData {
                                                     pr_title,
                                                     pr_number,
@@ -7326,6 +7343,7 @@ async fn main() -> anyhow::Result<()> {
                                                     hours_to_review: hours,
                                                     additions,
                                                     deletions,
+                                                    priority_score,
                                                 });
                                             }
                                         }
@@ -7412,8 +7430,19 @@ async fn main() -> anyhow::Result<()> {
                     median_hours: f64,
                     fastest_review_hours: f64,
                     slowest_review_hours: f64,
+                    by_priority: std::collections::BTreeMap<u8, (f64, usize)>,
                     by_author: BTreeMap<String, (f64, f64, usize)>,
                     by_repo: BTreeMap<String, (f64, f64, usize)>,
+                }
+                // Priority breakdown
+                let mut by_priority_map: std::collections::BTreeMap<u8, (f64, usize)> = std::collections::BTreeMap::new();
+                let mut by_priority_hours: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
+                for v in &velocity_data {
+                    by_priority_hours.entry(v.priority_score).or_insert_with(Vec::new).push(v.hours_to_review);
+                }
+                for (score, hours_list) in &by_priority_hours {
+                    let avg = hours_list.iter().sum::<f64>() / hours_list.len() as f64;
+                    by_priority_map.insert(*score, (avg, hours_list.len()));
                 }
                 let mut by_author_map: BTreeMap<String, (f64, f64, usize)> = BTreeMap::new();
                 for (author, avg, median, count) in &author_stats {
@@ -7430,6 +7459,7 @@ async fn main() -> anyhow::Result<()> {
                     median_hours,
                     fastest_review_hours: fastest,
                     slowest_review_hours: slowest,
+                    by_priority: by_priority_map,
                     by_author: by_author_map,
                     by_repo: by_repo_map,
                 };
@@ -7472,6 +7502,38 @@ async fn main() -> anyhow::Result<()> {
                     over_72h, (over_72h as f64 / total_f) * 100.0,
                     "▓".repeat((over_72h as f64 / total_f * 20.0) as usize).red());
 
+                if priority {
+                    // Show priority breakdown for reviewed PRs
+                    let mut by_priority: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
+                    for v in &velocity_data {
+                        by_priority.entry(v.priority_score).or_insert_with(Vec::new).push(v.hours_to_review);
+                    }
+
+                    println!("\n  ⭐ Priority vs Review Time");
+                    for score in (1..=5).rev() {
+                        if let Some(hours_list) = by_priority.get(&score) {
+                            let avg = hours_list.iter().sum::<f64>() / hours_list.len() as f64;
+                            let stars = logger::priority_stars(score);
+                            let count = hours_list.len();
+                            let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
+                            let bar: String = "█".repeat(bar_len.max(1));
+                            let bar_colored = if score >= 4 {
+                                bar.red().to_string()
+                            } else if score >= 3 {
+                                bar.yellow().to_string()
+                            } else {
+                                bar.green().to_string()
+                            };
+                            println!("     ⭐{}  {} PRs  {:.1}h avg  {}",
+                                stars,
+                                count,
+                                avg,
+                                bar_colored
+                            );
+                        }
+                    }
+                }
+
                 if bottlenecks {
                     println!("\n  🐢 Bottleneck Analysis — by Author");
                     println!("     (slowest average review time)");
@@ -7502,6 +7564,7 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!("\n  💡 Use `--bottlenecks` to see which repos/authors take longest");
+                println!("  💡 Use `--priority` to correlate priority with review speed");
                 println!("  💡 Use `--json` for machine-readable output");
                 println!("{}", "─".repeat(45));
                 println!();

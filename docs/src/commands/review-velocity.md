@@ -23,6 +23,7 @@ review-dispatcher review-velocity [OPTIONS]
 |------|-------------|---------|
 | `-d, --days <NUM>` | Number of days to look back | `30` |
 | `-b, --bottlenecks` | Show bottleneck analysis by author/repo | `false` |
+| `-P, --priority` | Show priority vs review time breakdown | `false` |
 | `--repo <TEXT>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <TEXT>` | Filter by author username (partial match, case-insensitive) | |
 | `--json` | Output as JSON for scripting | `false` |
@@ -38,6 +39,12 @@ review-dispatcher review-velocity --days 7
 
 # With bottleneck analysis (see slowest repos/authors)
 review-dispatcher review-velocity --bottlenecks
+
+# With priority breakdown (correlate priority scores with review speed)
+review-dispatcher review-velocity --priority
+
+# Combine all analysis options
+review-dispatcher review-velocity --bottlenecks --priority
 
 # Filter by specific repository
 review-dispatcher review-velocity --repo backend
@@ -66,9 +73,16 @@ review-dispatcher review-velocity --json | jq '.avg_hours_to_review'
 
   ⏱️  Time Distribution
      < 4h:       4 (17.4%)  ▓▓▓▓░░░░░░░░░░░░░░
-     4-24h:      8 (34.8%)  ▓▓▓▓▓▓▓▓░░░░░░░░░
-     1-3d:       7 (30.4%)  ▓▓▓▓▓▓▓░░░░░░░░░░
+     4-24h:      8 (34.8%)  ▓▓▓▓▓▓▓░░░░░░░░░░
+     1-3d:       7 (30.4%)  ▓▓▓▓▓▓▓░░░░░░░░░
      > 3d:       4 (17.4%)  ▓▓▓▓░░░░░░░░░░░░░░
+
+  ⭐ Priority vs Review Time
+     ⭐⭐⭐⭐⭐  5 PRs  28.3h avg  ████████████
+     ⭐⭐⭐⭐    8 PRs  14.2h avg  ████████
+     ⭐⭐⭐     10 PRs  8.5h avg   █████
+     ⭐⭐        0 PRs   0.0h avg
+     ⭐         0 PRs   0.0h avg
 
   🐢 Bottleneck Analysis — by Author
      (slowest average review time)
@@ -83,6 +97,7 @@ review-dispatcher review-velocity --json | jq '.avg_hours_to_review'
      shared    ████        8.2h avg   (4 PRs)
 
   💡 Use `--bottlenecks` to see which repos/authors take longest
+  💡 Use `--priority` to correlate priority with review speed
   💡 Use `--json` for machine-readable output
 ─────────────────────────────────────────────
 ```
@@ -99,9 +114,12 @@ Review velocity reads the processed review files saved in your output directory 
 
 **Bottleneck analysis** shows which authors or repositories have the highest average review times, helping identify process or knowledge gaps.
 
+**Priority vs Review Time** (with `--priority` flag) shows how long high vs low priority PRs take to review. This helps answer questions like "Are we prioritizing urgent reviews?"
+
 ## Tips
 
 - Requires review files from `delegate` command
 - Use `--days 7` for weekly view, `--days 90` for quarterly context
 - Track your velocity over time to see if process changes help
 - Pair with `trends` for complete review analytics
+- Use `--priority` to see if critical PRs are getting the attention they deserve
