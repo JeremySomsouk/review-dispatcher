@@ -1516,8 +1516,30 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let mut results: Vec<CommentResult> = Vec::new();
+            let comment_text = text.clone(); // Clone for use in async blocks
 
-            for review in &prs {
+            // Parallelize comment requests
+            let comment_futures = prs.iter().map(|review| {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
+                let text_clone = comment_text.clone();
+
+                async move {
+                    client
+                        .issues(&org, &repo)
+                        .create_comment(pr_number, &text_clone)
+                        .await
+                }
+            });
+
+            let comment_results: Vec<Result<_, _>> = join_all(comment_futures).await;
+
+            for (review, result) in prs.iter().zip(comment_results.into_iter()) {
                 if !json {
                     print!(
                         "\n💬 Posting comment on #{} {}... ",
@@ -1526,15 +1548,6 @@ async fn main() -> anyhow::Result<()> {
                     );
                     io::stdout().flush()?;
                 }
-
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build()?;
-
-                let result = client
-                    .issues(&cfg.github_org, &review.repo)
-                    .create_comment(review.pr_number, &text)
-                    .await;
 
                 match result {
                     Ok(_) => {
