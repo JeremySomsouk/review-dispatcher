@@ -2581,7 +2581,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Filter { repo, author, min_size, max_size, min_age, max_age, drafts_only, no_drafts, priority, json } => {
+        Commands::Filter { repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
             // Apply filters to the reviews
             let filtered: Vec<_> = reviews.iter().filter(|r| {
                 // Filter by repo (partial match, case-insensitive)
@@ -2620,6 +2620,13 @@ async fn main() -> anyhow::Result<()> {
                 }
                 if let Some(max) = max_age {
                     if age_days > max {
+                        return false;
+                    }
+                }
+
+                // Filter by since_days (relative - PRs newer than N days)
+                if let Some(days) = since_days {
+                    if age_days > days {
                         return false;
                     }
                 }

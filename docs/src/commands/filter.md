@@ -26,6 +26,7 @@ review-dispatcher filter [OPTIONS]
 | `--max-size <LINES>` | Maximum total lines changed |
 | `--min-age <DAYS>` | PR is at least this many days old |
 | `--max-age <DAYS>` | PR is at most this many days old |
+| `-s, --since-days <DAYS>` | Only show PRs from the last N days |
 | `--drafts-only` | Show only draft PRs |
 | `--no-drafts` | Hide draft PRs |
 | `-P, --priority` | Show priority scores |
@@ -51,6 +52,12 @@ review-dispatcher filter --repo backend --min-age 3 --min-size 200 --no-drafts
 
 # Find PRs by a specific author
 review-dispatcher filter --author alice
+
+# Recent PRs only (last 7 days)
+review-dispatcher filter --since-days 7
+
+# Combine filters: recent, large, non-draft PRs from backend
+review-dispatcher filter --repo backend --since-days 7 --min-size 200 --no-drafts
 
 # JSON for scripting
 review-dispatcher filter --repo api --min-size 100 --json | jq '.[].pr_number'

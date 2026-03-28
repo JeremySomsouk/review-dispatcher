@@ -330,6 +330,9 @@ pub enum Commands {
         /// Maximum age in days
         #[arg(long)]
         max_age: Option<u32>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Show only draft PRs
         #[arg(long)]
         drafts_only: bool,
