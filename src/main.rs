@@ -3759,21 +3759,21 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Age { min_days, older_than, grouped, json } => {
+        Commands::Age { min_days, older_than, grouped, priority, repo, author, json } => {
             use chrono::Utc;
 
             let now = Utc::now();
 
-            // Age buckets: (label, emoji, max_days, min_days)
-            // None for max means +infinity
+            // Age buckets: (label, emoji, min_days, max_days)
+            // max_days of None means +infinity
             #[derive(Clone, Copy)]
             struct Bucket(&'static str, &'static str, Option<i64>, Option<i64>);
             const BUCKETS: [Bucket; 5] = [
-                Bucket("Overdue",     "💀", Some(14), Some(15)),
-                Bucket("Stale",       "🔥", Some(7),  Some(8)),
-                Bucket("Aging",       "⏳", Some(3),  Some(4)),
-                Bucket("Fresh",       "🌱", Some(1),  Some(2)),
-                Bucket("New",         "🆕", None,      Some(0)),
+                Bucket("New",     "🆕", None, Some(2)),
+                Bucket("Fresh",   "🌱", Some(2), Some(4)),
+                Bucket("Aging",   "⏳", Some(4), Some(8)),
+                Bucket("Stale",   "🔥", Some(8), Some(15)),
+                Bucket("Overdue", "💀", Some(15), None),
             ];
 
             let min_days = min_days.map(|d| d as i64);
@@ -3790,6 +3790,8 @@ async fn main() -> anyhow::Result<()> {
                 additions: u64,
                 deletions: u64,
                 draft: bool,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                priority_score: Option<u8>,
             }
 
             #[derive(serde::Serialize)]
@@ -3805,6 +3807,20 @@ async fn main() -> anyhow::Result<()> {
             for r in &reviews {
                 let age_days = (now - r.created_at).num_days();
 
+                // Apply --repo filter
+                if let Some(ref repo_filter) = repo {
+                    if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
+                        continue;
+                    }
+                }
+
+                // Apply --author filter
+                if let Some(ref author_filter) = author {
+                    if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                        continue;
+                    }
+                }
+
                 // Apply --older-than filter
                 if let Some(cutoff) = older_than {
                     if age_days <= cutoff {
@@ -3819,10 +3835,10 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
 
-                // Find matching bucket (last match wins since ranges overlap)
+                // Find matching bucket (first match wins since ranges are non-overlapping)
                 let mut matched = false;
                 for (bucket, prs) in &mut buckets {
-                    let Bucket(_, _, bucket_max, bucket_min) = *bucket;
+                    let Bucket(_, _, bucket_min, bucket_max) = *bucket;
                     let in_bucket = match (bucket_min, bucket_max) {
                         (Some(min), Some(max)) => age_days >= min && age_days <= max,
                         (Some(min), None) => age_days >= min,
@@ -3832,6 +3848,7 @@ async fn main() -> anyhow::Result<()> {
                     if in_bucket {
                         prs.push(r);
                         matched = true;
+                        break; // PR goes in first matching bucket
                     }
                 }
                 let _ = matched; // suppress unused warning
@@ -3858,6 +3875,7 @@ async fn main() -> anyhow::Result<()> {
                                     additions: r.additions,
                                     deletions: r.deletions,
                                     draft: r.draft,
+                                    priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
                                 }
                             }).collect(),
                         }
@@ -3889,11 +3907,17 @@ async fn main() -> anyhow::Result<()> {
                             format!("{} days", age_days).red().to_string()
                         };
                         let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
-                        let _total_lines = r.additions + r.deletions;
+                        let priority_str = if priority {
+                            let score = logger::calculate_priority_score(r);
+                            format!("  ⭐ {}/5", score)
+                        } else {
+                            String::new()
+                        };
                         println!(
-                            "  #{}  {}  •  👤 {}  •  +{}/-{} lines  •  {} old{}\n      📁 {}  🔗 {}",
+                            "  #{}  {}{}  •  👤 {}  •  +{}/-{} lines  •  {} old{}\n      📁 {}  🔗 {}",
                             r.pr_number,
                             r.pr_title.bold(),
+                            priority_str,
                             r.pr_author.cyan(),
                             r.additions,
                             r.deletions,
@@ -3958,9 +3982,15 @@ async fn main() -> anyhow::Result<()> {
                     };
 
                     let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                    let priority_str = if priority {
+                        let score = logger::calculate_priority_score(r);
+                        format!(" ⭐ {}/5", score)
+                    } else {
+                        String::new()
+                    };
 
                     println!(
-                        "{}  {}  #{} ({})\n    👤 {}  •  +{}/-{} lines  •  {} old{}",
+                        "{}  {}  #{} ({})\n    👤 {}  •  +{}/-{} lines  •  {} old{}{}",
                         emoji,
                         bucket_label.cyan(),
                         r.pr_number,
@@ -3969,14 +3999,15 @@ async fn main() -> anyhow::Result<()> {
                         r.additions,
                         r.deletions,
                         age_str,
-                        draft_str
+                        draft_str,
+                        priority_str
                     );
                     println!("    🔗 {}", r.pr_url.blue().underline());
                     println!();
                 }
 
                 println!("{}", "─".repeat(50));
-                println!("  Buckets: 🆕 New <2d  🌱 Fresh 2-3d  ⏳ Aging 4-7d  🔥 Stale 8-14d  💀 Overdue 15d+");
+                println!("  Buckets: 🆕 New 0-1d  🌱 Fresh 2-3d  ⏳ Aging 4-7d  🔥 Stale 8-14d  💀 Overdue 15d+");
                 println!("  💡 Use `--grouped` to see PRs organized by age bucket");
                 println!("  💡 Use `--older-than 7` to focus on week-old+ PRs\n");
             }
