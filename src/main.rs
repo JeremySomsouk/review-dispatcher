@@ -8642,15 +8642,16 @@ async fn main() -> anyhow::Result<()> {
                                 "already reset".to_string()
                             };
 
-                            // Visual bar
+                            // Visual bar (shows USED quota, not remaining)
                             let bar_width = 20;
+                            let used_pct = 100.0 - usage_pct; // Invert to show used quota
                             let bar: String = if limit.limit > 0 {
-                                let filled = ((usage_pct / 100.0) * bar_width as f64).round() as usize;
+                                let filled = ((used_pct / 100.0) * bar_width as f64).round() as usize;
                                 let empty = bar_width - filled;
-                                // Color the bar based on usage percentage
-                                let bar_color: colored::Color = if usage_pct < 20.0 {
+                                // Color the bar based on used percentage (high usage = red)
+                                let bar_color: colored::Color = if used_pct > 80.0 {
                                     colored::Color::Red
-                                } else if usage_pct < 50.0 {
+                                } else if used_pct > 50.0 {
                                     colored::Color::Yellow
                                 } else {
                                     colored::Color::Green
