@@ -229,6 +229,12 @@ pub enum Commands {
         /// Keyword to search for in PR titles
         #[arg(value_name = "KEYWORD")]
         query: String,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Show priority scores for search results
         #[arg(long, short = 'P')]
         priority: bool,

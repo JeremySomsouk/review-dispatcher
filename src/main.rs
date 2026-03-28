@@ -2206,11 +2206,29 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Search { query, priority, json } => {
+        Commands::Search { query, priority, json, repo, author } => {
             let query_lower = query.to_lowercase();
             let filtered: Vec<_> = reviews
                 .iter()
-                .filter(|r| r.pr_title.to_lowercase().contains(&query_lower))
+                .filter(|r| {
+                    // Filter by title (required - the query)
+                    if !r.pr_title.to_lowercase().contains(&query_lower) {
+                        return false;
+                    }
+                    // Filter by repo (optional)
+                    if let Some(ref repo_filter) = repo {
+                        if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
+                            return false;
+                        }
+                    }
+                    // Filter by author (optional)
+                    if let Some(ref author_filter) = author {
+                        if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                            return false;
+                        }
+                    }
+                    true
+                })
                 .cloned()
                 .collect();
 
