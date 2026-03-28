@@ -22,6 +22,8 @@ review-dispatcher trends [OPTIONS]
 |------|-------------|---------|
 | `-d, --days <NUM>` | Number of days to look back | `30` |
 | `-n, --limit <NUM>` | Number of top authors/repos to show | `10` |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -35,6 +37,15 @@ review-dispatcher trends --days 7
 
 # Focus on top 5 authors/repos
 review-dispatcher trends --limit 5
+
+# Filter by repository
+review-dispatcher trends --repo frontend
+
+# Filter by author
+review-dispatcher trends --author alice
+
+# Combine filters
+review-dispatcher trends --repo backend --author bob
 
 # JSON for dashboards/scripts
 review-dispatcher trends --json | jq '.avg_per_day'

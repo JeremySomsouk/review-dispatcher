@@ -753,6 +753,12 @@ pub enum Commands {
         /// Number of top authors/reviewers to show (default: 10)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
