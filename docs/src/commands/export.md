@@ -1,6 +1,6 @@
 # export
 
-**Export pending reviews to CSV or Markdown table format.**
+**Export pending reviews to CSV, Markdown, or JSON format.**
 
 Perfect for manager reports, team dashboards, or integrating with other tools.
 
@@ -10,6 +10,7 @@ Perfect for manager reports, team dashboards, or integrating with other tools.
 - Spreadsheet analysis: "Open in Excel/Google Sheets"
 - Team dashboards: "Post to Slack/Notion"
 - Manager summaries: "Show backlog size and aging"
+- Scripting: "Parse exports in automated workflows"
 
 ## Synopsis
 
@@ -25,6 +26,7 @@ review-dispatcher export [OPTIONS]
 | `-o, --output <PATH>` | Write to file instead of stdout | stdout |
 | `-c, --columns <COLS>` | Columns to include (comma-separated) | all |
 | `-a, --all` | Fetch fresh data for all reviews | current session |
+| `--json` | Output as JSON (useful for scripting) | false |
 
 ### Available Columns
 
@@ -56,6 +58,9 @@ review-dispatcher export --columns repo,title,author,age
 
 # Export with fresh data (bypasses session cache)
 review-dispatcher export --all --output full-report.csv
+
+# Export as JSON for scripting or API integration
+review-dispatcher export --json --output reviews.json
 ```
 
 ## Output Examples
@@ -76,9 +81,27 @@ frontend,3156,fix: login timeout,bob,+234/-45,4d,no,https://github.com/org/front
 | `backend` | #4821 | feat: add dark mode | alice | +89/-12 | 2d | no | [link](https://...) |
 ```
 
+### JSON Format
+
+```json
+[
+  {
+    "repo": "backend",
+    "number": 4821,
+    "title": "feat: add dark mode",
+    "author": "alice",
+    "size": "+89/-12",
+    "age_days": 2,
+    "draft": false,
+    "url": "https://github.com/org/backend/pull/4821"
+  }
+]
+```
+
 ## Tips
 
 - Use `--output` to write directly to a file instead of piping
 - Markdown format is great for pasting into Slack messages or Notion docs
+- JSON format is ideal for scripting and API integrations
 - Combine with `--all` to ensure you have the latest data
-- Column order is preserved in the output
+- Column order is preserved in CSV/Markdown output

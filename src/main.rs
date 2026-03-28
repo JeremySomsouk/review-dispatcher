@@ -7208,7 +7208,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, all } => {
+        Commands::Export { format, output, columns, all, json } => {
             use chrono::Utc;
 
             let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
@@ -7235,18 +7235,51 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Parse columns (default: all)
+            // Parse columns (default: all) - only used for CSV/Markdown
             let default_cols = vec!["repo", "number", "title", "author", "size", "age", "draft", "url"];
             let cols: Vec<&str> = if let Some(ref c) = columns {
                 c.split(',').map(|s| s.trim()).collect()
             } else {
-                default_cols
+                default_cols.clone()
             };
 
             let now = Utc::now();
             let mut output_content = String::new();
 
-            if export_format == "markdown" || export_format == "md" {
+            // JSON output - uses all fields, respects --columns for filtering
+            if json {
+                #[derive(serde::Serialize)]
+                struct ExportRecord<'a> {
+                    repo: &'a str,
+                    number: u64,
+                    title: &'a str,
+                    author: &'a str,
+                    size: String,
+                    age_days: i64,
+                    draft: bool,
+                    url: &'a str,
+                }
+
+                let records: Vec<ExportRecord> = reviews_to_export
+                    .iter()
+                    .map(|r| {
+                        let age = r.created_at.signed_duration_since(now);
+                        let age_days = age.num_days().abs();
+                        ExportRecord {
+                            repo: &r.repo,
+                            number: r.pr_number,
+                            title: &r.pr_title,
+                            author: &r.pr_author,
+                            size: format!("+{}/-{}", r.additions, r.deletions),
+                            age_days,
+                            draft: r.draft,
+                            url: &r.pr_url,
+                        }
+                    })
+                    .collect();
+
+                output_content = serde_json::to_string_pretty(&records).unwrap_or_default();
+            } else if export_format == "markdown" || export_format == "md" {
                 // Markdown table format
                 // Header
                 output_content.push_str("| ");
@@ -7331,7 +7364,11 @@ async fn main() -> anyhow::Result<()> {
             // Write output
             if let Some(ref path) = output {
                 std::fs::write(path, &output_content)?;
-                println!("✅ Exported {} reviews to {}", reviews_to_export.len(), path.display());
+                if json {
+                    println!("✅ Exported {} reviews to {} (JSON)", reviews_to_export.len(), path.display());
+                } else {
+                    println!("✅ Exported {} reviews to {}", reviews_to_export.len(), path.display());
+                }
             } else {
                 print!("{}", output_content);
             }

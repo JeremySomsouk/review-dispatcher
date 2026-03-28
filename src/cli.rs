@@ -624,6 +624,9 @@ pub enum Commands {
         /// Export all pending reviews (not just current session)
         #[arg(long, short = 'a')]
         all: bool,
+        /// Output as JSON (useful for scripting)
+        #[arg(long)]
+        json: bool,
     },
     /// Search and filter your review history from processed files
     History {
