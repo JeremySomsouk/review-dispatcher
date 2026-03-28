@@ -953,28 +953,42 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for review in prs {
-                let timeline = github::fetch_pr_timeline(
+            // Fetch all timelines in parallel
+            let futures = prs.iter().map(|review| {
+                github::fetch_pr_timeline(
                     &cfg.github_token,
                     &cfg.github_org,
                     &review.repo,
                     review.pr_number,
                 )
-                .await?;
+            });
+            let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> = futures::future::join_all(futures).await;
+            let total_prs = prs.len();
+
+            for (i, (review, timeline_result)) in prs.iter().zip(timeline_results.into_iter()).enumerate() {
+                let timeline = match timeline_result {
+                    Ok(t) => t,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to fetch timeline for PR #{}: {}", review.pr_number, e);
+                        continue;
+                    }
+                };
 
                 let timeline_output = serde_json::json!({
                     "pr_number": review.pr_number,
                     "pr_title": review.pr_title,
                     "repo": review.repo,
                     "url": review.pr_url,
-                    "events": timeline,
+                    "events": timeline.clone(),
                 });
 
                 if json {
                     println!("{}", serde_json::to_string_pretty(&timeline_output)?);
                 } else {
+                    // Add PR number prefix when showing multiple PRs
+                    let prefix = if total_prs > 1 { format!("[{} of {}] ", i + 1, total_prs) } else { String::new() };
                     println!("\n{}", "═".repeat(60));
-                    println!("📜 PR #{} — {} Timeline", review.pr_number, review.pr_title.bold());
+                    println!("{}📜 PR #{} — {} Timeline", prefix, review.pr_number, review.pr_title.bold());
                     println!("{}", "═".repeat(60));
                     println!();
 
