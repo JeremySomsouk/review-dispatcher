@@ -5220,27 +5220,29 @@ async fn main() -> anyhow::Result<()> {
                 cli::FollowAction::Add => {
                     // If no PR numbers provided, show interactive picker
                     let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
-                        let mut results = Vec::new();
-                        for part in nums.split(',') {
-                            if let Ok(num) = part.trim().parse::<u64>() {
-                                results.push(num);
-                            }
-                        }
-                        if results.is_empty() {
+                        let nums: Vec<u64> = nums
+                            .split(',')
+                            .filter_map(|s| s.trim().parse().ok())
+                            .collect();
+                        if nums.is_empty() {
                             println!("❌ No valid PR numbers provided.");
                             return Ok(());
                         }
-                        let mut all_prs = Vec::new();
-                        for num in &results {
-                            let prs = github::fetch_pr_by_number(
+                        // Parallel fetch all PRs by number using join_all
+                        let fetch_futures = nums.iter().map(|num| {
+                            github::fetch_pr_by_number(
                                 &cfg.github_token,
                                 &cfg.github_org,
                                 &cfg.github_repos,
                                 *num,
                             )
-                            .await?;
-                            all_prs.extend(prs);
-                        }
+                        });
+                        let all_prs: Vec<github::PendingReview> = join_all(fetch_futures)
+                            .await
+                            .into_iter()
+                            .filter_map(|r| r.ok())
+                            .flatten()
+                            .collect();
                         all_prs
                     } else {
                         if reviews.is_empty() {
