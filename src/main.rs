@@ -3598,7 +3598,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Catchup { min_age, limit, json } => {
+        Commands::Catchup { min_age, limit, json, priority } => {
             let min_age = min_age as i64;
             let limit = limit.unwrap_or(10);
 
@@ -3680,6 +3680,12 @@ async fn main() -> anyhow::Result<()> {
                         })
                         .collect();
 
+                    let priority_display = if priority {
+                        format!("  {}", logger::priority_stars(neglect_score))
+                    } else {
+                        String::new()
+                    };
+
                     let age_label = if age_days == 0 {
                         "today".green()
                     } else if age_days == 1 {
@@ -3706,12 +3712,13 @@ async fn main() -> anyhow::Result<()> {
                     let draft_str = if r.draft { " 📝 DRAFT" } else { "" };
 
                     println!(
-                        "  {}  {} #{} ({}){}\n      👤 {}  •  📦 {} ({} lines)  •  ⏱️ {} old",
+                        "  {}  {} #{} ({}){}{}\n      👤 {}  •  📦 {} ({} lines)  •  ⏱️ {} old",
                         urgency_bar,
                         r.pr_title.bold(),
                         r.pr_number,
                         r.repo.dimmed(),
                         draft_str.yellow(),
+                        priority_display,
                         r.pr_author.cyan(),
                         size_label,
                         total,
@@ -3732,7 +3739,7 @@ async fn main() -> anyhow::Result<()> {
                 }
                 println!("{}", "─".repeat(50));
                 println!("  💡 Use `--min-age 7` to focus on week-old+ PRs");
-                println!("  💡 Use `--json` for scripting\n");
+                println!("  💡 Use `--priority` to show priority scores\n");
             }
         }
 

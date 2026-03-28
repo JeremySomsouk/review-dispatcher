@@ -21,11 +21,21 @@ review-dispatcher catchup [OPTIONS]
 |------|-------------|---------|
 | `-a, --min-age <DAYS>` | Minimum age to be considered "catchup" | `3` |
 | `-n, --limit <NUM>` | Limit results shown | `10` |
+| `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
 
 ```bash
+# Show PRs older than 3 days
 review-dispatcher catchup
-review-dispatcher catchup --min-age 1
+
+# Focus on week-old+ PRs
+review-dispatcher catchup --min-age 7
+
+# Show priority scores for each PR
+review-dispatcher catchup --priority
+
+# Combine with limit for more results
+review-dispatcher catchup --min-age 7 --limit 20
 ```
