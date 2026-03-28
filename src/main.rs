@@ -6950,7 +6950,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Health { json } => {
+        Commands::Health { json, suggest } => {
             println!("\n🏥 Fetching GitHub API health status...\n");
             io::stdout().flush()?;
 
@@ -6970,6 +6970,9 @@ async fn main() -> anyhow::Result<()> {
                         println!();
 
                         // Rate limits
+                        let mut critical_limits = Vec::new();
+                        let mut low_limits = Vec::new();
+
                         for limit in &health.rate_limits {
                             let usage_pct = if limit.limit > 0 {
                                 (limit.remaining as f64 / limit.limit as f64) * 100.0
@@ -7002,6 +7005,7 @@ async fn main() -> anyhow::Result<()> {
                             // Visual bar
                             let bar_width = 20;
                             let bar: String = if limit.limit > 0 {
+                                let _filled = ((usage_pct / 100.0) * bar_width as f64).round() as usize;
                                 format!("{}{}", "█".green(), "░".truecolor(60, 60, 60))
                             } else {
                                 "░".repeat(bar_width)
@@ -7018,6 +7022,13 @@ async fn main() -> anyhow::Result<()> {
                                 usage_str.dimmed(),
                                 reset_str.dimmed()
                             );
+
+                            // Categorize for suggestions
+                            if limit.remaining == 0 {
+                                critical_limits.push(limit.resource.clone());
+                            } else if usage_pct < 10.0 {
+                                low_limits.push((limit.resource.clone(), limit.remaining, limit.limit));
+                            }
                         }
 
                         if health.rate_limit_warning {
@@ -7028,8 +7039,73 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", "─".repeat(50));
                         let server_time_str = health.server_time.format("%Y-%m-%d %H:%M:%S UTC").to_string();
                         println!("  🕐 Server time: {}", server_time_str.dimmed());
-                        println!();
-                        println!("  💡 Use `--json` for scripting");
+
+                        // Suggestions based on rate limit status
+                        if suggest {
+                            println!();
+                            println!("💡 Recommendations\n{}", "─".repeat(50));
+
+                            if critical_limits.is_empty() && low_limits.is_empty() {
+                                println!("  ✅ All rate limits look healthy. You're good to go!");
+                                println!();
+                                println!("  Commands to run freely:");
+                                println!("    • review-dispatcher list --all  (fetch all PRs)");
+                                println!("    • review-dispatcher team-summary");
+                                println!("    • review-dispatcher delegate --dry-run");
+                            } else if !critical_limits.is_empty() {
+                                let critical = critical_limits.join(", ");
+                                println!("  🔴 CRITICAL: {} limit(s) exhausted", critical);
+                                println!();
+                                println!("  Immediate actions:");
+                                println!("    • Stop any batch operations immediately");
+                                println!("    • Wait for reset (or use --json to check timing)");
+                                println!();
+                                println!("  When limits reset, consider:");
+                                println!("    • Use --json for scripting to reduce output overhead");
+                                println!("    • Avoid commands that fetch full diffs or files");
+                                println!("    • Run critical commands first before they reset");
+
+                                // Find when core limit resets
+                                for limit in &health.rate_limits {
+                                    if limit.resource == "core" && limit.reset_in_seconds > 0 {
+                                        let hours = limit.reset_in_seconds / 3600;
+                                        let mins = (limit.reset_in_seconds % 3600) / 60;
+                                        println!();
+                                        println!("  ⏱️  Core limit resets in {}h {}m", hours, mins);
+                                        break;
+                                    }
+                                }
+                            } else {
+                                let low = low_limits.iter().map(|(r, _, _)| r.clone()).collect::<Vec<_>>().join(", ");
+                                println!("  🟡 LOW: {} limit(s) below 10%", low);
+                                println!();
+                                println!("  Suggested approach:");
+                                println!("    • Avoid batch operations like --all flags");
+                                println!("    • Use --json when scripting to minimize output");
+                                println!("    • Prioritize commands you really need");
+                                println!();
+                                println!("  Lower-cost alternatives:");
+                                println!("    • review-dispatcher list (minimal API calls)");
+                                println!("    • review-dispatcher summary (aggregated, not per-PR)");
+                                println!("    • review-dispatcher stats (read-only statistics)");
+
+                                // Show safe remaining calls
+                                if let Some((_, remaining, limit)) = low_limits.iter().find(|(r, _, _)| *r == "core") {
+                                    println!();
+                                    println!("  📊 Core API: ~{} calls remaining before throttle", remaining);
+                                    if *limit > 0 {
+                                        let safe_batch = (*remaining as f64 * 0.3).round() as usize;
+                                        println!("  📊 Suggested safe batch size: {} requests", safe_batch);
+                                    }
+                                }
+                            }
+
+                            println!();
+                            println!("  Run without --suggest for basic status only");
+                        } else {
+                            println!();
+                            println!("  💡 Use `--suggest` for actionable recommendations");
+                        }
                         println!("{}", "─".repeat(50));
                     }
                 }

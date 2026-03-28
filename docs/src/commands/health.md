@@ -20,9 +20,18 @@ review-dispatcher health [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--json` | Output as JSON | `false` |
+| `-s, --suggest` | Show actionable recommendations based on rate limits | `false` |
 
 ## Examples
 
 ```bash
+# Basic health check
 review-dispatcher health
+
+# With actionable recommendations
+review-dispatcher health --suggest
+review-dispatcher health -s
+
+# JSON output for scripting
+review-dispatcher health --json
 ```

@@ -426,6 +426,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Show actionable recommendations based on rate limits
+        #[arg(long, short = 's')]
+        suggest: bool,
     },
     /// Show your highest priority pending PRs based on age, size, and urgency
     Top {
