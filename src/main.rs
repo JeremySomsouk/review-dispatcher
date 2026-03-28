@@ -6236,8 +6236,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewTime { pr_numbers, all, grouped, priority, repo, author, json } => {
-            // Apply --repo and --author filters first (consistent with other commands)
+        Commands::ReviewTime { pr_numbers, all, grouped, priority, repo, author, since_days, json } => {
+            // Apply --repo and --author and --since-days filters first (consistent with other commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
 
@@ -6251,6 +6251,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result

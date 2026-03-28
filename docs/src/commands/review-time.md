@@ -27,6 +27,7 @@ review-dispatcher review-time [OPTIONS]
 | `-P, --priority` | Show priority scores for each PR | `false` |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | None |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | None |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## How It Works
@@ -81,6 +82,9 @@ review-dispatcher review-time --all --author alice
 
 # Combine filters
 review-dispatcher review-time --all --repo api --author alice --priority
+
+# Filter by age
+review-dispatcher review-time --all --since-days 7
 
 # Get JSON output for scripting
 review-dispatcher review-time --all --json
