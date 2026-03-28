@@ -3309,9 +3309,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, pr, all, context, output_file, language, priority, repo, author, json } => {
-            let target_pr = cli.pr.or(pr).or(pr_number);
-
+        Commands::Review { pr_number, pr_numbers, pr, all, context, output_file, language, priority, repo, author, json } => {
             // Apply --repo and --author filters first (consistent with other commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -3331,36 +3329,65 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
-            let prs = match target_pr {
-                Some(num) => {
+            // Handle batch PR numbers first
+            let prs = if let Some(ref nums) = pr_numbers {
+                let nums: Vec<u64> = nums
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                if nums.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Parallel fetch all PRs by number
+                let fetch_futures = nums.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
-                }
-                None if all && !filtered_reviews.is_empty() => {
-                    filtered_reviews
-                }
-                None => {
-                    if filtered_reviews.is_empty() {
-                        println!("No matching reviews found.");
-                        return Ok(());
+                });
+                let all_prs: Vec<github::PendingReview> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else {
+                let target_pr = cli.pr.or(pr).or(pr_number);
+                match target_pr {
+                    Some(num) => {
+                        github::fetch_pr_by_number(
+                            &cfg.github_token,
+                            &cfg.github_org,
+                            &cfg.github_repos,
+                            num,
+                        )
+                        .await?
                     }
-                    logger::print_reviews(&filtered_reviews, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to review [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), filtered_reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                    None if all && !filtered_reviews.is_empty() => {
+                        filtered_reviews
+                    }
+                    None => {
+                        if filtered_reviews.is_empty() {
+                            println!("No matching reviews found.");
+                            return Ok(());
+                        }
+                        logger::print_reviews(&filtered_reviews, false);
+                        print!(
+                            "\n{} ",
+                            "Select PR to review [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                        );
+                        io::stdout().flush()?;
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        match parse_selection(input.trim(), filtered_reviews.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                            }
                         }
                     }
                 }

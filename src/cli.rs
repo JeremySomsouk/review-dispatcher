@@ -762,6 +762,9 @@ pub enum Commands {
         /// PR number to review (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// PR number(s) to review (comma-separated)
+        #[arg(long, short = 'n')]
+        pr_numbers: Option<String>,
         /// Show diff for specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
         pr: Option<u64>,

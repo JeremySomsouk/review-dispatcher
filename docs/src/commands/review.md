@@ -20,6 +20,7 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to review | Required (or use `--pr` or `--all`) |
+| `-n, --pr-numbers <NUMS>` | PR number(s) to review (comma-separated) | - |
 | `-p, --pr <NUM>` | Target specific PR by number | - |
 | `-a, --all` | Show diffs for all pending reviews | `false` |
 | `-c, --context <NUM>` | Context lines around changes | `3` |
@@ -43,4 +44,6 @@ review-dispatcher review --all --priority
 review-dispatcher review --all --repo myservice
 review-dispatcher review --all --author johndoe
 review-dispatcher review --all --repo api --author alice
+review-dispatcher review --pr-numbers 4821,4822,4823
+review-dispatcher review --pr-numbers 4821,4822 --priority
 ```
