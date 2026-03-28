@@ -19,8 +19,9 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | PR number to show files for (shorthand) | - |
-| `-p, --pr <PR_NUMBERS>` | PR number(s) to show files for (comma-separated) | - |
+| `PR_NUMBER` | PR number to show files for (shorthand for `--pr`) | - |
+| `-p, --pr <PR>` | Show files for specific PR (shorthand) | - |
+| `-n, --pr-numbers <NUMS>` | PR number(s) to show files for (comma-separated) | - |
 | `-a, --all` | Show files for all pending reviews | `false` |
 | `--json` | Output as JSON (useful for scripting) | `false` |
 
@@ -29,7 +30,7 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 ```bash
 review-dispatcher files 4821
 review-dispatcher files --pr 4821
-review-dispatcher files --pr 4821,3156,2890
+review-dispatcher files -n 4821,3156,2890
 review-dispatcher files --all
 review-dispatcher files --pr 4821 --json
 ```

@@ -19,8 +19,9 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | PR number to open (shorthand) | - |
-| `-p, --pr <PR_NUMBERS>` | PR number(s) to open (comma-separated) | - |
+| `PR_NUMBER` | PR number to open (shorthand for `--pr`) | - |
+| `-p, --pr <PR>` | Open specific PR (shorthand for `--pr`) | - |
+| `-n, --pr-numbers <NUMS>` | PR number(s) to open (comma-separated) | - |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 
 ## Examples
@@ -31,7 +32,7 @@ review-dispatcher browse 4821
 review-dispatcher browse --pr 4821
 
 # Open multiple PRs in browser
-review-dispatcher browse --pr 4821,3156,2890
+review-dispatcher browse -n 4821,3156,2890
 
 # Output URLs as JSON (useful for scripting)
 review-dispatcher browse -p 4821,3156 --json
