@@ -24,13 +24,14 @@ review-dispatcher search [OPTIONS] <KEYWORD>
 | `-p, --pr <NUM>` | Target a specific PR by number (bypasses search filters and snooze exclusion) | None |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author` | Filter by author username (partial match, case-insensitive) | None |
-| `-P, --priority` | Sort results by priority (highest first) and show scores | `false` |
+| `--sort-by <FIELD>` | Sort results by: `priority`, `age`, `size`, or `title` | `priority` |
+| `-P, --priority` | Show priority scores for each PR | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
 
 ```bash
-# Basic search
+# Basic search (sorted by priority by default)
 review-dispatcher search auth
 
 # Search within a specific repo
@@ -42,7 +43,16 @@ review-dispatcher search auth --since-days 7
 # Search for a PR by a specific author
 review-dispatcher search feature --author johndoe
 
-# Combine filters
+# Sort by age (oldest first) instead of priority
+review-dispatcher search fix --sort-by age
+
+# Sort by size (largest first)
+review-dispatcher search refactor --sort-by size
+
+# Sort alphabetically by title
+review-dispatcher search update --sort-by title
+
+# Combine filters with priority display
 review-dispatcher search fix --repo api --author alice --priority
 
 # Target a specific PR (even if snoozed)

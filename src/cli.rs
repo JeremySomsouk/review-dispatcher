@@ -333,6 +333,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Sort results by: priority, age, size, or title (default: priority)
+        #[arg(long, value_name = "FIELD", default_value = "priority")]
+        sort_by: Option<String>,
         /// Show priority scores for search results
         #[arg(long, short = 'P')]
         priority: bool,

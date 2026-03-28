@@ -2596,7 +2596,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Search { query, since_days, priority, json, repo, author } => {
+        Commands::Search { query, since_days, sort_by, priority, json, repo, author } => {
             // Apply --pr filter first (targets specific PR even in search)
             let base_filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
@@ -2684,30 +2684,50 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Sort by priority (highest first) when --priority flag is set
-            let sorted: Vec<_> = if priority {
-                let mut scored: Vec<_> = filtered
-                    .iter()
-                    .map(|r| {
-                        let score = logger::calculate_priority_score(r);
-                        (r.clone(), score)
-                    })
-                    .collect();
-                scored.sort_by(|a, b| b.1.cmp(&a.1));
-                scored.into_iter().map(|(r, _)| r).collect()
-            } else {
-                filtered
-            };
+            // Sort results based on --sort-by option (default: priority)
+            let sort_field = sort_by.as_deref().unwrap_or("priority");
+            let now = chrono::Utc::now();
+
+            let mut scored: Vec<_> = filtered
+                .iter()
+                .map(|r| {
+                    let score = match sort_field {
+                        "age" => {
+                            // Older PRs first (higher score = older = higher urgency)
+                            (now - r.created_at).num_days() as i64
+                        }
+                        "size" => {
+                            // Larger PRs first
+                            r.additions as i64 + r.deletions as i64
+                        }
+                        "title" => {
+                            // Alphabetical by title
+                            let title_lower = r.pr_title.to_lowercase();
+                            title_lower.bytes().fold(0i64, |acc, b| acc * 256 + b as i64)
+                        }
+                        _ => {
+                            // "priority" (default) - use priority score
+                            logger::calculate_priority_score(r) as i64
+                        }
+                    };
+                    (r.clone(), score)
+                })
+                .collect();
+
+            // Always sort descending (highest priority/age/size first)
+            scored.sort_by(|a, b| b.1.cmp(&a.1));
+
+            let sorted: Vec<_> = scored.into_iter().map(|(r, _)| r).collect();
 
             if json {
                 let json_output = serde_json::to_string_pretty(&sorted)?;
                 println!("{}", json_output);
             } else {
                 println!(
-                    "\n🔍 {} review(s) matching '{}'{}\n",
+                    "\n🔍 {} review(s) matching '{}' (sorted by {})\n",
                     sorted.len().to_string().yellow().bold(),
                     query.yellow().bold(),
-                    if priority { " (sorted by priority)" } else { "" }
+                    sort_field.yellow()
                 );
                 logger::print_reviews(&sorted, priority);
             }
