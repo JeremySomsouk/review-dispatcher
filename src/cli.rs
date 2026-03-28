@@ -1047,6 +1047,12 @@ pub enum Commands {
         /// PR number(s) to ping (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,
+        /// PR number to ping (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Ping specific PR (use with --send to ping a single PR)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Ping all pending reviews
         #[arg(long, short = 'a')]
         all: bool,

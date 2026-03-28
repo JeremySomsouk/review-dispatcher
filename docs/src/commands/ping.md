@@ -22,11 +22,13 @@ review-dispatcher ping [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-e, --emoji <EMOJI>` | Reaction emoji to send | `eyes` |
-| `-s, --send` | Actually send the reaction (preview by default) | `false` |
+| `-p, --pr <PR>` | Target specific PR by number (shorthand, use with --send) | - |
+| `--pr-number <PR_NUMBER>` | Target specific PR by number | - |
+| `PR_NUMBERS` | PR number(s) to ping (comma-separated) | Interactive |
 | `-a, --all` | Ping all pending reviews | `false` |
+| `-s, --send` | Actually send the reaction (preview by default) | `false` |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | - |
-| `PR_NUMBERS` | PR number(s) to ping (comma-separated) | Interactive |
 
 ## Available Emojis
 
@@ -96,6 +98,9 @@ review-dispatcher ping 4821,4815,4809
 
 # Send 👀 (eyes) emoji — default
 review-dispatcher ping 4821 --send
+
+# Ping a specific PR directly with --pr flag
+review-dispatcher ping --pr 4821 --send
 
 # Send 🚀 (rocket) for urgent follow-up
 review-dispatcher ping --emoji rocket --send

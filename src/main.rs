@@ -9607,7 +9607,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ping { emoji, pr_numbers, all, send, repo, author } => {
+        Commands::Ping { emoji, pr_numbers, pr_number, pr, all, send, repo, author } => {
+            // Priority: global --pr flag > local --pr > local pr_number > pr_numbers > interactive
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
             // Apply --repo and --author filters (consistent with browse, ci, assign commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -9627,7 +9630,16 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
-            let targets: Vec<_> = if all {
+            let targets: Vec<_> = if let Some(num) = target_pr {
+                // When --pr is specified, fetch directly (bypasses filters)
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if all {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());
