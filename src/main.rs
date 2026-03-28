@@ -8435,17 +8435,31 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ready { repo, json } => {
+        Commands::Ready { repo, author, json } => {
             use std::collections::HashMap;
+
+            // Apply --repo and --author filters to reviews first
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
 
             // Group reviews by repo for efficient API calls
             let mut by_repo: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
-            for r in &reviews {
-                if let Some(ref repo_filter) = repo {
-                    if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
-                        continue;
-                    }
-                }
+            for r in &filtered_reviews {
                 by_repo.entry(r.repo.clone())
                     .or_insert_with(Vec::new)
                     .push(r);
@@ -8467,89 +8481,107 @@ async fn main() -> anyhow::Result<()> {
                 draft: bool,
             }
 
+            // Build a flat list of (repo, pr_number) for parallel fetching
+            let fetch_tasks: Vec<(String, u64)> = by_repo
+                .iter()
+                .flat_map(|(repo_name, repo_reviews)| {
+                    repo_reviews.iter().map(|r| (repo_name.clone(), r.pr_number))
+                })
+                .collect();
+
+            // Build review lookup for matching results to reviews
+            let mut review_lookup: HashMap<(String, u64), &github::PendingReview> = HashMap::new();
+            for r in &filtered_reviews {
+                review_lookup.insert((r.repo.clone(), r.pr_number), r);
+            }
+
+            // Phase 1: Fetch all PR details in parallel
+            let github_username = cfg.github_username.clone();
+            let futures = fetch_tasks.iter().map(move |(repo_name, pr_number)| {
+                let client = octocrab::Octocrab::builder()
+                    .personal_token(cfg.github_token.clone())
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo_name = repo_name.clone();
+                let pr_number = *pr_number;
+                let github_username = github_username.clone();
+
+                async move {
+                    let pr = client.pulls(&org, &repo_name).get(pr_number).await?;
+
+                    // Check approvals
+                    let approved = pr
+                        .requested_reviewers
+                        .as_deref()
+                        .map(|reviewers| {
+                            reviewers.iter().any(|r| r.login == github_username)
+                        })
+                        .unwrap_or(false);
+
+                    // Check CI status via combined status
+                    #[derive(serde::Deserialize)]
+                    struct CombinedStatus {
+                        state: String,
+                    }
+                    let ci_state: String = client
+                        .get(
+                            format!(
+                                "/repos/{}/{}/commits/{}/status",
+                                org,
+                                repo_name,
+                                pr.head.sha
+                            ),
+                            None::<&str>,
+                        )
+                        .await
+                        .map(|s: CombinedStatus| s.state)
+                        .unwrap_or_else(|_| "unknown".to_string());
+
+                    // Check for merge conflicts
+                    let has_conflicts = pr.mergeable == Some(false);
+                    let mergeable = pr.mergeable;
+
+                    Ok::<(bool, String, bool, Option<bool>), anyhow::Error>((approved, ci_state, has_conflicts, mergeable))
+                }
+            });
+
+            let detail_results: Vec<Result<(bool, String, bool, Option<bool>), anyhow::Error>> = join_all(futures).await;
+
             let mut ready_prs = Vec::new();
 
-            for (repo_name, repo_reviews) in &by_repo {
-                // Check each PR's merge readiness
-                for review in repo_reviews {
-                    let client = octocrab::Octocrab::builder()
-                        .personal_token(cfg.github_token.clone())
-                        .build()?;
+            for ((repo_name, pr_number), result) in fetch_tasks.iter().zip(detail_results.into_iter()) {
+                let review = match review_lookup.get(&(repo_name.clone(), *pr_number)) {
+                    Some(r) => r,
+                    None => continue,
+                };
 
-                    // Fetch full PR details
-                    let pr_details = client
-                        .pulls(&cfg.github_org, repo_name)
-                        .get(review.pr_number)
-                        .await;
+                let (approved, ci_status, has_conflicts, mergeable) = match result {
+                    Ok((a, c, h, m)) => (a, c, h, m),
+                    Err(_) => (false, "unknown".to_string(), false, None),
+                };
 
-                    let (approved, ci_status, has_conflicts, mergeable) = match pr_details {
-                        Ok(pr) => {
-                            // Check approvals - look at requested reviewers who have approved
-                            let approved = pr
-                                .requested_reviewers
-                                .as_deref()
-                                .map(|reviewers| {
-                                    // Check if current user is one of the requested reviewers
-                                    // and if they've approved - this requires checking reviews
-                                    reviewers.iter().any(|r| r.login == cfg.github_username)
-                                })
-                                .unwrap_or(false);
+                let _is_ready = !review.draft
+                    && (ci_status == "success" || ci_status == "pending")
+                    && !has_conflicts
+                    && mergeable != Some(false);
 
-                            // Check CI status via combined status
-                            #[derive(serde::Deserialize)]
-                            struct CombinedStatus {
-                                state: String,
-                            }
-                            let ci_state: String = client
-                                .get(
-                                    format!(
-                                        "/repos/{}/{}/commits/{}/status",
-                                        cfg.github_org,
-                                        repo_name,
-                                        pr.head.sha
-                                    ),
-                                    None::<&str>,
-                                )
-                                .await
-                                .map(|s: CombinedStatus| s.state)
-                                .unwrap_or_else(|_| "unknown".to_string());
+                let age_days = (chrono::Utc::now() - review.created_at).num_days();
 
-                            // Check for merge conflicts
-                            let has_conflicts = pr.mergeable == Some(false);
-                            let mergeable = pr.mergeable;
-
-                            (approved, ci_state, has_conflicts, mergeable)
-                        }
-                        Err(_) => (false, "unknown".to_string(), false, None),
-                    };
-
-                    // A PR is "ready" if:
-                    // - Not a draft
-                    // - Has CI passing
-                    // - No merge conflicts
-                    // - Is mergeable
-                    let _is_ready = !review.draft
-                        && (ci_status == "success" || ci_status == "pending")
-                        && !has_conflicts
-                        && mergeable != Some(false);
-
-                    let age_days = (chrono::Utc::now() - review.created_at).num_days();
-
-                    ready_prs.push(ReadyPr {
-                        repo: review.repo.clone(),
-                        pr_number: review.pr_number,
-                        pr_title: review.pr_title.clone(),
-                        pr_author: review.pr_author.clone(),
-                        pr_url: review.pr_url.clone(),
-                        additions: review.additions,
-                        deletions: review.deletions,
-                        age_days,
-                        approved,
-                        ci_status,
-                        has_conflicts,
-                        draft: review.draft,
-                    });
-                }
+                ready_prs.push(ReadyPr {
+                    repo: review.repo.clone(),
+                    pr_number: review.pr_number,
+                    pr_title: review.pr_title.clone(),
+                    pr_author: review.pr_author.clone(),
+                    pr_url: review.pr_url.clone(),
+                    additions: review.additions,
+                    deletions: review.deletions,
+                    age_days,
+                    approved,
+                    ci_status,
+                    has_conflicts,
+                    draft: review.draft,
+                });
             }
 
             // Sort by readiness: ready first, then by age

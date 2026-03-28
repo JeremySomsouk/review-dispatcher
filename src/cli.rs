@@ -861,6 +861,9 @@ pub enum Commands {
         /// Show PRs ready for specific repo
         #[arg(long)]
         repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

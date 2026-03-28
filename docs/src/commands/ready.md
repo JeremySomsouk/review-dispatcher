@@ -26,6 +26,7 @@ review-dispatcher ready [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--repo <NAME>` | Filter to specific repository (partial match) | All repos |
+| `--author <USER>` | Filter by author username (partial match) | All authors |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## How It Works
@@ -74,6 +75,12 @@ review-dispatcher ready
 
 # Filter to specific repo
 review-dispatcher ready --repo frontend
+
+# Filter by author
+review-dispatcher ready --author alice
+
+# Filter by repo and author combined
+review-dispatcher ready --repo backend --author bob
 
 # JSON output for scripting
 review-dispatcher ready --json
