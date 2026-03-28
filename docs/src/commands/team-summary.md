@@ -12,12 +12,17 @@ See the review load across your team.
 ## Synopsis
 
 ```bash
-review-dispatcher team-summary [--json]
+review-dispatcher team-summary [OPTIONS]
 ```
 
 ## Options
 
-- `--json` — Output as JSON for scripting
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--json` | Output as JSON for scripting | `false` |
+| `-p, --pr <NUMBER>` | Filter to a specific PR number | - |
+| `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
+| `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 
 ## Examples
 
@@ -27,6 +32,12 @@ review-dispatcher team-summary
 
 # JSON output for scripting
 review-dispatcher team-summary --json
+
+# Team summary for a specific repo
+review-dispatcher team-summary --repo frontend
+
+# Team summary filtered by author
+review-dispatcher team-summary --author alice
 ```
 
 ## Sample JSON Output

@@ -79,12 +79,30 @@ pub enum Commands {
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
+        /// Filter by PR number (use with --pr to target a specific PR)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary {
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
+        /// Filter by PR number (use with --pr to target a specific PR)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Show review workload distribution across team members (load balance analysis)
     Load {

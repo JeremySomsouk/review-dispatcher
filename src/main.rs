@@ -344,16 +344,33 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats { json } => {
+        Commands::Stats { json, pr, repo, author } => {
             use std::collections::HashMap;
             use chrono::Duration;
+
+            // Apply filters (same logic as List command)
+            let filtered: Vec<_> = {
+                let mut result = match cli.pr.or(pr) {
+                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    None => reviews.clone(),
+                };
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                result
+            };
 
             let mut repo_counts: HashMap<String, usize> = HashMap::new();
             let mut author_counts: HashMap<String, usize> = HashMap::new();
             let mut total_additions = 0u64;
             let mut total_deletions = 0u64;
 
-            for review in &reviews {
+            for review in &filtered {
                 *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
                 if !review.pr_author.is_empty() {
                     *author_counts.entry(review.pr_author.clone()).or_insert(0) += 1;
@@ -376,20 +393,20 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let now = chrono::Utc::now();
-                let avg_wait_days = if reviews.is_empty() {
+                let avg_wait_days = if filtered.is_empty() {
                     0.0
                 } else {
-                    let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
-                    (total_wait / reviews.len() as i32).num_hours() as f64 / 24.0
+                    let total_wait: Duration = filtered.iter().map(|r| now - r.created_at).sum();
+                    (total_wait / filtered.len() as i32).num_hours() as f64 / 24.0
                 };
 
-                let oldest_pr = reviews.first().map(|r| {
+                let oldest_pr = filtered.first().map(|r| {
                     let age = (now - r.created_at).num_days();
                     (r.pr_number, age)
                 });
 
                 let output = StatsOutput {
-                    total: reviews.len(),
+                    total: filtered.len(),
                     total_additions,
                     total_deletions,
                     avg_wait_days: avg_wait_days.round(),
@@ -401,22 +418,22 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 println!("\n📊 Review Statistics\n{}", "─".repeat(40));
-                println!("  Total pending reviews: {}", reviews.len());
+                println!("  Total pending reviews: {}", filtered.len());
                 println!("  Total lines changed:   +{} / -{}",
                     total_additions.to_string().green(),
                     total_deletions.to_string().red()
                 );
 
-                if !reviews.is_empty() {
+                if !filtered.is_empty() {
                     // Average wait time
                     let now = chrono::Utc::now();
-                    let total_wait: Duration = reviews.iter().map(|r| now - r.created_at).sum();
-                    let avg_wait = total_wait / reviews.len() as i32;
+                    let total_wait: Duration = filtered.iter().map(|r| now - r.created_at).sum();
+                    let avg_wait = total_wait / filtered.len() as i32;
                     println!("  Avg time waiting:      {} days",
                         (avg_wait.num_hours() as f64 / 24.0).round());
 
                     // Oldest PR
-                    if let Some(oldest) = reviews.first() {
+                    if let Some(oldest) = filtered.first() {
                         let age = now - oldest.created_at;
                         println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
                             format_duration(age));
@@ -450,14 +467,31 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json } => {
+        Commands::TeamSummary { json, pr, repo, author } => {
             use std::collections::HashMap;
             use serde::Serialize;
+
+            // Apply filters (same logic as List command)
+            let filtered: Vec<_> = {
+                let mut result = match cli.pr.or(pr) {
+                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    None => reviews.clone(),
+                };
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                result
+            };
 
             let mut team_counts: HashMap<String, usize> = HashMap::new();
             let mut unassigned = 0usize;
 
-            for review in &reviews {
+            for review in &filtered {
                 if review.pr_author.is_empty() {
                     unassigned += 1;
                 } else {
@@ -467,7 +501,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Show breakdown by repository
             let mut repo_counts: HashMap<String, usize> = HashMap::new();
-            for review in &reviews {
+            for review in &filtered {
                 *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
             }
 
@@ -481,7 +515,7 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let output = TeamSummaryOutput {
-                    total_pending: reviews.len(),
+                    total_pending: filtered.len(),
                     by_author: team_counts,
                     unassigned,
                     by_repository: repo_counts,
@@ -489,7 +523,7 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 println!("\n👥 Team Review Summary\n{}", "─".repeat(40));
-                println!("  Total pending reviews: {}", reviews.len());
+                println!("  Total pending reviews: {}", filtered.len());
 
                 if !team_counts.is_empty() {
                     println!("\n  By author:");
