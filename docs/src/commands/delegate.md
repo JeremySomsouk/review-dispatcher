@@ -104,3 +104,4 @@ Returns an array of results with:
 - All PRs are delegated in parallel for speed (both modes)
 - Progress feedback shows completion status for each PR as it finishes
 - Combine filters (`--since-days`, `--repo`, `--author`) with `--dry-run` to preview targeted delegation
+- Snoozed PRs are automatically excluded (consistent with `list` command)
