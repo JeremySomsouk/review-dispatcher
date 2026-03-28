@@ -523,7 +523,7 @@ pub enum Commands {
     /// Categorize pending PRs by size (XS/S/M/L/XL) with statistics and visual breakdown
     Size {
         /// Show only PRs of specific size(s) - XS, S, M, L, XL (comma-separated)
-        #[arg(long, short = 's')]
+        #[arg(long, short = 'f')]
         filter_size: Option<String>,
         /// Group output by size bucket instead of flat list
         #[arg(long, short = 'g', default_value_t = false)]

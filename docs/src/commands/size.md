@@ -24,11 +24,26 @@ review-dispatcher size [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `-f, --filter-size <SIZES>` | Show only specific size(s): XS, S, M, L, XL (comma-separated) | All sizes |
 | `-g, --grouped` | Group output by size bucket | `false` |
+| `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
+| `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
 
 ```bash
+# Show all PRs by size
 review-dispatcher size
+
+# Group by size bucket with headers
 review-dispatcher size --grouped
+
+# Show only small and medium PRs
+review-dispatcher size --filter-size S,M
+
+# Show XS PRs with priority scores
+review-dispatcher size --filter-size XS --priority
+
+# JSON output for scripting
+review-dispatcher size --json
 ```
