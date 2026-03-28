@@ -2684,16 +2684,32 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Sort by priority (highest first) when --priority flag is set
+            let sorted: Vec<_> = if priority {
+                let mut scored: Vec<_> = filtered
+                    .iter()
+                    .map(|r| {
+                        let score = logger::calculate_priority_score(r);
+                        (r.clone(), score)
+                    })
+                    .collect();
+                scored.sort_by(|a, b| b.1.cmp(&a.1));
+                scored.into_iter().map(|(r, _)| r).collect()
+            } else {
+                filtered
+            };
+
             if json {
-                let json_output = serde_json::to_string_pretty(&filtered)?;
+                let json_output = serde_json::to_string_pretty(&sorted)?;
                 println!("{}", json_output);
             } else {
                 println!(
-                    "\n🔍 {} review(s) matching '{}'\n",
-                    filtered.len().to_string().yellow().bold(),
-                    query.yellow().bold()
+                    "\n🔍 {} review(s) matching '{}'{}\n",
+                    sorted.len().to_string().yellow().bold(),
+                    query.yellow().bold(),
+                    if priority { " (sorted by priority)" } else { "" }
                 );
-                logger::print_reviews(&filtered, priority);
+                logger::print_reviews(&sorted, priority);
             }
         }
 

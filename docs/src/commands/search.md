@@ -24,7 +24,7 @@ review-dispatcher search [OPTIONS] <KEYWORD>
 | `-p, --pr <NUM>` | Target a specific PR by number (bypasses search filters and snooze exclusion) | None |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author` | Filter by author username (partial match, case-insensitive) | None |
-| `-P, --priority` | Show priority scores | `false` |
+| `-P, --priority` | Sort results by priority (highest first) and show scores | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
