@@ -7790,7 +7790,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Conflicts { only_conflicts, repo, author, json } => {
+        Commands::Conflicts { only_conflicts, repo, author, priority, json } => {
             // Apply filters before fetching conflict status
             let filtered: Vec<_> = {
                 let mut result = match cli.pr {
@@ -7860,6 +7860,12 @@ async fn main() -> anyhow::Result<()> {
                         println!("  ✅ Clean PRs:           {}", clean_count.to_string().green().bold());
                         println!("{}", "─".repeat(50));
 
+                        // Build a lookup from (repo, pr_number) -> PriorityReview for priority scores
+                        let priority_lookup: std::collections::HashMap<(String, u64), &github::PendingReview> = filtered
+                            .iter()
+                            .map(|r| ((r.repo.clone(), r.pr_number), r))
+                            .collect();
+
                         // Sort: conflicts first, then by repo
                         let mut sorted = statuses.clone();
                         sorted.sort_by(|a, b| {
@@ -7879,6 +7885,18 @@ async fn main() -> anyhow::Result<()> {
                             }
                             shown_any = true;
 
+                            // Get priority score if available
+                            let priority_label = if priority {
+                                if let Some(review) = priority_lookup.get(&(status.repo.clone(), status.pr_number)) {
+                                    let score = logger::calculate_priority_score(review);
+                                    format!("  ⭐ {}/5", score)
+                                } else {
+                                    String::new()
+                                }
+                            } else {
+                                String::new()
+                            };
+
                             if status.has_conflicts {
                                 let rebase_label = if status.rebaseable == Some(true) {
                                     " [rebaseable]".yellow()
@@ -7886,20 +7904,22 @@ async fn main() -> anyhow::Result<()> {
                                     "".normal()
                                 };
                                 println!(
-                                    "\n  ❌ #{} {} ({}){}",
+                                    "\n  ❌ #{} {} ({}){}{}",
                                     status.pr_number,
                                     status.pr_title.bold().red(),
                                     status.repo.dimmed(),
-                                    rebase_label
+                                    rebase_label,
+                                    priority_label
                                 );
                                 println!("      ⚠️  Cannot merge - has merge conflicts");
                                 println!("      🔗 {}", format!("{}/pull/{}", status.repo, status.pr_number).blue().underline());
                             } else {
                                 println!(
-                                    "\n  ✅ #{} {} ({})",
+                                    "\n  ✅ #{} {} ({}){}",
                                     status.pr_number,
                                     status.pr_title.bold().green(),
-                                    status.repo.dimmed()
+                                    status.repo.dimmed(),
+                                    priority_label
                                 );
                             }
                         }

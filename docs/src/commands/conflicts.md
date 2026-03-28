@@ -23,6 +23,7 @@ review-dispatcher conflicts [OPTIONS]
 | `--conflicts-only`, `-c` | Hide PRs without conflicts | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `--priority`, `-P` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--pr` | Target a specific PR by number | - |
 | `--json` | Output as JSON | `false` |
 
@@ -43,3 +44,7 @@ review-dispatcher conflicts --author johndoe
 
 # Check a specific PR
 review-dispatcher conflicts --pr 123
+
+# Show priority scores alongside conflict status
+review-dispatcher conflicts --priority
+```
