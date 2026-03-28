@@ -180,7 +180,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { pr_positional, json } => {
+        Commands::Delegate { pr_positional, json, dry_run } => {
             // --pr flag takes precedence, then positional arg
             let pr_number = cli.pr.or(pr_positional);
 
@@ -250,6 +250,21 @@ async fn main() -> anyhow::Result<()> {
 
             if targets.is_empty() {
                 println!("No matching reviews found.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be delegated
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be delegated:\n");
+                for (i, review) in targets.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", targets.len());
                 return Ok(());
             }
 

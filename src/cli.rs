@@ -68,6 +68,9 @@ pub enum Commands {
         /// Output as JSON (useful for scripting)
         #[arg(long)]
         json: bool,
+        /// Preview delegation without executing (show what would be delegated)
+        #[arg(long, short = 'n')]
+        dry_run: bool,
     },
     /// List your own open PRs (draft or not)
     Mine,

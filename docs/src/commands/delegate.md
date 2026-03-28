@@ -22,6 +22,7 @@ review-dispatcher delegate [OPTIONS] [PR_NUMBER]
 |------|-------------|---------|
 | `PR_NUMBER` | Target specific PR (optional, shorthand for --pr) | All pending |
 | `--json` | Output results as JSON (useful for scripting) | `false` |
+| `--dry-run`, `-n` | Preview delegation without executing | `false` |
 
 ## Examples
 
@@ -31,6 +32,12 @@ review-dispatcher delegate
 
 # Target a specific PR
 review-dispatcher delegate 4821
+
+# Preview what would be delegated (no actual delegation)
+review-dispatcher delegate --dry-run
+
+# Preview specific PR without delegating
+review-dispatcher delegate 4821 --dry-run
 
 # JSON output for scripting
 review-dispatcher delegate --json
@@ -66,6 +73,7 @@ Returns an array of results with:
 ## Tips
 
 - Create `instruction.md` for project-specific review criteria
+- Use `--dry-run` to verify targeting before committing to delegation
 - Use `--json` for automation scripts or piping to other tools
 - In interactive mode, PRs are delegated sequentially with progress feedback
 - In JSON mode, all PRs are delegated in parallel for speed
