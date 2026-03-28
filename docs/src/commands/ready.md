@@ -27,6 +27,7 @@ review-dispatcher ready [OPTIONS]
 |------|-------------|---------|
 | `--repo <NAME>` | Filter to specific repository (partial match) | All repos |
 | `--author <USER>` | Filter by author username (partial match) | All authors |
+| `--priority, -P` | Show priority scores (1-5 stars) based on age and size | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## How It Works
@@ -67,6 +68,28 @@ A PR is considered "ready to merge" when:
   💡 Use `--json` for scripting
 ```
 
+### With Priority Flag
+
+When `--priority` is enabled, each PR shows its priority score:
+
+```
+🚀 Merge Readiness — 8 PRs total, 3 ready to merge
+──────────────────────────────────────────────────
+
+  ✅  #4821  Fix authentication bug  ⭐⭐⭐⭐
+      👤 alice  •  📦 +340/-25  •  ⏱️ 2 days  •  ✅ CI
+      📁 myorg/frontend  🔗 https://github.com/myorg/frontend/pull/4821
+
+  ✅  #4815  Update dependencies  ⭐
+      👤 bob  •  📦 +50/-10  •  ⏱️ today  •  ✅ CI
+      📁 myorg/shared  🔗 https://github.com/myorg/shared/pull/4815
+
+──────────────────────────────────────────────────
+  💡 Ready = not draft + CI passing + no conflicts
+  💡 Priority based on age and size
+  💡 Use `--json` for scripting
+```
+
 ## Examples
 
 ```bash
@@ -81,6 +104,9 @@ review-dispatcher ready --author alice
 
 # Filter by repo and author combined
 review-dispatcher ready --repo backend --author bob
+
+# Show priority scores to identify most urgent ready PRs
+review-dispatcher ready --priority
 
 # JSON output for scripting
 review-dispatcher ready --json

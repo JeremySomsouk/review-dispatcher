@@ -9030,7 +9030,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ready { repo, author, json } => {
+        Commands::Ready { repo, author, priority, json } => {
             use std::collections::HashMap;
 
             // Apply --repo and --author filters to reviews first
@@ -9074,6 +9074,8 @@ async fn main() -> anyhow::Result<()> {
                 ci_status: String,
                 has_conflicts: bool,
                 draft: bool,
+                #[serde(skip_serializing_if = "Option::is_none")]
+                priority_score: Option<u8>,
             }
 
             // Build a flat list of (repo, pr_number) for parallel fetching
@@ -9176,6 +9178,7 @@ async fn main() -> anyhow::Result<()> {
                     ci_status,
                     has_conflicts,
                     draft: review.draft,
+                    priority_score: if priority { Some(logger::calculate_priority_score(review)) } else { None },
                 });
             }
 
@@ -9234,7 +9237,17 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} days", pr.age_days).red()
                     };
 
-                    println!("  {}  #{}  {}", status_icon, pr.pr_number, pr.pr_title.bold());
+                    let priority_display = if priority {
+                        if let Some(score) = pr.priority_score {
+                            format!("  ⭐ {}/5", logger::priority_stars(score))
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
+
+                    println!("  {}  #{}  {}{}", status_icon, pr.pr_number, pr.pr_title.bold(), priority_display);
                     println!("      👤 {}  •  📦 +{}/-{}  •  ⏱️ {}  •  {}",
                         pr.pr_author.cyan(),
                         pr.additions,
@@ -9251,6 +9264,9 @@ async fn main() -> anyhow::Result<()> {
 
                 println!("{}", "─".repeat(50));
                 println!("  💡 Ready = not draft + CI passing + no conflicts");
+                if priority {
+                    println!("  💡 Priority based on age and size");
+                }
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
