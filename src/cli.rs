@@ -528,6 +528,12 @@ pub enum Commands {
         /// Filter pending reviews by label name (partial match, case-insensitive)
         #[arg(long, short = 'l')]
         filter_by: Option<String>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

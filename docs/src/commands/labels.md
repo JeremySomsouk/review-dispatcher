@@ -24,6 +24,8 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 | `-n, --pr-numbers <NUMS>` | PR number(s) to show labels for (comma-separated) | - |
 | `-a, --all` | Show labels for all pending reviews | `false` |
 | `-l, --filter-by <LABEL>` | Filter by label name (partial match, case-insensitive) | - |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
@@ -40,6 +42,15 @@ review-dispatcher labels -n 4821,4822,4823
 
 # Filter labels by name containing "security"
 review-dispatcher labels -a -l security
+
+# Filter by repository name
+review-dispatcher labels --repo api-service
+
+# Filter by author
+review-dispatcher labels --author alice
+
+# Combine filters
+review-dispatcher labels -a --repo api --author alice
 
 # Output as JSON for scripting
 review-dispatcher labels --pr 4821 --json
