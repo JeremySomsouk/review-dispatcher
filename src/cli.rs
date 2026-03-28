@@ -402,6 +402,9 @@ pub enum Commands {
         /// Limit the number of results shown (default: 20)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
+        /// Filter to specific PR number
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

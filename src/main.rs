@@ -5714,7 +5714,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mentions { unread_only, limit, json } => {
+        Commands::Mentions { unread_only, limit, pr, json } => {
             let limit = limit.unwrap_or(20);
 
             println!("\n🔔 Fetching your GitHub notifications...\n");
@@ -5728,11 +5728,21 @@ async fn main() -> anyhow::Result<()> {
             .await
             {
                 Ok(mentions) => {
-                    if mentions.is_empty() {
+                    // Apply --pr filter if specified
+                    let filtered_mentions: Vec<_> = match pr {
+                        Some(num) => mentions.into_iter().filter(|m| m.pr_number == num).collect(),
+                        None => mentions,
+                    };
+
+                    if filtered_mentions.is_empty() {
                         if json {
                             println!("{}", serde_json::to_string_pretty(&serde_json::json!([]))?);
                         } else {
-                            println!("  😴 No notifications found.");
+                            if pr.is_some() {
+                                println!("  😴 No notifications found for PR #{}." , pr.unwrap());
+                            } else {
+                                println!("  😴 No notifications found.");
+                            }
                             if unread_only {
                                 println!("  (showing all, not just unread — use `-u` to filter)");
                             }
@@ -5740,11 +5750,11 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
-                    let total = mentions.len();
-                    let unread_count = mentions.iter().filter(|m| m.unread).count();
+                    let total = filtered_mentions.len();
+                    let unread_count = filtered_mentions.iter().filter(|m| m.unread).count();
 
                     if json {
-                        println!("{}", serde_json::to_string_pretty(&mentions)?);
+                        println!("{}", serde_json::to_string_pretty(&filtered_mentions)?);
                     } else {
                         println!("🔔 Notifications  ({} total{} | showing top {})\n{}",
                             total,
@@ -5753,7 +5763,7 @@ async fn main() -> anyhow::Result<()> {
                             "─".repeat(50)
                         );
 
-                        for (i, mention) in mentions.iter().enumerate() {
+                        for (i, mention) in filtered_mentions.iter().enumerate() {
                             let reason_label = match mention.reason.as_str() {
                                 "mention" => "🏷️ mentioned",
                                 "review_requested" => "👀 review requested",
