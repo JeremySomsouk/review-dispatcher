@@ -614,41 +614,44 @@ pub async fn fetch_merge_conflict_status(
     org: &str,
     reviews: &[PendingReview],
 ) -> Result<Vec<MergeConflictStatus>> {
+    // Build a flat list of (repo, pr_number) to fetch in parallel
+    let fetch_tasks: Vec<(String, u64)> = reviews
+        .iter()
+        .map(|r| (r.repo.clone(), r.pr_number))
+        .collect();
+
+    // Fetch all PR details in parallel using join_all
     let client = Octocrab::builder()
         .personal_token(token.to_string())
         .build()?;
 
+    let futures = fetch_tasks.iter().map(|(repo, pr_number)| {
+        let client = client.clone();
+        let repo = repo.clone();
+        let pr_number = *pr_number;
+        async move {
+            client.pulls(org, &repo).get(pr_number).await
+        }
+    });
+
+    let results_vec: Vec<Result<_, _>> = join_all(futures).await;
+
     let mut results = Vec::new();
-
-    // Fetch PR details to get mergeable status
-    // Group by repo to minimize API calls per repo
-    use std::collections::HashMap;
-    let mut by_repo: HashMap<String, Vec<u64>> = HashMap::new();
-    for review in reviews {
-        by_repo.entry(review.repo.clone())
-            .or_insert_with(Vec::new)
-            .push(review.pr_number);
-    }
-
-    for (repo, pr_numbers) in by_repo {
-        for pr_number in pr_numbers {
-            match client.pulls(org, &repo).get(pr_number).await {
-                Ok(pr) => {
-                    let has_conflicts = pr.mergeable == Some(false);
-                    let mergeable_status = MergeConflictStatus {
-                        repo: repo.clone(),
-                        pr_number,
-                        pr_title: pr.title.unwrap_or_default(),
-                        has_conflicts,
-                        mergeable: pr.mergeable,
-                        rebaseable: pr.rebaseable,
-                    };
-                    results.push(mergeable_status);
-                }
-                Err(e) => {
-                    // Log but don't fail - just skip this PR
-                    eprintln!("Warning: Failed to fetch PR #{} in {}: {}", pr_number, repo, e);
-                }
+    for ((repo, pr_number), result) in fetch_tasks.into_iter().zip(results_vec.into_iter()) {
+        match result {
+            Ok(pr) => {
+                let has_conflicts = pr.mergeable == Some(false);
+                results.push(MergeConflictStatus {
+                    repo,
+                    pr_number,
+                    pr_title: pr.title.unwrap_or_default(),
+                    has_conflicts,
+                    mergeable: pr.mergeable,
+                    rebaseable: pr.rebaseable,
+                });
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to fetch PR #{} in {}: {}", pr_number, repo, e);
             }
         }
     }
