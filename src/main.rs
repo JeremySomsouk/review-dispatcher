@@ -184,8 +184,36 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { json, dry_run, priority } => {
+        Commands::Delegate { json, dry_run, priority, since_days, repo, author } => {
             let pr_number = cli.pr;
+
+            // Apply filters to reviews (same logic as List command) unless --pr is specified
+            let filtered_reviews: Vec<_> = if pr_number.is_some() {
+                // When --pr is specified, bypass filters and use reviews as-is
+                reviews.clone()
+            } else {
+                let mut result = reviews.clone();
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
+
+                // Apply --repo filter
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
 
             let targets: Vec<_> = match pr_number {
                 Some(num) => {
@@ -225,12 +253,12 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 None => {
-                    if reviews.is_empty() {
+                    if filtered_reviews.is_empty() {
                         println!("No matching reviews found.");
                         return Ok(());
                     }
 
-                    logger::print_reviews(&reviews, false);
+                    logger::print_reviews(&filtered_reviews, false);
 
                     print!(
                         "\n{} ",
@@ -242,10 +270,10 @@ async fn main() -> anyhow::Result<()> {
                     io::stdin().read_line(&mut input)?;
                     let input = input.trim();
 
-                    match parse_selection(input, reviews.len()) {
+                    match parse_selection(input, filtered_reviews.len()) {
                         Selection::Quit => return Ok(()),
                         Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                         }
                     }
                 }

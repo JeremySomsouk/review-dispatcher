@@ -24,6 +24,9 @@ review-dispatcher delegate [OPTIONS]
 | `--json` | Output results as JSON (useful for scripting) | `false` |
 | `--dry-run`, `-n` | Preview delegation without executing | `false` |
 | `--priority`, `-P` | Show priority scores (1-5 stars) in dry-run output | `false` |
+| `--since-days`, `-s` | Only delegate PRs created since N days ago | All |
+| `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
+| `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 
 ## Examples
 
@@ -42,6 +45,18 @@ review-dispatcher delegate --pr 4821 --dry-run
 
 # Preview delegation with priority scores to identify urgent PRs first
 review-dispatcher delegate --dry-run --priority
+
+# Only delegate recent PRs (last 7 days)
+review-dispatcher delegate --since-days 7
+
+# Only delegate PRs from a specific repo
+review-dispatcher delegate --repo frontend
+
+# Only delegate PRs from a specific author
+review-dispatcher delegate --author alice
+
+# Combine filters for targeted delegation
+review-dispatcher delegate --repo api --author bob --dry-run
 
 # JSON output for scripting
 review-dispatcher delegate --json
@@ -81,3 +96,4 @@ Returns an array of results with:
 - Use `--json` for automation scripts or piping to other tools
 - In interactive mode, PRs are delegated sequentially with progress feedback
 - In JSON mode, all PRs are delegated in parallel for speed
+- Combine filters (`--since-days`, `--repo`, `--author`) with `--dry-run` to preview targeted delegation

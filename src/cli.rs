@@ -71,6 +71,15 @@ pub enum Commands {
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Only delegate PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// List your own open PRs (draft or not)
     Mine {
