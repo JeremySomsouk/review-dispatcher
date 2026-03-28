@@ -825,6 +825,9 @@ pub enum Commands {
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Analyze how quickly PRs get reviewed (avg time-to-first-review, bottleneck detection)
     ReviewVelocity {

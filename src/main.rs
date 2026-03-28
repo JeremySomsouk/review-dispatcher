@@ -7046,7 +7046,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Trends { days, limit, repo, author, json } => {
+        Commands::Trends { days, limit, repo, author, json, priority } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
 
@@ -7067,8 +7067,10 @@ async fn main() -> anyhow::Result<()> {
                 repo: String,
                 author: String,
                 reviewed_at: String,
+                created_at: String,
                 additions: u64,
                 deletions: u64,
+                priority_score: u8,
             }
 
             // ── Collect processed reviews from review files ──
@@ -7145,14 +7147,33 @@ async fn main() -> anyhow::Result<()> {
                                                 let day_key = reviewed_at_tz.format("%Y-%m-%d").to_string();
                                                 *by_day.entry(day_key).or_insert(0) += 1;
 
+                                                // Parse created_at from review file
+                                                let created_line = lines.iter().find(|l| l.starts_with("- **Created**:"));
+                                                let created_at_str = created_line
+                                                    .and_then(|l| l.strip_prefix("- **Created**: "))
+                                                    .unwrap_or("")
+                                                    .trim();
+                                                let created_at_tz = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(created_at_str) {
+                                                    dt.with_timezone(&Utc)
+                                                } else {
+                                                    reviewed_at_tz // fallback to reviewed_at if not found
+                                                };
+
+                                                // Calculate priority score based on age and size
+                                                let size = additions.saturating_add(deletions);
+                                                let age_days = (reviewed_at_tz - created_at_tz).num_days().max(0) as u32;
+                                                let priority_score = logger::calculate_priority_score_for_stats(size, age_days);
+
                                                 reviews_data.push(TrendedReview {
                                                     pr_title,
                                                     pr_number,
                                                     repo: pr_repo,
                                                     author: pr_author,
                                                     reviewed_at: reviewed_at_tz.to_rfc3339(),
+                                                    created_at: created_at_tz.to_rfc3339(),
                                                     additions,
                                                     deletions,
+                                                    priority_score,
                                                 });
                                             }
                                         }
@@ -7322,6 +7343,30 @@ async fn main() -> anyhow::Result<()> {
                     for (repo, count) in top_repos.iter().take(n) {
                         let short_name = repo.split('/').last().unwrap_or(repo);
                         println!("     {}  {}", short_name, count.to_string().dimmed());
+                    }
+                    println!();
+                }
+
+                // ── Top PRs by priority (if --priority flag) ──
+                if priority {
+                    use crate::logger::priority_stars;
+                    let mut sorted_by_priority = reviews_data.clone();
+                    sorted_by_priority.sort_by(|a, b| b.priority_score.cmp(&a.priority_score));
+
+                    println!("  ⭐ Top PRs by Priority");
+                    for (i, review) in sorted_by_priority.iter().take(10).enumerate() {
+                        let stars = priority_stars(review.priority_score);
+                        let title = if review.pr_title.len() > 45 {
+                            format!("{}...", &review.pr_title[..42])
+                        } else {
+                            review.pr_title.clone()
+                        };
+                        println!("     {}  #{}  {} ({})",
+                            stars,
+                            review.pr_number,
+                            title.dimmed(),
+                            review.repo.split('/').last().unwrap_or(&review.repo).dimmed()
+                        );
                     }
                     println!();
                 }

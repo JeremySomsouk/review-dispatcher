@@ -24,6 +24,7 @@ review-dispatcher trends [OPTIONS]
 | `-n, --limit <NUM>` | Number of top authors/repos to show | `10` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
+| `-P, --priority` | Show priority scores (1-5 stars) for top reviewed PRs | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -49,6 +50,9 @@ review-dispatcher trends --repo backend --author bob
 
 # JSON for dashboards/scripts
 review-dispatcher trends --json | jq '.avg_per_day'
+
+# Show top PRs by priority score
+review-dispatcher trends --priority
 ```
 
 ## Output Example
@@ -79,6 +83,11 @@ review-dispatcher trends --json | jq '.avg_per_day'
      frontend    18
      backend    15
      shared      8
+
+  ⭐ Top PRs by Priority
+     ⭐⭐⭐⭐⭐  #234  Bug fix in auth middleware (frontend)
+     ⭐⭐⭐⭐⭐  #189  Refactor database layer (backend)
+     ⭐⭐⭐⭐   #201  Update API documentation (shared)
 ```
 
 ## How It Works

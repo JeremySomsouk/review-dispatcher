@@ -44,6 +44,39 @@ pub fn priority_stars(score: u8) -> String {
     "⭐".repeat(stars)
 }
 
+/// Calculate priority score (1-5) based on size and age (for stats/trends)
+pub fn calculate_priority_score_for_stats(size: u64, age_days: u32) -> u8 {
+    // Age score: 0-3 days = 0, 3-7 = 1, 7-14 = 2, 14-30 = 3, 30+ = 4
+    let age_score = if age_days <= 3 {
+        0.0
+    } else if age_days <= 7 {
+        1.0
+    } else if age_days <= 14 {
+        2.0
+    } else if age_days <= 30 {
+        3.0
+    } else {
+        4.0
+    };
+
+    // Size score: small (<50) = 0, medium (50-200) = 1, large (200-500) = 2, huge (>500) = 3
+    let size_score = if size < 50 {
+        0.0
+    } else if size < 200 {
+        1.0
+    } else if size < 500 {
+        2.0
+    } else {
+        3.0
+    };
+
+    let combined: f64 = (age_score * 0.6 + size_score * 0.4) / 7.0 * 5.0;
+
+    // Map to 1-5 scale
+    let score = (combined.clamp(1.0, 5.0) as u8).max(1).min(5);
+    score
+}
+
 pub fn print_reviews(reviews: &[PendingReview], show_priority: bool) {
     if reviews.is_empty() {
         println!(
