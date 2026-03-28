@@ -802,16 +802,32 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            for review in prs {
-                // Fetch full PR details including description
+            // Phase 1: Fetch all PR details in parallel
+            let detail_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()?;
+                    .build()
+                    .unwrap();
+                let org = cfg.github_org.clone();
+                let repo = review.repo.clone();
+                let pr_number = review.pr_number;
 
-                let full_pr = client
-                    .pulls(&cfg.github_org, &review.repo)
-                    .get(review.pr_number)
-                    .await?;
+                async move {
+                    client.pulls(&org, &repo).get(pr_number).await
+                }
+            });
+
+            let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
+
+            // Phase 2: Process results sequentially (already fetched, just display)
+            for (review, result) in prs.into_iter().zip(detail_results.into_iter()) {
+                let full_pr = match result {
+                    Ok(pr) => pr,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to fetch details for PR #{}: {}", review.pr_number, e);
+                        continue;
+                    }
+                };
 
                 let body = full_pr.body.clone().unwrap_or_else(|| "No description provided.".to_string());
                 let mut lines: Vec<&str> = body.lines().collect();
