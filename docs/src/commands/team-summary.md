@@ -19,11 +19,14 @@ review-dispatcher team-summary [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
 | `--json` | Output as JSON for scripting | `false` |
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority breakdown (stars by age/size score) | `false` |
+
+**Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
 
 ## Examples
 
@@ -42,6 +45,10 @@ review-dispatcher team-summary --author alice
 
 # Team summary with priority breakdown
 review-dispatcher team-summary --priority
+
+# Team summary for a specific PR
+review-dispatcher team-summary 4821
+review-dispatcher team-summary --pr 4821
 ```
 
 ## Sample JSON Output

@@ -92,12 +92,12 @@ pub enum Commands {
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {
+        /// PR number to show stats for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
-        /// Filter by PR number (use with --pr to target a specific PR)
-        #[arg(long, short = 'p')]
-        pr: Option<u64>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
@@ -110,12 +110,12 @@ pub enum Commands {
     },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary {
+        /// PR number to show team summary for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
-        /// Filter by PR number (use with --pr to target a specific PR)
-        #[arg(long, short = 'p')]
-        pr: Option<u64>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

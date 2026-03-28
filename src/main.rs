@@ -382,13 +382,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats { json, pr, repo, author, priority } => {
+        Commands::Stats { json, pr_number, repo, author, priority } => {
             use std::collections::HashMap;
             use chrono::Duration;
 
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
-                let mut result = match cli.pr.or(pr) {
+                let mut result = match cli.pr.or(pr_number) {
                     Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                     None => reviews.clone(),
                 };
@@ -544,13 +544,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json, pr, repo, author, priority } => {
+        Commands::TeamSummary { json, pr_number, repo, author, priority } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
-                let mut result = match cli.pr.or(pr) {
+                let mut result = match cli.pr.or(pr_number) {
                     Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                     None => reviews.clone(),
                 };
