@@ -19,6 +19,7 @@ review-dispatcher catchup [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `PR_NUMBER` | PR number to show catchup for (shorthand for `--pr`) | |
 | `-a, --min-age <DAYS>` | Minimum age in days to be considered "catchup" | `3` |
 | `-n, --limit <NUM>` | Limit the number of results shown | `10` |
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
@@ -53,4 +54,8 @@ review-dispatcher catchup --all
 
 # Combine filters for targeted catchup
 review-dispatcher catchup --min-age 7 --repo api --author johndoe --priority
+
+# Target a specific PR (bypasses --min-age filter)
+review-dispatcher catchup --pr 123
+review-dispatcher catchup 123
 ```

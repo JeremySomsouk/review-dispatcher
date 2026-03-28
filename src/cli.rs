@@ -678,6 +678,9 @@ pub enum Commands {
     },
     /// Show PRs you should catch up on — oldest, longest-ignored, sorted by neglect
     Catchup {
+        /// PR number to show catchup for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Minimum age in days to be considered "catchup" (default: 3)
         #[arg(long, short = 'a', default_value_t = 3)]
         min_age: u32,

@@ -3778,15 +3778,21 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Catchup { min_age, limit, json, priority, repo, author, all } => {
+        Commands::Catchup { pr_number, min_age, limit, json, priority, repo, author, all } => {
             let min_age = min_age as i64;
             let limit = limit.unwrap_or(10);
 
             let now = chrono::Utc::now();
             let cutoff = now - chrono::Duration::days(min_age);
 
+            // Handle --pr filter first (shorthand for specific PR)
+            let pr_filtered: Vec<_> = match cli.pr.or(pr_number) {
+                Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                None => reviews.clone(),
+            };
+
             // Filter: only PRs older than min_age, sorted oldest-first
-            let mut neglected: Vec<_> = reviews
+            let mut neglected: Vec<_> = pr_filtered
                 .iter()
                 .filter(|r| r.created_at <= cutoff)
                 .cloned()
