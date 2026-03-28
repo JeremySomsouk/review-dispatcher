@@ -14,6 +14,7 @@ review-dispatcher diff [OPTIONS]
 |------|-------------|---------|
 | `--pr, -p <NUMBER>` | Target a specific PR by number | Interactive selection |
 | `--json` | Output as JSON for scripting | `false` |
+| `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -39,7 +40,7 @@ Displays comprehensive PR information including:
 - **Lines**: Additions and deletions
 - **Size Category**: XS (<50), S (50-200), M (200-500), L (500-1000), XL (1000+)
 - **Age Category**: 🔥 HOT (today), ⚡ FRESH (1-2d), 📅 WEEK OLD (3-7d), ⚠️ STALE (8-14d), 🚨 OLD (15d+)
-- **Priority Score**: 1-5 star rating based on urgency
+- **Priority Score**: 1-5 star rating based on urgency (only when `--priority` flag is used)
 - **Repository**: Full repo name
 - **URL**: Direct link to the PR
 

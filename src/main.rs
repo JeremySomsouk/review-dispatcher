@@ -912,7 +912,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, json } => {
+        Commands::Diff { pr_number, json, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1059,7 +1059,9 @@ async fn main() -> anyhow::Result<()> {
                     };
                     println!("   ⏱️  Age: {} ({} days)", age_cat, age_days);
 
-                    println!("   ⭐ Priority: {}/5  {}", priority_score, logger::priority_stars(priority_score));
+                    if priority {
+                        println!("   ⭐ Priority: {}/5  {}", priority_score, logger::priority_stars(priority_score));
+                    }
 
                     println!("   📁 Repository: {}", review.repo);
                     println!("{}", "─".repeat(60));
