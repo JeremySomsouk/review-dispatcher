@@ -22,6 +22,7 @@ review-dispatcher approve [OPTIONS]
 |------|-------------|
 | `-p, --pr <NUM>` | PR number to approve |
 | `-m, --message <TEXT>` | Approval comment (optional) |
+| `--json` | Output as JSON (useful for scripting) |
 
 ## Examples
 
@@ -34,6 +35,9 @@ review-dispatcher approve --pr 4821 -m "LGTM! Nice work on the tests."
 
 # Approve without comment
 review-dispatcher approve --pr 4821 -m ""
+
+# Approve with JSON output (for scripting)
+review-dispatcher approve --pr 4821 --json
 ```
 
 ## Tips

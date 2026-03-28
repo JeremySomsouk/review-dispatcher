@@ -154,6 +154,9 @@ pub enum Commands {
         /// Comment text (supports markdown)
         #[arg(long, short = 't', value_name = "TEXT")]
         text: String,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Approve a PR directly from the CLI
     Approve {
@@ -163,6 +166,9 @@ pub enum Commands {
         /// Approve with a custom comment
         #[arg(long, short = 'm')]
         message: Option<String>,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Claim multiple PRs for review at once
     Claim {

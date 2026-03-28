@@ -1449,7 +1449,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { pr_number, text } => {
+        Commands::Comment { pr_number, text, json } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
             let prs = match target_pr {
@@ -1489,13 +1489,27 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            #[derive(serde::Serialize)]
+            struct CommentResult {
+                pr_number: u64,
+                pr_title: String,
+                repo: String,
+                url: String,
+                success: bool,
+                error: Option<String>,
+            }
+
+            let mut results: Vec<CommentResult> = Vec::new();
+
             for review in &prs {
-                print!(
-                    "\n💬 Posting comment on #{} {}... ",
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
+                if !json {
+                    print!(
+                        "\n💬 Posting comment on #{} {}... ",
+                        review.pr_number,
+                        review.pr_title
+                    );
+                    io::stdout().flush()?;
+                }
 
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
@@ -1508,21 +1522,48 @@ async fn main() -> anyhow::Result<()> {
 
                 match result {
                     Ok(_) => {
-                        println!("{}", "✅ Commented".green());
-                        println!("   📝 {} ({})", review.pr_title, review.repo);
-                        println!("   💬 \"{}\"", text.yellow());
-                        println!("   🔗 {}", review.pr_url.blue().underline());
+                        if json {
+                            results.push(CommentResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title.clone(),
+                                repo: review.repo.clone(),
+                                url: review.pr_url.clone(),
+                                success: true,
+                                error: None,
+                            });
+                        } else {
+                            println!("{}", "✅ Commented".green());
+                            println!("   📝 {} ({})", review.pr_title, review.repo);
+                            println!("   💬 \"{}\"", text.yellow());
+                            println!("   🔗 {}", review.pr_url.blue().underline());
+                        }
                     }
                     Err(e) => {
-                        println!("{}", "❌ Failed".red());
-                        println!("   Error: {}", e);
+                        if json {
+                            results.push(CommentResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title.clone(),
+                                repo: review.repo.clone(),
+                                url: review.pr_url.clone(),
+                                success: false,
+                                error: Some(e.to_string()),
+                            });
+                        } else {
+                            println!("{}", "❌ Failed".red());
+                            println!("   Error: {}", e);
+                        }
                     }
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            }
+
             println!();
         }
 
-        Commands::Approve { pr_number, message } => {
+        Commands::Approve { pr_number, message, json } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1562,13 +1603,27 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            #[derive(serde::Serialize)]
+            struct ApproveResult {
+                pr_number: u64,
+                pr_title: String,
+                repo: String,
+                url: String,
+                success: bool,
+                error: Option<String>,
+            }
+
+            let mut results: Vec<ApproveResult> = Vec::new();
+
             for review in prs {
-                print!(
-                    "\n⏳ Approving #{} {}... ",
-                    review.pr_number,
-                    review.pr_title
-                );
-                io::stdout().flush()?;
+                if !json {
+                    print!(
+                        "\n⏳ Approving #{} {}... ",
+                        review.pr_number,
+                        review.pr_title
+                    );
+                    io::stdout().flush()?;
+                }
 
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
@@ -1583,8 +1638,19 @@ async fn main() -> anyhow::Result<()> {
                 let commit_id = match pr_details {
                     Ok(pr) => pr.head.sha.clone(),
                     Err(e) => {
-                        println!("{}", "❌ Failed".red());
-                        println!("   Error getting PR details: {}", e);
+                        if json {
+                            results.push(ApproveResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title.clone(),
+                                repo: review.repo.clone(),
+                                url: review.pr_url.clone(),
+                                success: false,
+                                error: Some(format!("Failed to get PR details: {}", e)),
+                            });
+                        } else {
+                            println!("{}", "❌ Failed".red());
+                            println!("   Error getting PR details: {}", e);
+                        }
                         continue;
                     }
                 };
@@ -1605,16 +1671,43 @@ async fn main() -> anyhow::Result<()> {
 
                 match result {
                     Ok(_) => {
-                        println!("{}", "✅ Approved".green());
-                        println!("   👍 You approved {} ({})", review.pr_title, review.repo);
-                        println!("   🔗 {}", review.pr_url.blue().underline());
+                        if json {
+                            results.push(ApproveResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title.clone(),
+                                repo: review.repo.clone(),
+                                url: review.pr_url.clone(),
+                                success: true,
+                                error: None,
+                            });
+                        } else {
+                            println!("{}", "✅ Approved".green());
+                            println!("   👍 You approved {} ({})", review.pr_title, review.repo);
+                            println!("   🔗 {}", review.pr_url.blue().underline());
+                        }
                     }
                     Err(e) => {
-                        println!("{}", "❌ Failed".red());
-                        println!("   Error: {}", e);
+                        if json {
+                            results.push(ApproveResult {
+                                pr_number: review.pr_number,
+                                pr_title: review.pr_title.clone(),
+                                repo: review.repo.clone(),
+                                url: review.pr_url.clone(),
+                                success: false,
+                                error: Some(e.to_string()),
+                            });
+                        } else {
+                            println!("{}", "❌ Failed".red());
+                            println!("   Error: {}", e);
+                        }
                     }
                 }
             }
+
+            if json {
+                println!("{}", serde_json::to_string_pretty(&results)?);
+            }
+
             println!();
         }
 

@@ -22,9 +22,13 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to comment on | Required |
 | `-t, --text <TEXT>` | Comment text (supports markdown) | Required |
+| `--json` | Output as JSON (useful for scripting) |
 
 ## Examples
 
 ```bash
 review-dispatcher comment 4821 --text "Looks good, just a few nits"
+
+# With JSON output (for scripting)
+review-dispatcher comment 4821 --text "LGTM!" --json
 ```
