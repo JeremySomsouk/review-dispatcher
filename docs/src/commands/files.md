@@ -25,16 +25,33 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Show files for all pending reviews | `false` |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars) | `false` |
 | `--json` | Output as JSON (useful for scripting) | `false` |
+| `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
 
 ## Examples
 
 ```bash
+# Show files for a specific PR
 review-dispatcher files 4821
 review-dispatcher files --pr 4821
+
+# Show files for multiple PRs
 review-dispatcher files -n 4821,3156,2890
+
+# Show files for all pending reviews
 review-dispatcher files --all
+
+# Filter by repository
+review-dispatcher files --all --repo myservice
+
+# Filter by author
+review-dispatcher files --all --author johndoe
+
+# Combined filters
+review-dispatcher files --all --repo api --priority
+
+# JSON output for scripting
 review-dispatcher files --pr 4821 --json
-review-dispatcher files --all --priority
 ```
 
 ## JSON Output
