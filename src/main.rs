@@ -9955,10 +9955,16 @@ async fn main() -> anyhow::Result<()> {
                 })
             }
 
-            let pr_details_1 = fetch_pr_details(&client, &cfg.github_org, &repo1, num1).await
-                .map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo1, num1, e))?;
-            let pr_details_2 = fetch_pr_details(&client, &cfg.github_org, &repo2, num2).await
-                .map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo2, num2, e))?;
+            // Fetch both PRs in parallel using join_all
+            let (pr_details_1, pr_details_2) = {
+                let fetch_1 = fetch_pr_details(&client, &cfg.github_org, &repo1, num1);
+                let fetch_2 = fetch_pr_details(&client, &cfg.github_org, &repo2, num2);
+                let (result_1, result_2) = tokio::join!(fetch_1, fetch_2);
+                (
+                    result_1.map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo1, num1, e))?,
+                    result_2.map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo2, num2, e))?,
+                )
+            };
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&serde_json::json!({
