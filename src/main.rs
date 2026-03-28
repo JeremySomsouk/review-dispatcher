@@ -1530,7 +1530,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, json } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -1603,6 +1603,22 @@ async fn main() -> anyhow::Result<()> {
 
             if targets.is_empty() {
                 println!("No PRs found to open.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be opened
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be opened:\n");
+                for (i, review) in targets.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
+                    );
+                    println!("     🔗 {}", review.pr_url.blue());
+                }
+                println!("\n  Total: {} PR(s)\n", targets.len());
                 return Ok(());
             }
 

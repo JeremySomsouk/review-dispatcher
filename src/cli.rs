@@ -285,6 +285,9 @@ pub enum Commands {
         /// Open all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Preview which PRs would be opened without actually opening them
+        #[arg(long)]
+        dry_run: bool,
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
         json: bool,

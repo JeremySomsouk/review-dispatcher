@@ -23,6 +23,7 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 | `-p, --pr <NUM>` | Open specific PR (shorthand for `--pr`) | - |
 | `-n, --pr-numbers <NUMS>` | PR number(s) to open (comma-separated) | - |
 | `-a, --all` | Open all pending reviews | `false` |
+| `--dry-run` | Preview which PRs would be opened without opening them | `false` |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 
 **Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
@@ -39,6 +40,12 @@ review-dispatcher browse -n 4821,3156,2890
 
 # Open all pending reviews at once
 review-dispatcher browse --all
+
+# Preview which PRs would be opened (dry-run)
+review-dispatcher browse --dry-run
+
+# Preview opening specific PRs
+review-dispatcher browse -n 4821,3156 --dry-run
 
 # Output URLs as JSON (useful for scripting)
 review-dispatcher browse -p 4821,3156 --json
