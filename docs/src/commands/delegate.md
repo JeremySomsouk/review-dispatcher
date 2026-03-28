@@ -13,14 +13,14 @@ Let Claude Code analyze your PRs, summarize changes, identify risks, and recomme
 ## Synopsis
 
 ```bash
-review-dispatcher delegate [OPTIONS] [PR_NUMBER]
+review-dispatcher delegate [OPTIONS]
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | Target specific PR (optional, shorthand for --pr) | All pending |
+| `--pr`, `-p` | Target specific PR by number (global flag) | All pending |
 | `--json` | Output results as JSON (useful for scripting) | `false` |
 | `--dry-run`, `-n` | Preview delegation without executing | `false` |
 | `--priority`, `-P` | Show priority scores (1-5 stars) in dry-run output | `false` |
@@ -31,14 +31,14 @@ review-dispatcher delegate [OPTIONS] [PR_NUMBER]
 # Interactive: select PR(s) to delegate
 review-dispatcher delegate
 
-# Target a specific PR
-review-dispatcher delegate 4821
+# Target a specific PR (global --pr flag)
+review-dispatcher delegate --pr 4821
 
 # Preview what would be delegated (no actual delegation)
 review-dispatcher delegate --dry-run
 
 # Preview specific PR without delegating
-review-dispatcher delegate 4821 --dry-run
+review-dispatcher delegate --pr 4821 --dry-run
 
 # Preview delegation with priority scores to identify urgent PRs first
 review-dispatcher delegate --dry-run --priority
@@ -46,7 +46,7 @@ review-dispatcher delegate --dry-run --priority
 # JSON output for scripting
 review-dispatcher delegate --json
 
-# Delegate multiple PRs to Claude in parallel (JSON mode)
+# Delegate specific PR and get JSON result
 review-dispatcher delegate --pr 4821 --json
 ```
 

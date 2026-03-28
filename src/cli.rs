@@ -62,9 +62,6 @@ pub enum Commands {
     },
     /// Ask Claude to triage each pending review
     Delegate {
-        /// PR number (shorthand for --pr)
-        #[arg(value_name = "PR_NUMBER")]
-        pr_positional: Option<u64>,
         /// Output as JSON (useful for scripting)
         #[arg(long)]
         json: bool,

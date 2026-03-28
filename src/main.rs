@@ -184,9 +184,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { pr_positional, json, dry_run, priority } => {
-            // --pr flag takes precedence, then positional arg
-            let pr_number = cli.pr.or(pr_positional);
+        Commands::Delegate { json, dry_run, priority } => {
+            let pr_number = cli.pr;
 
             let targets: Vec<_> = match pr_number {
                 Some(num) => {
