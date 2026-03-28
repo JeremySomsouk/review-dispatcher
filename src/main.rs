@@ -7504,42 +7504,72 @@ async fn main() -> anyhow::Result<()> {
             println!("  Emoji: {}", emoji);
             println!();
 
-            for review in &targets {
-                let age_days = (chrono::Utc::now() - review.created_at).num_days();
-                println!(
-                    "  {} #{} — {} by @{} ({} days old)",
-                    if send { "📤 Sending" } else { "🔍 Would send" },
-                    review.pr_number,
-                    review.pr_title,
-                    review.pr_author.cyan(),
-                    if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
-                );
-
-                if send {
-                    print!("    ⏳ Reacting... ");
-                    io::stdout().flush()?;
-
-                    match github::add_pr_reaction(
-                        &cfg.github_token,
-                        &cfg.github_org,
-                        &review.repo,
+            if send {
+                // Parallel send: display preview then send all in parallel
+                for review in &targets {
+                    let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                    println!(
+                        "  📤 Sending #{} — {} by @{} ({} days old)",
                         review.pr_number,
-                        &emoji,
-                    ).await {
+                        review.pr_title,
+                        review.pr_author.cyan(),
+                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
+                    );
+                }
+
+                println!("\n⏳ Sending {} emoji reaction(s) in parallel...\n", targets.len());
+
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+                let emoji = emoji.clone();
+
+                // Send all reactions in parallel
+                let send_futures = targets.iter().map(|review| {
+                    let token = token.clone();
+                    let org = org.clone();
+                    let repo = review.repo.clone();
+                    let pr_number = review.pr_number;
+                    let emoji = emoji.clone();
+                    async move {
+                        github::add_pr_reaction(&token, &org, &repo, pr_number, &emoji).await
+                    }
+                });
+                let results = join_all(send_futures).await;
+
+                let mut sent = 0;
+                let mut failed = 0;
+
+                for (review, result) in targets.iter().zip(results.into_iter()) {
+                    match result {
                         Ok(_) => {
-                            println!("{}", "✅ Done!".green());
+                            println!("  ✅ #{} — {}", review.pr_number, review.pr_title.dimmed());
+                            sent += 1;
                         }
                         Err(e) => {
-                            println!("{}", "❌ Failed".red());
-                            println!("    Error: {}", e);
+                            println!("  ❌ #{} — {} ({})", review.pr_number, review.pr_title.dimmed(), e);
+                            failed += 1;
                         }
                     }
-                } else {
+                }
+
+                println!("\n📊 Sent: {}, Failed: {}\n", 
+                    sent.to_string().green(), 
+                    failed.to_string().red()
+                );
+            } else {
+                // Preview mode
+                for review in &targets {
+                    let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                    println!(
+                        "  🔍 Would send #{} — {} by @{} ({} days old)",
+                        review.pr_number,
+                        review.pr_title,
+                        review.pr_author.cyan(),
+                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
+                    );
                     println!("    Preview only — use `--send` to actually ping");
                 }
-            }
 
-            if !send {
                 println!();
                 println!("{}", "─".repeat(50));
                 println!("  💡 Use `--send` to actually send the emoji reactions");

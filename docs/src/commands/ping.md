@@ -56,7 +56,7 @@ Unlike comments, reactions:
 ──────────────────────────────────────────────────
   Emoji: eyes
 
-  🔍 Would send  #4821 — Fix authentication bug by @alice (3 days old)
+  🔍 Would send #4821 — Fix authentication bug by @alice (3 days old)
     Preview only — use `--send` to actually ping
 
 ──────────────────────────────────────────────────
@@ -69,12 +69,17 @@ Unlike comments, reactions:
 ```
 👀 Ping Command
 ──────────────────────────────────────────────────
-  Emoji: rocket
+  Emoji: eyes
 
-  📤 Sending  #4821 — Fix authentication bug by @alice (3 days old)
-    ⏳ Reacting... ✅ Done!
+  📤 Sending #4821 — Fix authentication bug by @alice (3 days old)
+  📤 Sending #4822 — Update dependencies by @bob (1 days old)
 
-──────────────────────────────────────────────────
+⏳ Sending 2 emoji reaction(s) in parallel...
+
+  ✅ #4821 — Fix authentication bug
+  ✅ #4822 — Update dependencies
+
+📊 Sent: 2, Failed: 0
 ```
 
 ## Examples
