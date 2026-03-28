@@ -500,7 +500,6 @@ async fn main() -> anyhow::Result<()> {
 
                     // Priority breakdown if --priority flag is set
                     if priority && !filtered.is_empty() {
-                        println!("\n  Priority breakdown:");
                         let mut scored: Vec<_> = filtered.iter()
                             .map(|r| {
                                 let score = logger::calculate_priority_score(r);
@@ -509,12 +508,35 @@ async fn main() -> anyhow::Result<()> {
                             .collect();
                         scored.sort_by(|a, b| b.1.cmp(&a.1)); // highest priority first
 
-                        // Group by score
+                        // Highlight the single most urgent PR
+                        if let Some((most_urgent, top_score)) = scored.first() {
+                            let age_days = (chrono::Utc::now() - most_urgent.created_at).num_days();
+                            let age_str = if age_days == 0 {
+                                "today".to_string()
+                            } else if age_days == 1 {
+                                "1 day".to_string()
+                            } else {
+                                format!("{} days ago", age_days)
+                            };
+                            let total = most_urgent.additions + most_urgent.deletions;
+                            println!("\n  🚨 Most Urgent:");
+                            println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
+                            println!("    👤 {}  •  📦 {} lines  •  ⏱️ {}  •  {}",
+                                most_urgent.pr_author.cyan(),
+                                total,
+                                age_str.red(),
+                                most_urgent.repo.dimmed()
+                            );
+                            println!("    🔗 {}", most_urgent.pr_url.blue().underline());
+                        }
+
+                        // Group by score for breakdown
                         let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                         for (review, score) in &scored {
                             score_groups.entry(*score).or_insert_with(Vec::new).push(review);
                         }
 
+                        println!("\n  Priority breakdown:");
                         for score in (1..=5).rev() {
                             if let Some(prs) = score_groups.get(&score) {
                                 let stars = logger::priority_stars(score);
