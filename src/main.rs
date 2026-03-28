@@ -6810,7 +6810,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewVelocity { days, bottlenecks, json } => {
+        Commands::ReviewVelocity { days, bottlenecks, repo, author, json } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
 
@@ -6884,23 +6884,39 @@ async fn main() -> anyhow::Result<()> {
                                                     .and_then(|l| l.split('`').nth(1))
                                                     .and_then(|s| s.replace(['-', ','], "").trim().parse().ok())
                                                     .unwrap_or(0);
-                                                let author = author_line
+                                                let pr_author = author_line
                                                     .and_then(|l| l.strip_prefix("- **Author**:"))
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
-                                                let repo = repo_line
+                                                let pr_repo = repo_line
                                                     .and_then(|l| l.strip_prefix("- **Repository**:"))
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
 
-                                                by_author.entry(author.clone()).or_insert_with(Vec::new).push(hours);
-                                                by_repo.entry(repo.clone()).or_insert_with(Vec::new).push(hours);
+                                                // Apply --repo filter (partial match, case-insensitive)
+                                                if let Some(ref repo_filter) = repo {
+                                                    let pattern = repo_filter.to_lowercase();
+                                                    if !pr_repo.to_lowercase().contains(&pattern) {
+                                                        continue;
+                                                    }
+                                                }
+
+                                                // Apply --author filter (partial match, case-insensitive)
+                                                if let Some(ref author_filter) = author {
+                                                    let pattern = author_filter.to_lowercase();
+                                                    if !pr_author.to_lowercase().contains(&pattern) {
+                                                        continue;
+                                                    }
+                                                }
+
+                                                by_author.entry(pr_author.clone()).or_insert_with(Vec::new).push(hours);
+                                                by_repo.entry(pr_repo.clone()).or_insert_with(Vec::new).push(hours);
 
                                                 velocity_data.push(VelocityData {
                                                     pr_title,
                                                     pr_number,
-                                                    repo: repo.clone(),
-                                                    author,
+                                                    repo: pr_repo,
+                                                    author: pr_author,
                                                     reviewed_at: reviewed_at_tz.to_rfc3339(),
                                                     created_at: created_at_tz.to_rfc3339(),
                                                     hours_to_review: hours,

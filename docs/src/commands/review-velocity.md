@@ -23,6 +23,8 @@ review-dispatcher review-velocity [OPTIONS]
 |------|-------------|---------|
 | `-d, --days <NUM>` | Number of days to look back | `30` |
 | `-b, --bottlenecks` | Show bottleneck analysis by author/repo | `false` |
+| `--repo <TEXT>` | Filter by repository name (partial match, case-insensitive) | |
+| `--author <TEXT>` | Filter by author username (partial match, case-insensitive) | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -36,6 +38,15 @@ review-dispatcher review-velocity --days 7
 
 # With bottleneck analysis (see slowest repos/authors)
 review-dispatcher review-velocity --bottlenecks
+
+# Filter by specific repository
+review-dispatcher review-velocity --repo backend
+
+# Filter by specific author
+review-dispatcher review-velocity --author alice
+
+# Combine filters with bottleneck analysis
+review-dispatcher review-velocity --repo api --bottlenecks
 
 # JSON for dashboards
 review-dispatcher review-velocity --json | jq '.avg_hours_to_review'

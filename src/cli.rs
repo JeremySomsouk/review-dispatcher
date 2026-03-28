@@ -711,6 +711,12 @@ pub enum Commands {
         /// Show bottleneck analysis (which repos/authors take longest)
         #[arg(long, short = 'b')]
         bottlenecks: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
