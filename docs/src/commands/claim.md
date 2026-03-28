@@ -19,13 +19,32 @@ review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-a, --all` | Claim all pending reviews | `false` |
+| `-a, --all` | Claim all matching PRs (use with `--repo`/`--author` filters) | `false` |
+| `-n, --dry-run` | Preview what would be claimed without taking action | `false` |
+| `-P, --priority` | Show priority scores for each PR | `false` |
+| `--repo` | Filter by repository name (partial match) | - |
+| `--author` | Filter by author username (partial match) | - |
 | `--json` | Output results as JSON | `false` |
 | `PR_NUMBERS` | PR number(s) to claim (comma-separated) | - |
 
 ## Examples
 
 ```bash
+# Claim specific PRs by number
 review-dispatcher claim 4821,3156,2890
+
+# Claim all pending reviews
 review-dispatcher claim --all
+
+# Preview what would be claimed (dry-run)
+review-dispatcher claim --all --dry-run
+
+# Claim all PRs from a specific repo
+review-dispatcher claim --all --repo myservice
+
+# Claim all PRs from a specific author with priority scores
+review-dispatcher claim --all --author johndoe --priority
+
+# Claim with JSON output for scripting
+review-dispatcher claim --all --json
 ```

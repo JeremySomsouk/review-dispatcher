@@ -2210,13 +2210,32 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Claim { all, pr_numbers, json } => {
+        Commands::Claim { all, pr_numbers, dry_run, priority, repo, author, json } => {
+            // Apply filters to reviews (consistent with list/delegate commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let targets: Vec<_> = if all {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews.into_iter().collect()
             } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
@@ -2228,24 +2247,28 @@ async fn main() -> anyhow::Result<()> {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
                 }
-                let mut all_prs = Vec::new();
-                for num in &results {
-                    let prs = github::fetch_pr_by_number(
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
                         *num,
                     )
-                    .await?;
-                    all_prs.extend(prs);
-                }
+                });
+                let all_prs: Vec<_> = futures::future::join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
                 all_prs
             } else {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&reviews, false);
+                logger::print_reviews(&filtered_reviews, priority);
                 print!(
                     "\n{} ",
                     "Select PRs to claim [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
@@ -2253,16 +2276,38 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), reviews.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };
 
             if targets.is_empty() {
                 println!("No PRs to claim.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be claimed
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be claimed:\n");
+                for (i, review) in targets.iter().enumerate() {
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan(),
+                        priority_label
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", targets.len());
                 return Ok(());
             }
 
