@@ -8579,8 +8579,20 @@ async fn main() -> anyhow::Result<()> {
                             // Visual bar
                             let bar_width = 20;
                             let bar: String = if limit.limit > 0 {
-                                let _filled = ((usage_pct / 100.0) * bar_width as f64).round() as usize;
-                                format!("{}{}", "█".green(), "░".truecolor(60, 60, 60))
+                                let filled = ((usage_pct / 100.0) * bar_width as f64).round() as usize;
+                                let empty = bar_width - filled;
+                                // Color the bar based on usage percentage
+                                let bar_color: colored::Color = if usage_pct < 20.0 {
+                                    colored::Color::Red
+                                } else if usage_pct < 50.0 {
+                                    colored::Color::Yellow
+                                } else {
+                                    colored::Color::Green
+                                };
+                                format!("{}{}",
+                                    "█".repeat(filled).color(bar_color),
+                                    "░".repeat(empty).truecolor(60, 60, 60)
+                                )
                             } else {
                                 "░".repeat(bar_width)
                             };
