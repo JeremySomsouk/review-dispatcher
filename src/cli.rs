@@ -80,6 +80,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Delegate all matching PRs at once (without prompting)
+        #[arg(long, short = 'a')]
+        all: bool,
     },
     /// List your own open PRs (draft or not)
     Mine {

@@ -21,6 +21,7 @@ review-dispatcher delegate [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--pr`, `-p` | Target specific PR by number (global flag) | All pending |
+| `--all`, `-a` | Delegate all matching PRs without prompting | `false` |
 | `--json` | Output results as JSON (useful for scripting) | `false` |
 | `--dry-run`, `-n` | Preview delegation without executing | `false` |
 | `--priority`, `-P` | Show priority scores (1-5 stars) in dry-run output | `false` |
@@ -60,6 +61,12 @@ review-dispatcher delegate --repo api --author bob --dry-run
 
 # JSON output for scripting
 review-dispatcher delegate --json
+
+# Delegate all matching PRs without prompting (useful for scripts)
+review-dispatcher delegate --all
+
+# Delegate all PRs from a specific repo without prompting
+review-dispatcher delegate --all --repo frontend
 
 # Delegate specific PR and get JSON result
 review-dispatcher delegate --pr 4821 --json

@@ -221,7 +221,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { json, dry_run, priority, since_days, repo, author } => {
+        Commands::Delegate { json, dry_run, priority, since_days, repo, author, all } => {
             let pr_number = cli.pr;
 
             // Apply filters to reviews (same logic as List command) unless --pr is specified
@@ -295,22 +295,27 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
-                    logger::print_reviews(&filtered_reviews, false);
+                    // If --all flag is set, delegate all without prompting
+                    if all {
+                        filtered_reviews.into_iter().collect()
+                    } else {
+                        logger::print_reviews(&filtered_reviews, false);
 
-                    print!(
-                        "\n{} ",
-                        "Select PRs to delegate [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
+                        print!(
+                            "\n{} ",
+                            "Select PRs to delegate [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                        );
+                        io::stdout().flush()?;
 
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    let input = input.trim();
+                        let mut input = String::new();
+                        io::stdin().read_line(&mut input)?;
+                        let input = input.trim();
 
-                    match parse_selection(input, filtered_reviews.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                        match parse_selection(input, filtered_reviews.len()) {
+                            Selection::Quit => return Ok(()),
+                            Selection::Indices(indices) => {
+                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                            }
                         }
                     }
                 }
