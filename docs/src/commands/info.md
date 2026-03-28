@@ -25,6 +25,8 @@ review-dispatcher info [OPTIONS]
 | `PR_NUMBER` | Target a specific PR by number | Interactive selection |
 | `--pr, -p` | Target a specific PR by number (global) | Interactive selection |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | None |
+| `--author` | Filter by author username (partial match, case-insensitive) | None |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -38,6 +40,15 @@ review-dispatcher info --pr 4821 --priority
 
 # Interactive mode (select from pending reviews)
 review-dispatcher info
+
+# Filter by repository
+review-dispatcher info --repo frontend
+
+# Filter by author
+review-dispatcher info --author sarah_dev
+
+# Filter by both repo and author
+review-dispatcher info --repo myorg --author sarah_dev
 
 # JSON output for integration
 review-dispatcher info --pr 4821 --json

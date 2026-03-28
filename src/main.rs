@@ -1184,7 +1184,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Info { pr_number, json, priority } => {
+        Commands::Info { pr_number, json, priority, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1198,12 +1198,26 @@ async fn main() -> anyhow::Result<()> {
                     .await?
                 }
                 None => {
-                    // Show all pending reviews and let user pick
-                    if reviews.is_empty() {
-                        println!("No pending reviews found.");
+                    // Apply --repo and --author filters to reviews
+                    let mut filtered = reviews.clone();
+
+                    // Apply --repo filter (partial match, case-insensitive)
+                    if let Some(ref repo_filter) = repo {
+                        let pattern = repo_filter.to_lowercase();
+                        filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                    }
+
+                    // Apply --author filter (partial match, case-insensitive)
+                    if let Some(ref author_filter) = author {
+                        let pattern = author_filter.to_lowercase();
+                        filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                    }
+
+                    if filtered.is_empty() {
+                        println!("No matching reviews found.");
                         return Ok(());
                     }
-                    logger::print_reviews(&reviews, false);
+                    logger::print_reviews(&filtered, false);
                     print!(
                         "\n{} ",
                         "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -1211,10 +1225,10 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), reviews.len()) {
+                    match parse_selection(input.trim(), filtered.len()) {
                         Selection::Quit => return Ok(()),
                         Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| reviews[i].clone()).collect()
+                            indices.into_iter().map(|i| filtered[i].clone()).collect()
                         }
                     }
                 }
