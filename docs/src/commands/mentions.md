@@ -25,7 +25,7 @@ review-dispatcher mentions [OPTIONS]
 | `-p, --pr <NUM>` | Filter to specific PR number | all |
 | `-s, --since-days <DAYS>` | Only show notifications from the last N days | all |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | all |
-| `--author <PATTERN>` | Filter by repository name (partial match, case-insensitive) | all |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | all |
 | `-P, --priority` | Show priority scores (1-5 stars based on age) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
@@ -50,8 +50,8 @@ review-dispatcher mentions --since-days 3
 # Filter by repository and time window
 review-dispatcher mentions --repo myorg --since-days 7
 
-# Filter by repository name (author alias for CLI consistency)
-review-dispatcher mentions --author myorg
+# Filter by author username
+review-dispatcher mentions --author johndoe
 
 # Show priority scores for urgent notifications
 review-dispatcher mentions --priority
