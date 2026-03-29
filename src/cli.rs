@@ -228,6 +228,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
     },
     /// Show the chronological timeline of events on a PR (reviews, comments, labels, CI, etc.)
     Timeline {

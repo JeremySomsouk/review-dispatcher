@@ -27,6 +27,7 @@ review-dispatcher info [OPTIONS]
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author` | Filter by author username (partial match, case-insensitive) | None |
+| `--since-days, -s` | Only show PRs created since this many days ago | None |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -49,6 +50,12 @@ review-dispatcher info --author sarah_dev
 
 # Filter by both repo and author
 review-dispatcher info --repo myorg --author sarah_dev
+
+# Show info for recent PRs (last 7 days)
+review-dispatcher info --since-days 7
+
+# Combine filters
+review-dispatcher info --repo frontend --since-days 14
 
 # JSON output for integration
 review-dispatcher info --pr 4821 --json

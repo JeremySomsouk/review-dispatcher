@@ -1245,7 +1245,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Info { pr_number, json, priority, repo, author } => {
+        Commands::Info { pr_number, json, priority, repo, author, since_days } => {
             let target_pr = cli.pr.or(pr_number);
 
             let prs = match target_pr {
@@ -1259,8 +1259,14 @@ async fn main() -> anyhow::Result<()> {
                     .await?
                 }
                 None => {
-                    // Apply --repo and --author filters to reviews
+                    // Apply --repo, --author, and --since-days filters to reviews
                     let mut filtered = reviews.clone();
+
+                    // Apply --since-days filter
+                    if let Some(days) = since_days {
+                        let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                        filtered.retain(|r| r.created_at >= cutoff);
+                    }
 
                     // Apply --repo filter (partial match, case-insensitive)
                     if let Some(ref repo_filter) = repo {
