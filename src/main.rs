@@ -9551,6 +9551,66 @@ async fn main() -> anyhow::Result<()> {
                             println!();
                             println!("💡 Recommendations\n{}", "─".repeat(50));
 
+                            // Get core limit remaining for calculations
+                            let core_remaining = health.rate_limits.iter()
+                                .find(|l| l.resource == "core")
+                                .map(|l| l.remaining)
+                                .unwrap_or(0);
+
+                            // API cost estimates table
+                            println!();
+                            println!("  📊 Command API Costs (approximate GitHub API calls):");
+                            println!();
+                            println!("  {:25} {:>6}   {}", "Command", "Calls", "Notes");
+                            println!("  {}", "─".repeat(60));
+                            
+                            struct CmdCost<'a> { name: &'a str, calls: u32, notes: &'a str }
+                            let cmd_costs = vec![
+                                CmdCost { name: "list", calls: 1, notes: "per repo (list PRs)" },
+                                CmdCost { name: "list --all", calls: 3, notes: "all repos + details" },
+                                CmdCost { name: "stats", calls: 2, notes: "list + per-PR details" },
+                                CmdCost { name: "team-summary", calls: 2, notes: "list + per-PR details" },
+                                CmdCost { name: "summary", calls: 1, notes: "lightweight aggregate" },
+                                CmdCost { name: "search", calls: 2, notes: "list + per-PR details" },
+                                CmdCost { name: "delegate", calls: 8, notes: "+PR details +CLAUDE API" },
+                                CmdCost { name: "delegate --dry-run", calls: 3, notes: "preview without CLAUDE" },
+                                CmdCost { name: "focus", calls: 4, notes: "list + details +score" },
+                                CmdCost { name: "top", calls: 3, notes: "list + details +score" },
+                                CmdCost { name: "ci", calls: 6, notes: "+ status + check runs" },
+                                CmdCost { name: "conflicts", calls: 4, notes: "list + merge status" },
+                                CmdCost { name: "info", calls: 2, notes: "single PR full details" },
+                                CmdCost { name: "files", calls: 4, notes: "list + per-PR file diff" },
+                                CmdCost { name: "labels", calls: 4, notes: "list + per-PR labels" },
+                                CmdCost { name: "timeline", calls: 3, notes: "list + timeline events" },
+                                CmdCost { name: "review", calls: 3, notes: "full diff with patches" },
+                                CmdCost { name: "mentions", calls: 4, notes: "notifications + PR details" },
+                                CmdCost { name: "activity", calls: 8, notes: "all repos + timelines" },
+                                CmdCost { name: "digest", calls: 6, notes: "aggregate + trends" },
+                            ];
+                            
+                            for cmd in &cmd_costs {
+                                let affordable = if core_remaining >= 10 {
+                                    "🟢".green()
+                                } else if core_remaining >= cmd.calls {
+                                    "🟡".yellow()
+                                } else {
+                                    "🔴".red()
+                                };
+                                println!("  {} {:25} {:>5}   {}", 
+                                    affordable,
+                                    cmd.name,
+                                    format!("~{}", cmd.calls),
+                                    cmd.notes.dimmed()
+                                );
+                            }
+
+                            println!();
+                            println!("  💡 Tips:");
+                            println!("    • Commands with --dry-run cost ~3x less (skip external API calls)");
+                            println!("    • Batch commands (--all) multiply API costs by number of PRs");
+                            println!("    • Use --json to reduce output parsing overhead");
+                            println!();
+
                             if critical_limits.is_empty() && low_limits.is_empty() {
                                 println!("  ✅ All rate limits look healthy. You're good to go!");
                                 println!();
@@ -9585,15 +9645,22 @@ async fn main() -> anyhow::Result<()> {
                                 let low = low_limits.iter().map(|(r, _, _)| r.clone()).collect::<Vec<_>>().join(", ");
                                 println!("  🟡 LOW: {} limit(s) below 10%", low);
                                 println!();
-                                println!("  Suggested approach:");
-                                println!("    • Avoid batch operations like --all flags");
-                                println!("    • Use --json when scripting to minimize output");
-                                println!("    • Prioritize commands you really need");
+                                println!("  Current budget: ~{} core API calls remaining", core_remaining);
+                                println!();
+                                println!("  Safe commands to run now:");
+                                println!("    • review-dispatcher summary");
+                                println!("    • review-dispatcher list (no --all)");
+                                println!("    • review-dispatcher stats");
+                                println!();
+                                println!("  Commands to avoid until reset:");
+                                println!("    • delegate --all (high API cost)");
+                                println!("    • activity (multiple timeline fetches)");
+                                println!("    • review (full diff with patches)");
                                 println!();
                                 println!("  Lower-cost alternatives:");
-                                println!("    • review-dispatcher list (minimal API calls)");
-                                println!("    • review-dispatcher summary (aggregated, not per-PR)");
-                                println!("    • review-dispatcher stats (read-only statistics)");
+                                println!("    • review-dispatcher search (title filter)");
+                                println!("    • review-dispatcher filter (client-side)");
+                                println!("    • review-dispatcher browse (URLs only)");
 
                                 // Show safe remaining calls
                                 if let Some((_, remaining, limit)) = low_limits.iter().find(|(r, _, _)| *r == "core") {
