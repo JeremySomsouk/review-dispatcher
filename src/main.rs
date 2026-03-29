@@ -3351,7 +3351,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, pr_numbers, pr, all, context, output_file, language, priority, repo, author, json } => {
+        Commands::Review { pr_number, pr_numbers, pr, all, dry_run, context, output_file, language, priority, repo, author, json } => {
             // Apply --repo and --author filters first (consistent with other commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -3437,6 +3437,31 @@ async fn main() -> anyhow::Result<()> {
 
             if prs.is_empty() {
                 println!("No PR found to review.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be reviewed
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be reviewed:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    let total = review.additions + review.deletions;
+                    println!("  {}. #{} {}  ({}) [{} lines]{}",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan(),
+                        total,
+                        priority_label
+                    );
+                    println!("     🔗 {}", review.pr_url.blue());
+                }
+                println!("\n  Total: {} PR(s)\n", prs.len());
                 return Ok(());
             }
 

@@ -790,7 +790,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// PR number(s) to review (comma-separated)
-        #[arg(long, short = 'n')]
+        #[arg(long)]
         pr_numbers: Option<String>,
         /// Show diff for specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
@@ -798,6 +798,9 @@ pub enum Commands {
         /// Show diffs for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Preview which PRs would be shown without actually displaying the diff
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Number of context lines around changes (default: 3)
         #[arg(long, short = 'C', default_value_t = 3)]
         context: u8,
