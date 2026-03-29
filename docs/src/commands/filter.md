@@ -73,4 +73,5 @@ review-dispatcher filter --repo api --min-size 100 --json | jq '.[].pr_number'
 
 - All filters are ANDed together (PR number AND repo AND author AND size...)
 - Partial match on repo/author names (case-insensitive)
+- Snoozed PRs are automatically hidden (use `--pr` to bypass snooze filter)
 - Great for building automation scripts
