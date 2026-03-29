@@ -22,6 +22,7 @@ review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 | `-a, --all` | Claim all matching PRs (use with `--repo`/`--author` filters) | `false` |
 | `-n, --dry-run` | Preview what would be claimed without taking action | `false` |
 | `-P, --priority` | Show priority scores for each PR | `false` |
+| `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--repo` | Filter by repository name (partial match) | - |
 | `--author` | Filter by author username (partial match) | - |
 | `--json` | Output results as JSON | `false` |
@@ -44,6 +45,9 @@ review-dispatcher claim --all --repo myservice
 
 # Claim all PRs from a specific author with priority scores
 review-dispatcher claim --all --author johndoe --priority
+
+# Claim all PRs from the last 7 days only
+review-dispatcher claim --all --since-days 7
 
 # Claim with JSON output for scripting
 review-dispatcher claim --all --json

@@ -378,6 +378,9 @@ pub enum Commands {
         /// PR number(s) to claim (comma-separated)
         #[arg(long)]
         pr_numbers: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Preview what would be claimed without taking action
         #[arg(long, short = 'n')]
         dry_run: bool,

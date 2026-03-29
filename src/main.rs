@@ -2706,10 +2706,16 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Claim { all, pr_numbers, dry_run, priority, repo, author, json } => {
+        Commands::Claim { all, pr_numbers, since_days, dry_run, priority, repo, author, json } => {
             // Apply filters to reviews (consistent with list/delegate commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter
                 if let Some(ref repo_filter) = repo {
