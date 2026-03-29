@@ -29,6 +29,7 @@ review-dispatcher export [OPTIONS]
 | `--json` | Output as JSON (useful for scripting) | false |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | none |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | none |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | none |
 
 ### Available Columns
 
@@ -69,6 +70,9 @@ review-dispatcher export --repo backend --output backend-reviews.csv
 
 # Export only PRs by a specific author
 review-dispatcher export --author alice --output alice-reviews.csv
+
+# Export only PRs created in the last 7 days
+review-dispatcher export --since-days 7 --output recent-reviews.csv
 
 # Combine filters with other options
 review-dispatcher export --repo frontend --author alice --format markdown --output report.md

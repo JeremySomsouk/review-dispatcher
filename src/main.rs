@@ -9280,7 +9280,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, all, json, repo, author } => {
+        Commands::Export { format, output, columns, all, json, repo, author, since_days } => {
             use chrono::Utc;
 
             let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
@@ -9319,6 +9319,17 @@ async fn main() -> anyhow::Result<()> {
                 reviews_to_export
                     .into_iter()
                     .filter(|r| r.pr_author.to_lowercase().contains(&pattern))
+                    .collect()
+            } else {
+                reviews_to_export
+            };
+
+            // Apply --since-days filter
+            let reviews_to_export: Vec<_> = if let Some(days) = since_days {
+                let cutoff = Utc::now() - chrono::Duration::days(days as i64);
+                reviews_to_export
+                    .into_iter()
+                    .filter(|r| r.created_at >= cutoff)
                     .collect()
             } else {
                 reviews_to_export
