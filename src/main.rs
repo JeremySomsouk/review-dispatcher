@@ -8805,12 +8805,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Focus { dry_run, open, json, priority, repo, author } => {
+        Commands::Focus { dry_run, open, json, priority, repo, author, since_days } => {
             use chrono::Utc;
 
-            // Apply --repo and --author filters (consistent with other commands)
+            // Apply --repo and --author and --since-days filters (consistent with other commands)
             let filtered: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

@@ -27,6 +27,7 @@ review-dispatcher focus [OPTIONS]
 | `-P, --priority` | Show priority score for the focused PR (1-5 stars) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | |
 | `--author` | Filter by author username (partial match, case-insensitive) | |
+| `-s, --since-days` | Only show PRs created since this many days ago | |
 
 ## Examples
 
@@ -51,6 +52,9 @@ review-dispatcher focus --author johndoe
 
 # Show priority score with stars
 review-dispatcher focus --priority
+
+# Focus only on recently created PRs (last 7 days)
+review-dispatcher focus --since-days 7
 ```
 
 ## Priority Calculation
