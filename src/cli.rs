@@ -195,6 +195,12 @@ pub enum Commands {
         /// PR number to show diff for
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// PR number(s) to show diff for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Show diff for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Show diff/stats for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,

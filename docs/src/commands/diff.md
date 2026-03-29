@@ -1,6 +1,6 @@
 # diff
 
-Show detailed diff/stats for a specific PR directly in the terminal.
+Show detailed diff/stats for one or more PRs directly in the terminal.
 
 ## Synopsis
 
@@ -12,7 +12,9 @@ review-dispatcher diff [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `--pr, -p <NUMBER>` | Target a specific PR by number | Interactive selection |
+| `<PR_NUMBER>` | Target a specific PR by number (positional) | Interactive selection |
+| `--pr, -p <NUMBER>` | Target a specific PR by number (shorthand) | Interactive selection |
+| `--pr-numbers <NUMBERS>` | Target multiple PRs by number (comma-separated) | None |
 | `--all, -a` | Show diff/stats for all pending reviews without prompting | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
@@ -23,8 +25,15 @@ review-dispatcher diff [OPTIONS]
 ## Examples
 
 ```bash
-# Show diff for a specific PR
+# Show diff for a specific PR (positional)
+review-dispatcher diff 4821
+
+# Show diff for a specific PR (shorthand)
 review-dispatcher diff --pr 4821
+review-dispatcher diff -p 4821
+
+# Show diffs for multiple PRs at once
+review-dispatcher diff --pr-numbers 4821,4822,4823
 
 # Interactive mode (select from pending reviews)
 review-dispatcher diff

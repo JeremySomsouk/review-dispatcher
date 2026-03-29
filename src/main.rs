@@ -1062,12 +1062,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, all, json, priority, repo, author, since_days } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Diff { pr_number, pr_numbers, pr, all, json, priority, repo, author, since_days } => {
+            // Priority: global --pr flag > local --pr > positional PR_NUMBER
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
-            // Apply --repo and --author filters to reviews first
-            let filtered: Vec<_> = {
+            // Apply --repo and --author and --since-days filters when using interactive selection or --all
+            let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
@@ -1081,55 +1088,78 @@ async fn main() -> anyhow::Result<()> {
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
                 }
 
-                // Apply --since-days filter (relative - PRs newer than N days)
-                if let Some(days) = since_days {
-                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    result.retain(|r| r.created_at >= cutoff);
-                }
-
                 result
             };
 
-            let prs: Vec<github::PendingReview> = if target_pr.is_some() {
-                // When --pr is specified, bypass filters and fetch directly
-                github::fetch_pr_by_number(
+            let targets: Vec<_> = if all {
+                // --all flag: use all pending reviews (already filtered)
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                filtered_reviews
+            } else if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                let prs = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
-                    target_pr.unwrap(),
+                    num,
                 )
-                .await?
-            } else if all {
-                // When --all flag is set, return all filtered reviews without prompting
-                if filtered.is_empty() {
-                    println!("No matching reviews found.");
+                .await?;
+                prs
+            } else if let Some(ref nums) = pr_numbers {
+                // Parse comma-separated PR numbers
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
                     return Ok(());
                 }
-                filtered
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
             } else {
-                // Apply filters and let user pick
-                if filtered.is_empty() {
+                // Interactive: show list and let user pick (using filtered reviews)
+                if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered, false);
+                logger::print_reviews(&filtered_reviews, false);
                 print!(
                     "\n{} ",
-                    "Select PR to diff [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    "Select PRs to diff [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
                 );
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), filtered.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };
 
-            if prs.is_empty() {
-                println!("No PR found to diff.");
+            if targets.is_empty() {
+                println!("No PRs found to diff.");
                 return Ok(());
             }
 
@@ -1151,7 +1181,7 @@ async fn main() -> anyhow::Result<()> {
                 priority_score: u8,
             }
 
-            for review in prs {
+            for review in targets {
                 let age_days = (chrono::Utc::now() - review.created_at).num_days();
                 let total = review.additions + review.deletions;
                 let size_label: &'static str = if total < 50 {
