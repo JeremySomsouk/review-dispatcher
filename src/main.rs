@@ -679,7 +679,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats { json, all, dry_run, pr_numbers, pr_number, repo, author, priority, since_days } => {
+        Commands::Stats { json, all, dry_run, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use chrono::Duration;
 
@@ -922,7 +922,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json, all, pr_numbers, pr_number, repo, author, priority, since_days } => {
+        Commands::TeamSummary { json, all: _all, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
@@ -8353,7 +8353,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, pr_numbers, all, repo, author, pr, json, priority, since_days } => {
+        Commands::Activity { days, pr_numbers: _pr_numbers, all: _all, repo, author, pr, json, priority, since_days } => {
             println!("\n📈 Fetching your review activity (last {} days)...\n", days);
 
             match github::fetch_my_review_activity(
@@ -8403,7 +8403,7 @@ async fn main() -> anyhow::Result<()> {
                         let results: Vec<Result<Vec<github::PendingReview>, anyhow::Error>> = join_all(fetch_futures).await;
                         let mut score_map: std::collections::HashMap<(String, u64), u8> = std::collections::HashMap::new();
                         for (activity, result) in activities.iter().zip(results.into_iter()) {
-                            if let Ok(mut prs) = result {
+                            if let Ok(prs) = result {
                                 if let Some(pr) = prs.into_iter().next() {
                                     score_map.insert((activity.repo.clone(), activity.pr_number), logger::calculate_priority_score(&pr));
                                 }

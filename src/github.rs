@@ -894,6 +894,7 @@ pub async fn fetch_mentions(
     // Use GitHub's notifications API
     #[derive(serde::Deserialize)]
     struct Notification {
+        #[allow(dead_code)]
         id: String,
         unread: bool,
         reason: String,
@@ -1096,6 +1097,7 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
 
     #[derive(serde::Deserialize)]
     struct RateResources {
+        #[allow(dead_code)]
         #[serde(rename = "core")]
         core: RateLimitEntry,
         #[serde(rename = "search")]
@@ -1109,8 +1111,10 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
         limit: u32,
         remaining: u32,
         reset: u64,
+        #[allow(dead_code)]
         #[serde(rename = "used")]
         used: u32,
+        #[allow(dead_code)]
         #[serde(rename = "resource")]
         resource: Option<String>,
     }
