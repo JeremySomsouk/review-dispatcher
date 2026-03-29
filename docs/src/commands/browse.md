@@ -39,7 +39,7 @@ review-dispatcher browse 4821
 review-dispatcher browse --pr 4821
 
 # Open multiple PRs in browser
-review-dispatcher browse -n 4821,3156,2890
+review-dispatcher browse --pr-numbers 4821,3156,2890
 
 # Open all pending reviews at once
 review-dispatcher browse --all
