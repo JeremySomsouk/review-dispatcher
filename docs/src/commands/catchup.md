@@ -20,12 +20,13 @@ review-dispatcher catchup [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to show catchup for (shorthand for `--pr`) | |
-| `-a, --min-age <DAYS>` | Minimum age in days to be considered "catchup" | `3` |
+| `--min-age <DAYS>` | Minimum age in days to be considered "catchup" | `3` |
 | `-n, --limit <NUM>` | Limit the number of results shown | `10` |
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
-| `-l, --all` | Show all neglected PRs without limit | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
+| `-a, --all` | Show all neglected PRs without limit | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
@@ -39,6 +40,9 @@ review-dispatcher catchup --min-age 7
 
 # Show priority scores for each PR
 review-dispatcher catchup --priority
+
+# Show only PRs created in the last 14 days but older than 3 days
+review-dispatcher catchup --since-days 14 --min-age 3
 
 # Combine with limit for more results
 review-dispatcher catchup --min-age 7 --limit 20

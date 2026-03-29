@@ -26,6 +26,7 @@ review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 | `--repo` | Filter by repository name (partial match) | - |
 | `--author` | Filter by author username (partial match) | - |
 | `--json` | Output results as JSON | `false` |
+| `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `PR_NUMBERS` | PR number(s) to claim (comma-separated) | - |
 
 ## Examples

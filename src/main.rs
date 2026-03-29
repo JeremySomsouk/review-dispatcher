@@ -3231,7 +3231,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Claim { all, pr_numbers, since_days, dry_run, priority, repo, author, json } => {
+        Commands::Claim { all, pr_numbers, since_days, dry_run, priority, repo, author, json, quiet } => {
             // Apply filters to reviews (consistent with list/delegate commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -3350,7 +3350,7 @@ async fn main() -> anyhow::Result<()> {
 
             let mut results: Vec<ClaimResult> = Vec::new();
 
-            if !json {
+            if !json && !quiet {
                 println!(
                     "\n🎯 Claiming {} PR(s) for review...\n",
                     targets.len().to_string().yellow().bold()
@@ -3382,7 +3382,7 @@ async fn main() -> anyhow::Result<()> {
             for (review, result) in targets.into_iter().zip(claim_results.into_iter()) {
                 match result {
                     Ok(_) => {
-                        if !json {
+                        if !json && !quiet {
                             println!(
                                 "  {} #{} {}",
                                 "✅".green(),
@@ -3400,7 +3400,7 @@ async fn main() -> anyhow::Result<()> {
                         });
                     }
                     Err(e) => {
-                        if !json {
+                        if !json && !quiet {
                             println!(
                                 "  {} #{} {}  ❌ {}",
                                 "❌".red(),
@@ -4909,7 +4909,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Catchup { pr_number, min_age, limit, json, priority, repo, author, all } => {
+        Commands::Catchup { pr_number, min_age, limit, json, priority, repo, author, all, since_days } => {
             let min_age = min_age as i64;
             let limit = limit.unwrap_or(10);
 
@@ -4920,6 +4920,15 @@ async fn main() -> anyhow::Result<()> {
             let pr_filtered: Vec<_> = match cli.pr.or(pr_number) {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                 None => reviews.clone(),
+            };
+
+            // Apply --since-days filter first (only show PRs created since N days ago)
+            let pr_filtered: Vec<_> = match since_days {
+                Some(days) => {
+                    let since_cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    pr_filtered.into_iter().filter(|r| r.created_at >= since_cutoff).collect()
+                }
+                None => pr_filtered,
             };
 
             // Filter: only PRs older than min_age, sorted oldest-first

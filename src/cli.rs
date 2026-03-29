@@ -469,6 +469,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
     },
     /// Open one or more PRs in your browser
     Browse {
@@ -923,7 +926,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// Minimum age in days to be considered "catchup" (default: 3)
-        #[arg(long, short = 'a', default_value_t = 3)]
+        #[arg(long, default_value_t = 3)]
         min_age: u32,
         /// Limit the number of results shown (default: 10)
         #[arg(long, short = 'n')]
@@ -940,8 +943,11 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Show all neglected PRs without limit (no truncation)
-        #[arg(long, short = 'l')]
+        #[arg(long, short = 'a')]
         all: bool,
     },
     /// Categorize pending PRs by age brackets (new/aging/stale/overdue) with visual buckets
