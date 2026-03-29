@@ -24,6 +24,7 @@ review-dispatcher quick [OPTIONS]
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
+| `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -41,6 +42,9 @@ review-dispatcher quick --repo myservice
 # Show quick wins with priority scores
 review-dispatcher quick --priority
 
+# Only show recent quick wins (last 7 days)
+review-dispatcher quick --since-days 7
+
 # Combine filters
-review-dispatcher quick --repo api --author johndoe --priority
+review-dispatcher quick --repo api --author johndoe --priority --since-days 14
 ```

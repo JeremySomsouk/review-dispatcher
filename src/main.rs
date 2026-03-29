@@ -4228,13 +4228,27 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Quick { max_lines, limit, priority, repo, author, json } => {
+        Commands::Quick { max_lines, limit, priority, repo, author, json, since_days } => {
             let max_lines = max_lines.unwrap_or(200);
             let limit = limit.unwrap_or(10);
 
+            // Apply --since-days filter first (consistent with other commands)
+            let after_since: Vec<_> = {
+                match since_days {
+                    Some(days) => {
+                        let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                        reviews.iter()
+                            .filter(|r| r.created_at >= cutoff)
+                            .cloned()
+                            .collect()
+                    }
+                    None => reviews.clone(),
+                }
+            };
+
             // Apply --repo filter (partial match, case-insensitive)
             let filtered: Vec<_> = {
-                let mut result = reviews.clone();
+                let mut result = after_since;
 
                 if let Some(ref repo_filter) = repo {
                     let pattern = repo_filter.to_lowercase();

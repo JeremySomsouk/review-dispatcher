@@ -840,6 +840,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -996,15 +999,15 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
-        /// Only show PRs created since this many days ago
-        #[arg(long, short = 's')]
-        since_days: Option<u32>,
     },
     /// Analyze how quickly PRs get reviewed (avg time-to-first-review, bottleneck detection)
     ReviewVelocity {
