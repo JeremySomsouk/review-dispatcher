@@ -22,7 +22,7 @@ review-dispatcher filter [OPTIONS]
 | Flag | Description |
 |------|-------------|
 | `PR_NUMBER` | Filter to a specific PR number |
-| `-n, --pr-numbers <NUMBERS>` | PR number(s) to filter to (comma-separated) |
+| `--pr-numbers <NUMBERS>` | PR number(s) to filter to (comma-separated) |
 | `--repo <NAME>` | Repository contains this text (partial match) |
 | `--author <NAME>` | Author contains this text (partial match) |
 | `--min-size <LINES>` | Minimum total lines changed |

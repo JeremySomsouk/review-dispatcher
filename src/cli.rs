@@ -493,7 +493,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// PR number(s) to filter to (comma-separated)
-        #[arg(long, short = 'n')]
+        #[arg(long)]
         pr_numbers: Option<String>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
