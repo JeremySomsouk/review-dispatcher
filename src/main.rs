@@ -7573,7 +7573,8 @@ async fn main() -> anyhow::Result<()> {
                     }
 
                     // When --priority is specified, fetch PR details in parallel for priority scoring
-                    let priority_scores: Option<Vec<u8>> = if priority {
+                    // Use a HashMap to avoid index misalignment when fetches fail
+                    let priority_scores: Option<std::collections::HashMap<(String, u64), u8>> = if priority {
                         let fetch_futures = activities.iter().map(|activity| {
                             github::fetch_pr_by_number(
                                 &cfg.github_token,
@@ -7583,7 +7584,15 @@ async fn main() -> anyhow::Result<()> {
                             )
                         });
                         let results: Vec<Result<Vec<github::PendingReview>, anyhow::Error>> = join_all(fetch_futures).await;
-                        Some(results.into_iter().filter_map(|r| r.ok()).filter_map(|prs| prs.into_iter().next()).map(|pr| logger::calculate_priority_score(&pr)).collect())
+                        let mut score_map: std::collections::HashMap<(String, u64), u8> = std::collections::HashMap::new();
+                        for (activity, result) in activities.iter().zip(results.into_iter()) {
+                            if let Ok(mut prs) = result {
+                                if let Some(pr) = prs.into_iter().next() {
+                                    score_map.insert((activity.repo.clone(), activity.pr_number), logger::calculate_priority_score(&pr));
+                                }
+                            }
+                        }
+                        Some(score_map)
                     } else {
                         None
                     };
@@ -7645,8 +7654,7 @@ async fn main() -> anyhow::Result<()> {
                                     };
                                     let priority_display = if priority {
                                         let score = priority_scores.as_ref().and_then(|scores| {
-                                            let activity_idx = activities.iter().position(|a| a.pr_number == activity.pr_number && a.repo == activity.repo);
-                                            activity_idx.and_then(|idx| scores.get(idx)).copied()
+                                            scores.get(&(activity.repo.clone(), activity.pr_number)).copied()
                                         }).unwrap_or(0);
                                         format!("  {}", logger::priority_stars(score))
                                     } else {
