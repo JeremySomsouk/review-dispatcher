@@ -29,6 +29,7 @@ review-dispatcher size [OPTIONS]
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | All repos |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | All authors |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | All PRs |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -51,6 +52,9 @@ review-dispatcher size --repo myservice
 
 # Filter by author
 review-dispatcher size --author johndoe
+
+# Show only recent PRs (last 7 days)
+review-dispatcher size --since-days 7
 
 # JSON output for scripting
 review-dispatcher size --json
