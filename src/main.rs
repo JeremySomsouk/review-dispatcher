@@ -6097,8 +6097,28 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_numbers, json, repo, author, priority } => {
+        Commands::Follow { action, pr_number, pr_numbers, pr, json, repo, author, priority } => {
             use serde::{Deserialize, Serialize};
+
+            // Compute target PRs: global --pr > local --pr > local --pr-number > --pr-numbers
+            let target_prs: Option<Vec<u64>> = {
+                // Global --pr has highest priority
+                if let Some(p) = cli.pr {
+                    Some(vec![p])
+                // Local --pr is next
+                } else if let Some(p) = pr {
+                    Some(vec![p])
+                // Local --pr-number is next
+                } else if let Some(p) = pr_number {
+                    Some(vec![p])
+                // --pr-numbers for comma-separated values
+                } else if let Some(ref nums) = pr_numbers {
+                    let parsed: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                    if parsed.is_empty() { None } else { Some(parsed) }
+                } else {
+                    None
+                }
+            };
 
             // Follow storage file
             let follow_file = output_dir
@@ -6137,12 +6157,8 @@ async fn main() -> anyhow::Result<()> {
 
             match action {
                 cli::FollowAction::Add => {
-                    // If no PR numbers provided, show interactive picker
-                    let targets: Vec<_> = if let Some(ref nums) = pr_numbers {
-                        let nums: Vec<u64> = nums
-                            .split(',')
-                            .filter_map(|s| s.trim().parse().ok())
-                            .collect();
+                    // If target PRs specified via --pr / --pr-number / --pr-numbers, fetch them directly
+                    let targets: Vec<_> = if let Some(ref nums) = target_prs {
                         if nums.is_empty() {
                             println!("❌ No valid PR numbers provided.");
                             return Ok(());

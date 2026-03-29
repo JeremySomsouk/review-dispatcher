@@ -1251,9 +1251,15 @@ pub enum Commands {
         /// Follow action: add, list, remove, clear, or status
         #[command(subcommand)]
         action: FollowAction,
+        /// PR number to follow (shorthand for --pr-numbers with single value)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// PR number(s) to follow (comma-separated, for add/remove)
-        #[arg(value_name = "PR_NUMBERS")]
+        #[arg(long)]
         pr_numbers: Option<String>,
+        /// PR number to follow (shorthand for --pr-numbers with single value)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,

@@ -31,7 +31,10 @@ review-dispatcher follow <ACTION> [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `<PR_NUMBERS>` | PR number(s) to follow (comma-separated, format: `repo#123` or `123`) | Required for `add`/`remove` |
+| `<PR_NUMBER>` | PR number to follow (shorthand for `--pr`) | Optional |
+| `-p, --pr <NUM>` | PR number to follow (shorthand for `--pr-numbers` with single value) | Optional |
+| `--pr-number <NUM>` | PR number to follow (shorthand for `--pr-numbers` with single value) | Optional |
+| `--pr-numbers <NUMS>` | PR number(s) to follow (comma-separated, format: `repo#123` or `123`) | Optional |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
 | `--author` | Filter by author username (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
@@ -49,6 +52,12 @@ PRs can be specified in two ways:
 ```bash
 # Add a PR to your follow list
 review-dispatcher follow add 123
+
+# Follow a PR using --pr flag (consistent with other commands)
+review-dispatcher follow add --pr 123
+
+# Follow a PR using --pr-numbers flag
+review-dispatcher follow add --pr-numbers 123
 
 # Follow multiple PRs
 review-dispatcher follow add 123,456,789
