@@ -4731,7 +4731,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Digest { days, raw, repo, author, priority } => {
+        Commands::Digest { days, raw, repo, author, priority, since_days } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -4750,6 +4750,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter (relative - PRs newer than N days)
+                if let Some(since) = since_days {
+                    let since_cutoff = now - Duration::days(since as i64);
+                    result.retain(|r| r.created_at >= since_cutoff);
                 }
 
                 result
@@ -4822,7 +4828,12 @@ async fn main() -> anyhow::Result<()> {
 
             if raw {
                 // Raw markdown output (for piping to Slack/Teams)
-                println!("## 📋 Review Digest — last {} days", days);
+                let days_label = if let Some(s) = since_days {
+                    format!(" (last {} days)", s)
+                } else {
+                    format!(" — last {} days", days)
+                };
+                println!("## 📋 Review Digest{}\n", days_label);
                 println!();
                 println!("**Total:** {} PRs | **+{}** / **-{}** lines | **Overdue:** {}",
                     total, total_additions, total_deletions, overdue_count);

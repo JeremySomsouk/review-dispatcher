@@ -26,6 +26,7 @@ review-dispatcher digest [OPTIONS]
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | |
 | `-P, --priority` | Show priority scores and most urgent PR | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | |
 
 ## Examples
 
@@ -53,6 +54,9 @@ review-dispatcher digest --priority
 
 # Combined: raw markdown filtered by repo with priority
 review-dispatcher digest --raw --repo backend --priority
+
+# Only show PRs created in the last 3 days
+review-dispatcher digest --since-days 3
 ```
 
 ## Output Examples
@@ -155,3 +159,4 @@ review-dispatcher digest --raw --repo backend --priority
 - Use `--priority` to identify the most urgent PR at a glance
 - Age buckets: 🆕 New 0-1d · 🌱 Fresh 2-3d · ⏳ Aging 4-7d · 🔥 Stale 8-14d · 💀 Overdue 15d+
 - Combine filters for targeted digests: `digest --repo backend --author alice --priority`
+- Use `--since-days` to filter by PR creation date (e.g., only show PRs created in the last 3 days)
