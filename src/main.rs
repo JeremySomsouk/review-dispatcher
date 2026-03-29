@@ -8181,7 +8181,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, since_days, json } => {
+        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, since_days, json, pr_number, pr } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
             use crate::logger;
@@ -8192,6 +8192,9 @@ async fn main() -> anyhow::Result<()> {
                 println!("❌ No reviews directory found at {}. Run `review-dispatcher delegate` first.", report_output_dir.display());
                 return Ok(());
             }
+
+            // Target specific PR: global --pr flag > local --pr > pr_number
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
             let cutoff = Utc::now() - Duration::days(days as i64);
 
@@ -8256,6 +8259,13 @@ async fn main() -> anyhow::Result<()> {
                                                     .and_then(|s| s.split('_').last())
                                                     .and_then(|s| s.parse().ok())
                                                     .unwrap_or(0);
+
+                                                // Filter by specific PR if --pr flag is set
+                                                if let Some(target) = target_pr {
+                                                    if pr_number != target {
+                                                        continue;
+                                                    }
+                                                }
 
                                                 let additions: u64 = additions_line
                                                     .and_then(|l| l.split('`').nth(1))

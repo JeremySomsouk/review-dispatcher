@@ -27,6 +27,7 @@ review-dispatcher review-velocity [OPTIONS]
 | `--repo <TEXT>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <TEXT>` | Filter by author username (partial match, case-insensitive) | |
 | `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
+| `-p, --pr <NUM>` | Target a specific PR by number | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -58,6 +59,9 @@ review-dispatcher review-velocity --repo api --bottlenecks
 
 # Only PRs created in the last 14 days (regardless of when reviewed)
 review-dispatcher review-velocity --since-days 14
+
+# Show velocity for a specific PR
+review-dispatcher review-velocity --pr 123
 
 # Combine --since-days with other filters
 review-dispatcher review-velocity --since-days 7 --repo backend --bottlenecks

@@ -1008,6 +1008,12 @@ pub enum Commands {
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,
+        /// Show velocity for specific PR (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Show velocity for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
     },
     /// Temporarily hide PRs from the pending list (snooze them)
     Snooze {
