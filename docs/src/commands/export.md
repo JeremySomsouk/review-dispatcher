@@ -22,11 +22,12 @@ review-dispatcher export [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `-f, --format <FORMAT>` | Output format: `csv` or `markdown` | `csv` |
+| `-f, --format <FORMAT>` | Output format: `csv`, `markdown`, or `json` | `csv` |
 | `-o, --output <PATH>` | Write to file instead of stdout | stdout |
 | `-c, --columns <COLS>` | Columns to include (comma-separated) | all |
 | `-a, --all` | Fetch fresh data for all reviews | current session |
 | `--json` | Output as JSON (useful for scripting) | false |
+| `-P, --priority` | Show priority scores (1-5 stars based on age and size) | false |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | none |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | none |
 | `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | none |
@@ -43,6 +44,7 @@ review-dispatcher export [OPTIONS]
 | `age` | Age in days |
 | `draft` | Whether PR is a draft |
 | `url` | Full GitHub URL to PR |
+| `priority` | Priority score (1-5) |
 
 ## Examples
 
@@ -59,11 +61,17 @@ review-dispatcher export --format markdown --output report.md
 # Export only specific columns
 review-dispatcher export --columns repo,title,author,age
 
-# Export with fresh data (bypasses session cache)
-review-dispatcher export --all --output full-report.csv
+# Export with priority scores included
+review-dispatcher export --priority --output prioritized-reviews.csv
 
 # Export as JSON for scripting or API integration
 review-dispatcher export --json --output reviews.json
+
+# Export as JSON with priority scores
+review-dispatcher export --json --priority --output reviews.json
+
+# Export with fresh data (bypasses session cache)
+review-dispatcher export --all --output full-report.csv
 
 # Export only PRs from a specific repository
 review-dispatcher export --repo backend --output backend-reviews.csv
@@ -88,6 +96,14 @@ backend,4821,feat: add dark mode,alice,+89/-12,2d,no,https://github.com/org/back
 frontend,3156,fix: login timeout,bob,+234/-45,4d,no,https://github.com/org/frontend/pull/3156
 ```
 
+### CSV with Priority
+
+```csv
+repo,number,title,author,size,age,draft,url,priority
+backend,4821,feat: add dark mode,alice,+89/-12,2d,no,https://github.com/org/backend/pull/4821,3
+frontend,3156,fix: login timeout,bob,+234/-45,4d,no,https://github.com/org/frontend/pull/3156,4
+```
+
 ### Markdown Format
 
 ```markdown
@@ -108,7 +124,8 @@ frontend,3156,fix: login timeout,bob,+234/-45,4d,no,https://github.com/org/front
     "size": "+89/-12",
     "age_days": 2,
     "draft": false,
-    "url": "https://github.com/org/backend/pull/4821"
+    "url": "https://github.com/org/backend/pull/4821",
+    "priority_score": 3
   }
 ]
 ```
@@ -118,5 +135,6 @@ frontend,3156,fix: login timeout,bob,+234/-45,4d,no,https://github.com/org/front
 - Use `--output` to write directly to a file instead of piping
 - Markdown format is great for pasting into Slack messages or Notion docs
 - JSON format is ideal for scripting and API integrations
+- Combine with `--priority` to include urgency scores in exports
 - Combine with `--all` to ensure you have the latest data
 - Column order is preserved in CSV/Markdown output

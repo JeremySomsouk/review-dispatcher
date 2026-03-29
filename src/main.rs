@@ -9280,7 +9280,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, all, json, repo, author, since_days } => {
+        Commands::Export { format, output, columns, all, json, repo, author, since_days, priority } => {
             use chrono::Utc;
 
             let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
@@ -9363,6 +9363,8 @@ async fn main() -> anyhow::Result<()> {
                     age_days: i64,
                     draft: bool,
                     url: &'a str,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    priority_score: Option<u8>,
                 }
 
                 let records: Vec<ExportRecord> = reviews_to_export
@@ -9379,11 +9381,13 @@ async fn main() -> anyhow::Result<()> {
                             age_days,
                             draft: r.draft,
                             url: &r.pr_url,
+                            priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
                         }
                     })
                     .collect();
 
                 output_content = serde_json::to_string_pretty(&records).unwrap_or_default();
+                output_content.push('\n'); // Ensure trailing newline for stdout
             } else if export_format == "markdown" || export_format == "md" {
                 // Markdown table format
                 // Header
@@ -9398,12 +9402,20 @@ async fn main() -> anyhow::Result<()> {
                         "age" => "Age",
                         "draft" => "Draft",
                         "url" => "URL",
+                        "priority" => "Priority",
                         _ => *col,
                     });
                     output_content.push_str(" | ");
                 }
+                // Add priority column header if --priority is set
+                if priority {
+                    output_content.push_str(" | ");
+                }
                 output_content.push_str("\n| ");
                 for _ in &cols {
+                    output_content.push_str("---|");
+                }
+                if priority {
                     output_content.push_str("---|");
                 }
                 output_content.push('\n');
@@ -9425,6 +9437,10 @@ async fn main() -> anyhow::Result<()> {
                             }
                             "draft" => output_content.push_str(&format!("{} | ", if r.draft { "yes" } else { "no" })),
                             "url" => output_content.push_str(&format!("[link]({}) | ", r.pr_url)),
+                            "priority" => {
+                                let score = logger::calculate_priority_score(r);
+                                output_content.push_str(&format!("{}/5 | ", score));
+                            }
                             _ => output_content.push_str(&format!("{} | ", col)),
                         }
                     }
@@ -9432,8 +9448,14 @@ async fn main() -> anyhow::Result<()> {
                 }
             } else {
                 // CSV format (default)
+                // Build header including priority if needed
+                let mut header_cols = cols.to_vec();
+                if priority && !header_cols.contains(&"priority") {
+                    header_cols.push("priority");
+                }
+
                 // Header
-                output_content.push_str(&cols.join(","));
+                output_content.push_str(&header_cols.join(","));
                 output_content.push('\n');
 
                 // Rows
@@ -9461,6 +9483,12 @@ async fn main() -> anyhow::Result<()> {
                             "url" => output_content.push_str(&r.pr_url),
                             _ => output_content.push_str(col),
                         }
+                    }
+                    // Add priority score if --priority is set
+                    if priority {
+                        output_content.push(',');
+                        let score = logger::calculate_priority_score(r);
+                        output_content.push_str(&score.to_string());
                     }
                     output_content.push('\n');
                 }
