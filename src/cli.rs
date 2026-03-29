@@ -871,6 +871,12 @@ pub enum Commands {
         /// Preview which PR would be selected without opening it
         #[arg(long, short = 'n')]
         dry_run: bool,
+        /// Show all matching PRs sorted by priority (default: show only the top 1)
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Limit the number of PRs shown (default: 1, use with --all)
+        #[arg(long, short = 'l')]
+        limit: Option<usize>,
         /// Open the focused PR in your browser instead of printing details
         #[arg(long, short = 'o')]
         open: bool,
@@ -896,7 +902,7 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
         /// Show actionable recommendations based on rate limits
-        #[arg(long, short = 's')]
+        #[arg(long, short = 'S')]
         suggest: bool,
     },
     /// Show your highest priority pending PRs based on age, size, and urgency

@@ -21,7 +21,7 @@ review-dispatcher health [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--json` | Output as JSON | `false` |
-| `-s, --suggest` | Show actionable recommendations based on rate limits | `false` |
+| `-S, --suggest` | Show actionable recommendations based on rate limits | `false` |
 
 ## Examples
 

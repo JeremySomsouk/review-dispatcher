@@ -22,9 +22,11 @@ review-dispatcher focus [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-n, --dry-run` | Preview which PR would be selected without opening it | `false` |
-| `-o, --open` | Open the focused PR in your browser | `false` |
-| `--json` | Output as JSON (includes full PR details) | `false` |
-| `-P, --priority` | Show priority score for the focused PR (1-5 stars) | `false` |
+| `-a, --all` | Show all matching PRs sorted by priority (default: show only the top 1) | `false` |
+| `-l, --limit` | Limit the number of PRs shown (use with `--all`, default: 10) | `10` |
+| `-o, --open` | Open the focused PR in your browser (only for single PR) | `false` |
+| `--json` | Output as JSON (one object per line with `--all`) | `false` |
+| `-P, --priority` | Show priority score for each PR (1-5 stars) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | |
 | `--author` | Filter by author username (partial match, case-insensitive) | |
 | `-s, --since-days` | Only show PRs created since this many days ago | |
@@ -38,19 +40,22 @@ review-dispatcher focus
 # Preview which PR would be selected (without opening)
 review-dispatcher focus --dry-run
 
+# See your top 3 most urgent PRs
+review-dispatcher focus --all --limit 3
+
 # Open it directly in your browser
 review-dispatcher focus --open
 
 # Get full details as JSON for scripting
 review-dispatcher focus --json
 
-# Focus on a specific repository
-review-dispatcher focus --repo myservice
+# See all high-priority PRs from a specific repository
+review-dispatcher focus --all --repo myservice
 
 # Focus on PRs from a specific author
 review-dispatcher focus --author johndoe
 
-# Show priority score with stars
+# Show priority scores with stars
 review-dispatcher focus --priority
 
 # Focus only on recently created PRs (last 7 days)

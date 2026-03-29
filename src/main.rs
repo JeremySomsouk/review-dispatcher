@@ -9900,8 +9900,11 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Focus { dry_run, open, json, priority, repo, author, since_days } => {
+        Commands::Focus { dry_run, all, limit, open, json, priority, repo, author, since_days } => {
             use chrono::Utc;
+
+            // Determine how many PRs to show
+            let show_count = if all { limit.unwrap_or(10) } else { 1 };
 
             // Apply --repo and --author and --since-days filters (consistent with other commands)
             let filtered: Vec<_> = {
@@ -9990,20 +9993,25 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Find the highest-priority PR (by score, then oldest by age)
-            let focused = filtered
-                .iter()
-                .max_by_key(|r| {
-                    let score = logger::calculate_priority_score(r);
-                    let age_days = (Utc::now() - r.created_at).num_days();
-                    (score, age_days)
-                })
-                .cloned();
+            // Sort by priority score (highest first), then by age (oldest first) for ties
+            let mut sorted = filtered.clone();
+            sorted.sort_by(|a, b| {
+                let score_a = logger::calculate_priority_score(a);
+                let score_b = logger::calculate_priority_score(b);
+                let age_a = (Utc::now() - a.created_at).num_days();
+                let age_b = (Utc::now() - b.created_at).num_days();
+                (score_b, age_a).cmp(&(score_a, age_b))
+            });
 
-            if let Some(pr) = focused {
+            // Take the top N PRs
+            let focused_prs: Vec<_> = sorted.into_iter().take(show_count).collect();
+            let focused_count = focused_prs.len();
+
+            for (idx, pr) in focused_prs.into_iter().enumerate() {
                 let score = logger::calculate_priority_score(&pr);
                 let age_days = (Utc::now() - pr.created_at).num_days();
                 let total_lines = pr.additions + pr.deletions;
+                let is_single = focused_count == 1;
 
                 if json {
                     #[derive(serde::Serialize)]
@@ -10031,7 +10039,13 @@ async fn main() -> anyhow::Result<()> {
                         deletions: pr.deletions,
                         draft: pr.draft,
                     };
-                    println!("{}", serde_json::to_string_pretty(&output)?);
+                    // For --all, print each JSON object on its own line
+                    // For single, print pretty JSON
+                    if all {
+                        println!("{}", serde_json::to_string(&output)?);
+                    } else {
+                        println!("{}", serde_json::to_string_pretty(&output)?);
+                    }
                 } else {
                     let score_stars = logger::priority_stars(score);
                     let age_label = if age_days == 0 {
@@ -10047,9 +10061,14 @@ async fn main() -> anyhow::Result<()> {
                     };
 
                     let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let header = if is_single {
+                        "🎯 YOUR FOCUS PR".to_string()
+                    } else {
+                        format!("🎯 FOCUS PR #{}/{}", idx + 1, focused_count)
+                    };
 
                     println!();
-                    println!("🎯 YOUR FOCUS PR");
+                    println!("{}", header);
                     println!("{}", "─".repeat(50));
                     println!();
                     println!("  #{}  {}{}", pr.pr_number, pr.pr_title.bold(), draft_label);
@@ -10067,14 +10086,18 @@ async fn main() -> anyhow::Result<()> {
                     }
                     println!("  🔗 {}", pr.pr_url.blue().underline());
                     println!();
-                    println!("{}", "─".repeat(50));
-                    println!("  Total pending: {} PRs ({} matching filters)", reviews.len(), filtered.len());
-                    if filtered.len() > 1 {
-                        println!("  Run `review-dispatcher top` to see more");
-                    }
-                    println!();
 
-                    if open {
+                    // Only show footer for the last PR
+                    if idx == focused_count - 1 {
+                        println!("{}", "─".repeat(50));
+                        println!("  Total pending: {} PRs ({} matching filters)", reviews.len(), filtered.len());
+                        if filtered.len() > show_count {
+                            println!("  Run `review-dispatcher focus --all` to see more, or `review-dispatcher top` for full list");
+                        }
+                        println!();
+                    }
+
+                    if open && is_single {
                         open::that(&pr.pr_url)?;
                         println!("🖥️  Opening PR in browser...");
                     }
