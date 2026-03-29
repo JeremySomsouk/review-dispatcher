@@ -26,7 +26,8 @@ review-dispatcher digest [OPTIONS]
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | |
 | `-P, --priority` | Show priority scores and most urgent PR | `false` |
-| `-s, --since-days <DAYS>` | Only show PRs older than this many days | |
+| `-s, --since-days <DAYS>` | Only show PRs created in the last N days (newer PRs) | |
+| `--older-than <DAYS>` | Only show PRs older than N days (neglected PRs) | |
 
 ## Examples
 
@@ -55,8 +56,11 @@ review-dispatcher digest --priority
 # Combined: raw markdown filtered by repo with priority
 review-dispatcher digest --raw --repo backend --priority
 
-# Only show PRs older than 3 days
+# Only show PRs created in the last 3 days (recent PRs)
 review-dispatcher digest --since-days 3
+
+# Only show PRs older than 7 days (neglected PRs)
+review-dispatcher digest --older-than 7
 ```
 
 ## Output Examples
@@ -159,4 +163,6 @@ review-dispatcher digest --since-days 3
 - Use `--priority` to identify the most urgent PR at a glance
 - Age buckets: 🆕 New 0-1d · 🌱 Fresh 2-3d · ⏳ Aging 4-7d · 🔥 Stale 8-14d · 💀 Overdue 15d+
 - Combine filters for targeted digests: `digest --repo backend --author alice --priority`
-- Use `--since-days` to filter by PR age (e.g., only show PRs older than 3 days)
+- Use `--since-days 7` to show only recently created PRs
+- Use `--older-than 7` to focus on neglected PRs waiting 7+ days
+- `--since-days` and `--older-than` can be combined but `--since-days` takes precedence
