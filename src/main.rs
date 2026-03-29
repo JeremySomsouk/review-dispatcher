@@ -3398,15 +3398,25 @@ async fn main() -> anyhow::Result<()> {
                     repo: &'a str,
                     pr_url: &'a str,
                     labels: &'a [github::PullRequestLabel],
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    priority_score: Option<u8>,
                 }
                 let json_output: Vec<LabelOutput> = all_labels_data
                     .iter()
-                    .map(|(r, l)| LabelOutput {
-                        pr_number: r.pr_number,
-                        pr_title: &r.pr_title,
-                        repo: &r.repo,
-                        pr_url: &r.pr_url,
-                        labels: l,
+                    .map(|(r, l)| {
+                        let priority_score = if priority {
+                            Some(logger::calculate_priority_score(r))
+                        } else {
+                            None
+                        };
+                        LabelOutput {
+                            pr_number: r.pr_number,
+                            pr_title: &r.pr_title,
+                            repo: &r.repo,
+                            pr_url: &r.pr_url,
+                            labels: l,
+                            priority_score,
+                        }
                     })
                     .collect();
                 println!("{}", serde_json::to_string_pretty(&json_output).unwrap_or_default());
@@ -3438,7 +3448,14 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     // Show all labels grouped by PR
                     for (review, labels) in &all_labels_data {
-                        println!("\n📄 #{} {} ({})", review.pr_number, review.pr_title.bold(), review.repo);
+                        // Show priority score if requested
+                        let priority_line = if priority {
+                            let score = logger::calculate_priority_score(review);
+                            format!("  ⭐ Priority: {}/5  {}", score, logger::priority_stars(score))
+                        } else {
+                            String::new()
+                        };
+                        println!("\n📄 #{} {} ({}){}", review.pr_number, review.pr_title.bold(), review.repo, priority_line);
                         if labels.is_empty() {
                             println!("  (no labels)");
                         } else {

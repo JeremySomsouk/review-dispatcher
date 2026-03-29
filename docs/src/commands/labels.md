@@ -27,6 +27,7 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON | `false` |
+| `-P, --priority` | Show priority score for each PR (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -54,4 +55,6 @@ review-dispatcher labels -a --repo api --author alice
 
 # Output as JSON for scripting
 review-dispatcher labels --pr 4821 --json
-```
+
+# Show priority scores alongside labels
+review-dispatcher labels -a --priority
