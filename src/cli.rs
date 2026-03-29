@@ -915,8 +915,11 @@ pub enum Commands {
         /// Minimum age in days to chase (default: 7)
         #[arg(long, short = 'a', default_value_t = 7)]
         min_age: u32,
-        /// Send actual comments instead of just previewing
+        /// Only chase PRs created since this many days ago (newer PRs)
         #[arg(long, short = 's')]
+        since_days: Option<u32>,
+        /// Send actual comments instead of just previewing
+        #[arg(long)]
         send: bool,
         /// Custom message template (use {author} and {title} as placeholders)
         #[arg(long, short = 'm')]

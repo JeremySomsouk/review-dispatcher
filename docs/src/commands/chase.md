@@ -24,7 +24,8 @@ review-dispatcher chase [OPTIONS]
 | `PR_NUMBER` | PR number to chase (shorthand for `--pr`) | - |
 | `-p, --pr <PR>` | Target a specific PR by number | - |
 | `-a, --min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
-| `-s, --send` | Actually post comments to GitHub (default: preview only) | `false` |
+| `-s, --since-days <DAYS>` | Only chase PRs created since this many days ago | - |
+| `--send` | Actually post comments to GitHub (default: preview only) | `false` |
 | `-m, --message <TEXT>` | Custom message template | Default template |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
@@ -64,6 +65,12 @@ review-dispatcher chase --pr 123
 
 # Chase PRs older than 14 days and post comments
 review-dispatcher chase --min-age 14 --send
+
+# Chase only PRs created in the last 3 days (newer stale PRs)
+review-dispatcher chase --since-days 3
+
+# Chase PRs between 3-14 days old
+review-dispatcher chase --since-days 14 --min-age 3
 
 # Chase with priority scores to identify most urgent PRs
 review-dispatcher chase --priority

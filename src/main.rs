@@ -6136,7 +6136,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, min_age, send, message, repo, author, priority, json } => {
+        Commands::Chase { pr_number, min_age, since_days, send, message, repo, author, priority, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -6155,6 +6155,12 @@ async fn main() -> anyhow::Result<()> {
                 .filter(|r| r.created_at <= cutoff)
                 .cloned()
                 .collect();
+
+            // Apply --since-days filter (only PRs created since X days ago)
+            if let Some(days) = since_days {
+                let since_cutoff = now - Duration::days(days as i64);
+                stale_prs.retain(|r| r.created_at >= since_cutoff);
+            }
 
             // Apply --repo filter
             if let Some(ref repo_filter) = repo {
