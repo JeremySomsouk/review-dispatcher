@@ -10840,12 +10840,67 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ready { repo, author, priority, since_days, json } => {
+        Commands::Ready { repo, author, priority, since_days, json, pr_number, pr, pr_numbers, all } => {
             use std::collections::HashMap;
 
-            // Apply --repo, --author, and --since-days filters to reviews first
+            // Priority: global --pr flag > local --pr > positional PR_NUMBER
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            // Determine base PR list based on targeting mode
+            let base_reviews: Vec<github::PendingReview> = if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if pr_numbers.is_some() {
+                // Batch mode via --pr-numbers
+                prs_from_numbers
+            } else if all {
+                // --all flag: use all pending reviews
+                reviews.clone()
+            } else {
+                // Interactive mode: use filtered reviews from main fetch
+                reviews.clone()
+            };
+
+            // Apply --repo, --author, and --since-days filters to reviews
             let filtered_reviews: Vec<_> = {
-                let mut result = reviews.clone();
+                let mut result = base_reviews;
 
                 // Apply --since-days filter (only show PRs created since N days ago)
                 if let Some(days) = since_days {

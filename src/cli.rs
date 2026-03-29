@@ -1255,6 +1255,18 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Show PRs ready for specific PR (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Show PRs ready for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// PR number(s) to check (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Show ready status for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
     },
     /// Compare two PRs side-by-side to help decide which to review first
     Compare {

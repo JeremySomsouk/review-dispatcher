@@ -25,6 +25,9 @@ review-dispatcher ready [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--pr, -p <NUMBER>` | Target a specific PR by number | - |
+| `--pr-numbers <NUMS>` | Check multiple PRs (comma-separated) | - |
+| `--all, -a` | Check all pending reviews | `false` |
 | `--repo <NAME>` | Filter to specific repository (partial match) | All repos |
 | `--author <USER>` | Filter by author username (partial match) | All authors |
 | `--since-days, -s <DAYS>` | Only show PRs created since N days ago | All PRs |
@@ -96,6 +99,15 @@ When `--priority` is enabled, each PR shows its priority score:
 ```bash
 # Interactive: show all pending PRs with readiness status
 review-dispatcher ready
+
+# Check specific PR by number
+review-dispatcher ready --pr 1234
+
+# Check multiple PRs at once
+review-dispatcher ready --pr-numbers 1234,5678,9012
+
+# Check all pending reviews (non-interactive)
+review-dispatcher ready --all
 
 # Filter to specific repo
 review-dispatcher ready --repo frontend
