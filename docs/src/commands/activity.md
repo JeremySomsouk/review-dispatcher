@@ -24,6 +24,7 @@ review-dispatcher activity [OPTIONS]
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | all |
 | `--author <AUTHOR>` | Filter by PR author username (partial match, case-insensitive) | all |
 | `-p, --pr <PR>` | Show activity for specific PR (shorthand for global `--pr`) | all |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Examples
@@ -46,6 +47,9 @@ review-dispatcher activity --days 14 --repo api --author alice
 
 # Activity for specific PR
 review-dispatcher activity --pr 123
+
+# Show priority scores for reviewed PRs
+review-dispatcher activity --priority
 
 # JSON output for scripting
 review-dispatcher activity --json

@@ -573,6 +573,9 @@ pub enum Commands {
         /// Show activity for specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
         pr: Option<u64>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,

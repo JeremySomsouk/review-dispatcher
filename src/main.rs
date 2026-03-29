@@ -6868,7 +6868,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, repo, author, pr, json } => {
+        Commands::Activity { days, repo, author, pr, json, priority } => {
             println!("\n📈 Fetching your review activity (last {} days)...\n", days);
 
             match github::fetch_my_review_activity(
@@ -6897,6 +6897,22 @@ async fn main() -> anyhow::Result<()> {
                         let pattern = author_filter.to_lowercase();
                         activities.retain(|a| a.author.to_lowercase().contains(&pattern));
                     }
+
+                    // When --priority is specified, fetch PR details in parallel for priority scoring
+                    let priority_scores: Option<Vec<u8>> = if priority {
+                        let fetch_futures = activities.iter().map(|activity| {
+                            github::fetch_pr_by_number(
+                                &cfg.github_token,
+                                &cfg.github_org,
+                                &cfg.github_repos,
+                                activity.pr_number,
+                            )
+                        });
+                        let results: Vec<Result<Vec<github::PendingReview>, anyhow::Error>> = join_all(fetch_futures).await;
+                        Some(results.into_iter().filter_map(|r| r.ok()).filter_map(|prs| prs.into_iter().next()).map(|pr| logger::calculate_priority_score(&pr)).collect())
+                    } else {
+                        None
+                    };
 
                     if json {
                         println!("{}", serde_json::to_string_pretty(&activities)?);
@@ -6940,7 +6956,7 @@ async fn main() -> anyhow::Result<()> {
                                 if commented > 0 { print!("    💬 {} commented", commented); }
                                 println!();
 
-                                for activity in items.iter().take(5) {
+                                for (_i, activity) in items.iter().take(5).enumerate() {
                                     let state_icon = if activity.state.contains("APPROVED") {
                                         "✅".to_string()
                                     } else if activity.state.contains("CHANGES_REQUESTED") {
@@ -6953,12 +6969,22 @@ async fn main() -> anyhow::Result<()> {
                                     } else {
                                         activity.pr_title.clone()
                                     };
+                                    let priority_display = if priority {
+                                        let score = priority_scores.as_ref().and_then(|scores| {
+                                            let activity_idx = activities.iter().position(|a| a.pr_number == activity.pr_number && a.repo == activity.repo);
+                                            activity_idx.and_then(|idx| scores.get(idx)).copied()
+                                        }).unwrap_or(0);
+                                        format!("  {}", logger::priority_stars(score))
+                                    } else {
+                                        String::new()
+                                    };
                                     println!(
-                                        "    {}  #{}  {} ({})",
+                                        "    {}  #{}  {}{}{}",
                                         state_icon,
                                         activity.pr_number,
                                         title.dimmed(),
-                                        activity.repo.dimmed()
+                                        priority_display,
+                                        format!(" ({})", activity.repo.dimmed())
                                     );
                                 }
                                 if items.len() > 5 {
