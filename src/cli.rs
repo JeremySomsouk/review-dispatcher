@@ -60,6 +60,12 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Show specific PR by number (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// Show specific PR(s) by number (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
     },
     /// Ask Claude to triage each pending review
     #[command(alias = "del")]

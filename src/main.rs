@@ -43,23 +43,54 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(PathBuf::from("./reviews")));
 
     match cli.command {
-        Commands::List { json, since_days, priority, repo, author } => {
-            // --pr on list: filter the review list to that PR
-            let filtered: Vec<_> = match cli.pr {
-                Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                None => reviews.clone(),
+        Commands::List { json, since_days, priority, repo, author, pr, pr_numbers } => {
+            // Priority: global --pr flag > local --pr > local --pr_numbers
+            let target_pr = cli.pr.or(pr);
+
+            // Handle batch PR numbers first
+            let base_reviews: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let nums: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                if nums.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = nums.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect()
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                reviews.clone()
             };
 
             // Apply --since filter
             let filtered: Vec<_> = match since_days {
                 Some(days) => {
                     let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    filtered
-                        .into_iter()
+                    base_reviews
+                        .iter()
                         .filter(|r| r.created_at >= cutoff)
+                        .cloned()
                         .collect()
                 }
-                None => filtered,
+                None => base_reviews.clone(),
             };
 
             // Apply --repo filter (partial match, case-insensitive)
@@ -86,8 +117,9 @@ async fn main() -> anyhow::Result<()> {
                 None => filtered,
             };
 
-            // Filter out snoozed PRs (unless --pr is specified)
-            let filtered: Vec<_> = if cli.pr.is_none() {
+            // Filter out snoozed PRs (unless --pr or --pr_numbers is specified)
+            let skip_snooze = target_pr.is_some() || pr_numbers.is_some();
+            let filtered: Vec<_> = if !skip_snooze {
                 let snooze_file = output_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("./reviews"))

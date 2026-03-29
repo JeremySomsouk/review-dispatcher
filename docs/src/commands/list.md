@@ -20,12 +20,14 @@ prctrl ls [OPTIONS]     # shorthand alias
 ## Options
 
 | Flag | Description | Default |
-|------|-------------||
+|------|-------------|---------|
 | `--json` | Output as JSON (great for scripting) | `false` |
 | `-s, --since-days <DAYS>` | Only show PRs from the last N days | all |
 | `-P, --priority` | Add priority scores (1-5 stars based on age + size) | `false` |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
+| `-p, --pr <NUMBER>` | Show specific PR by number | - |
+| `--pr-numbers <NUMBERS>` | Show specific PR(s) by number (comma-separated) | - |
 
 ## Examples
 
@@ -50,6 +52,13 @@ prctrl list --repo api --author bob --priority
 
 # JSON output for scripts
 prctrl list --json | jq '.[] | select(.author == "alice")'
+
+# Show specific PR by number (via global --pr flag or local flag)
+prctrl list --pr 4821
+prctrl list -p 4821
+
+# Show multiple PRs by number
+prctrl list --pr-numbers 4821,3156
 ```
 
 ## Output Example
