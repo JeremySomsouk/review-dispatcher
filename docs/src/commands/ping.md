@@ -27,7 +27,8 @@ review-dispatcher ping [OPTIONS]
 | `--pr-numbers <PR_NUMBERS>` | PR number(s) to ping (comma-separated) | Interactive |
 | `-n, --dry-run` | Preview what would be pinged without sending | `false` |
 | `-a, --all` | Ping all pending reviews | `false` |
-| `-s, --send` | Actually send the reaction (preview by default) | `false` |
+| `--send` | Actually send the reaction (preview by default) | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <AUTHOR>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON (useful for scripting) | `false` |
@@ -156,6 +157,9 @@ review-dispatcher ping --repo my-service --all --send
 
 # Ping PRs from a specific author
 review-dispatcher ping --author alice --all --send
+
+# Ping PRs created in the last 3 days (newer PRs only)
+review-dispatcher ping --since-days 3 --all --send
 
 # Combine filters for targeted pinging
 review-dispatcher ping --repo api --author bob --send

@@ -1159,8 +1159,11 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
         /// Send actual pings instead of previewing
-        #[arg(long, short = 's')]
+        #[arg(long)]
         send: bool,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
