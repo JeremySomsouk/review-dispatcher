@@ -9863,7 +9863,21 @@ async fn main() -> anyhow::Result<()> {
                     println!("No pending reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                // Apply --repo, --author, and --since-days filters to --all results
+                let mut filtered = reviews.clone();
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    filtered.retain(|r| r.created_at >= cutoff);
+                }
+                filtered
             } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
