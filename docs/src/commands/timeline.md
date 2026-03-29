@@ -60,7 +60,7 @@ review-dispatcher timeline --priority
 📜 PR #4821 — feat: add CSV export Timeline
 ════════════════════════════════════════════════════════════
 
-  📊 Summary: 3 reviews, 7 comments, 2 label changes
+  📊 Summary: 3 reviews, 7 comments, 2 label changes, 3 other events
   ────────────────────────────────────────────────────────────
 
   2026-03-15 09:30  📣  PR marked as ready for review by @sarah_dev

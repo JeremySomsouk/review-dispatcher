@@ -1548,10 +1548,16 @@ async fn main() -> anyhow::Result<()> {
                             }
                         }
 
-                        println!("  📊 Summary: {} reviews, {} comments, {} label changes",
+                        let other_label = if other_events > 0 {
+                            format!(", {} other events", other_events.to_string().magenta())
+                        } else {
+                            String::new()
+                        };
+                        println!("  📊 Summary: {} reviews, {} comments, {} label changes{}",
                             review_count.to_string().green(),
                             comment_count.to_string().cyan(),
-                            label_events.to_string().yellow()
+                            label_events.to_string().yellow(),
+                            other_label
                         );
                         println!();
                         println!("{}", "─".repeat(60));
