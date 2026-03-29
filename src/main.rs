@@ -1229,9 +1229,8 @@ async fn main() -> anyhow::Result<()> {
                             }
                             println!("\n  Total: {} file(s)\n", count);
                             println!("  (dry-run — no files were deleted)");
-                        } else {
-                            println!("{}", count);
                         }
+                        // Quiet mode: suppress all output for scripting compatibility
                     } else {
                         std::fs::remove_dir_all(dir)?;
                         if !quiet {
