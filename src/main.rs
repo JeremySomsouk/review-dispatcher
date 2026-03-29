@@ -9695,12 +9695,58 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, all, json, repo, author, since_days, priority } => {
+        Commands::Export { format, output, columns, pr_number, pr_numbers, pr, all, json, repo, author, since_days, priority } => {
             use chrono::Utc;
 
+            let target_pr = cli.pr.or(pr).or(pr_number);
             let export_format = format.as_deref().unwrap_or("csv").to_lowercase();
-            let reviews_to_export = if all {
-                // Fetch fresh data for all pending reviews
+
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else {
+                Vec::new()
+            };
+
+            let reviews_to_export = if let Some(num) = target_pr {
+                // Single PR via --pr or positional - bypass other filters
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if pr_numbers.is_some() {
+                // Batch mode via --pr-numbers - use fetched PRs
+                prs_from_numbers
+            } else if all {
+                // --all flag: fetch fresh data for all pending reviews
                 github::fetch_pending_reviews(
                     &cfg.github_token,
                     &cfg.github_org,

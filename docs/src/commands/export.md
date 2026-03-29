@@ -25,6 +25,9 @@ review-dispatcher export [OPTIONS]
 | `-f, --format <FORMAT>` | Output format: `csv`, `markdown`, or `json` | `csv` |
 | `-o, --output <PATH>` | Write to file instead of stdout | stdout |
 | `-c, --columns <COLS>` | Columns to include (comma-separated) | all |
+| `PR_NUMBER` | Export specific PR by number (shorthand for --pr) | none |
+| `-p, --pr <PR>` | Export specific PR (shorthand for --pr) | none |
+| `--pr-numbers <NUMS>` | Export specific PRs (comma-separated PR numbers) | none |
 | `-a, --all` | Fetch fresh data for all reviews | current session |
 | `--json` | Output as JSON (useful for scripting) | false |
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | false |
@@ -81,6 +84,12 @@ review-dispatcher export --author alice --output alice-reviews.csv
 
 # Export only PRs created in the last 7 days
 review-dispatcher export --since-days 7 --output recent-reviews.csv
+
+# Export a specific PR by number
+review-dispatcher export --pr 4821
+
+# Export multiple specific PRs
+review-dispatcher export --pr-numbers 4821,3156,2890
 
 # Combine filters with other options
 review-dispatcher export --repo frontend --author alice --format markdown --output report.md

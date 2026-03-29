@@ -1107,6 +1107,15 @@ pub enum Commands {
         /// Include only these columns (comma-separated): repo,number,title,author,size,age,draft,url
         #[arg(long, short = 'c')]
         columns: Option<String>,
+        /// PR number to export (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// PR number(s) to export (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Export specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Export all pending reviews (not just current session)
         #[arg(long, short = 'a')]
         all: bool,
