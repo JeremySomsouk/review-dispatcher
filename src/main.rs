@@ -3535,8 +3535,8 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Filter { pr_number, pr_numbers, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
-            // Target specific PR: global --pr flag > local --pr_number > pr_numbers
+        Commands::Filter { all, pr_number, pr_numbers, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
+            // Target specific PR: global --pr flag > local --pr_number
             let target_pr = cli.pr.or(pr_number);
 
             // Handle batch PR numbers - fetch all specified PRs in parallel
@@ -3588,7 +3588,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Apply filters to the reviews (for non-batch mode)
             let filtered: Vec<_> = reviews.iter().filter(|r| {
-                // Filter by specific PR number (if provided)
+                // Filter by specific PR number (if provided via --pr or --pr_number)
                 if let Some(num) = target_pr {
                     if r.pr_number != num {
                         return false;
@@ -3697,19 +3697,52 @@ async fn main() -> anyhow::Result<()> {
             };
 
             if filtered.is_empty() {
-                println!("\n🔍 No reviews match the specified filters.\n");
+                if target_pr.is_some() {
+                    println!("\n⚠️  PR #{} not found or doesn't match filters.\n", target_pr.unwrap());
+                } else {
+                    println!("\n🔍 No reviews match the specified filters.\n");
+                }
                 return Ok(());
             }
 
-            if json {
-                let json_output = serde_json::to_string_pretty(&filtered)?;
-                println!("{}", json_output);
-            } else {
-                println!(
-                    "\n🔍 {} review(s) match your filters\n",
-                    filtered.len().to_string().yellow().bold()
-                );
-                logger::print_reviews(&filtered, priority);
+            // If --all flag is set, show all without prompting
+            if all {
+                if json {
+                    let json_output = serde_json::to_string_pretty(&filtered)?;
+                    println!("{}", json_output);
+                } else {
+                    println!(
+                        "\n🔍 {} review(s) match your filters\n",
+                        filtered.len().to_string().yellow().bold()
+                    );
+                    logger::print_reviews(&filtered, priority);
+                }
+                return Ok(());
+            }
+
+            // Interactive selection mode
+            logger::print_reviews(&filtered, false);
+            print!(
+                "\n{} ",
+                "Select PRs [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+            );
+            io::stdout().flush()?;
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            match parse_selection(input.trim(), filtered.len()) {
+                Selection::Quit => return Ok(()),
+                Selection::Indices(indices) => {
+                    let selected: Vec<_> = indices.into_iter().map(|i| filtered[i].clone()).collect();
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&selected)?);
+                    } else {
+                        println!(
+                            "\n🔍 {} review(s) selected\n",
+                            selected.len().to_string().yellow().bold()
+                        );
+                        logger::print_reviews(&selected, priority);
+                    }
+                }
             }
         }
 

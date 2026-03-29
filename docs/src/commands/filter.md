@@ -21,7 +21,8 @@ review-dispatcher filter [OPTIONS]
 
 | Flag | Description |
 |------|-------------|
-| `PR_NUMBER` | Filter to a specific PR number |
+| `PR_NUMBER` | Filter to a specific PR number (shorthand for `--pr`) |
+| `-a, --all` | Show all filtered results without prompting for selection |
 | `--pr-numbers <NUMBERS>` | PR number(s) to filter to (comma-separated) |
 | `--repo <NAME>` | Repository contains this text (partial match) |
 | `--author <NAME>` | Author contains this text (partial match) |
@@ -40,8 +41,11 @@ Note: You can also use the global `--pr <NUMBER>` flag to target a specific PR.
 ## Examples
 
 ```bash
-# Filter to specific PR
+# Filter to specific PR (via positional arg)
 review-dispatcher filter 123
+
+# Filter to specific PR (via --pr flag)
+review-dispatcher filter --pr 123
 
 # All frontend PRs
 review-dispatcher filter --repo frontend
@@ -78,6 +82,12 @@ review-dispatcher filter --repo api --min-size 100 --json | jq '.[].pr_number'
 
 # Batch lookup and get JSON for scripting
 review-dispatcher filter --pr-numbers 123,456,789 --json | jq '.[].url'
+
+# Show all large PRs without interactive selection
+review-dispatcher filter --min-size 500 --all
+
+# Find old PRs from a specific author and show all at once
+review-dispatcher filter --author alice --min-age 7 --all --priority
 ```
 
 ## Tips
@@ -86,4 +96,5 @@ review-dispatcher filter --pr-numbers 123,456,789 --json | jq '.[].url'
 - Partial match on repo/author names (case-insensitive)
 - Snoozed PRs are automatically hidden (use `--pr` to bypass snooze filter)
 - When using `--pr-numbers`, other filters are bypassed and PRs are fetched directly in parallel
+- Use `--all` flag to skip interactive selection and show all filtered results at once
 - Great for building automation scripts

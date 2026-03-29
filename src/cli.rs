@@ -543,6 +543,9 @@ pub enum Commands {
         /// PR number(s) to filter to (comma-separated)
         #[arg(long)]
         pr_numbers: Option<String>,
+        /// Apply filters to all pending reviews (no interactive selection)
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
