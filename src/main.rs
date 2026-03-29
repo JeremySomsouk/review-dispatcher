@@ -3163,13 +3163,56 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
+            // Filter out snoozed PRs (unless --pr is specified, consistent with list/delegate/search/approve/top)
+            let filtered: Vec<_> = if target_pr.is_none() {
+                let snooze_file = output_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("./reviews"))
+                    .join(".snoozed.json");
+
+                let now = chrono::Utc::now();
+                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            entries
+                                .into_iter()
+                                .filter_map(|e| {
+                                    let repo = e.get("repo")?.as_str()?.to_string();
+                                    let pr_number = e.get("pr_number")?.as_u64()?;
+                                    let until_str = e.get("snoozed_until")?.as_str()?;
+                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if until.with_timezone(&chrono::Utc) > now {
+                                            return Some((repo, pr_number));
+                                        }
+                                    }
+                                    None
+                                })
+                                .collect()
+                        } else {
+                            Vec::new()
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                filtered_reviews
+                    .into_iter()
+                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .collect()
+            } else {
+                filtered_reviews
+            };
+
             let targets: Vec<_> = if all {
                 // Show files for all pending reviews (already filtered)
-                if filtered_reviews.is_empty() {
+                if filtered.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                filtered_reviews
+                filtered
             } else if let Some(num) = target_pr {
                 // Single PR via --pr or positional
                 let prs = github::fetch_pr_by_number(
@@ -3210,11 +3253,11 @@ async fn main() -> anyhow::Result<()> {
                 all_prs
             } else {
                 // Interactive: show list and let user pick (using filtered reviews)
-                if filtered_reviews.is_empty() {
+                if filtered.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered_reviews, false);
+                logger::print_reviews(&filtered, false);
                 print!(
                     "\n{} ",
                     "Select PRs to show files [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
@@ -3222,10 +3265,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), filtered_reviews.len()) {
+                match parse_selection(input.trim(), filtered.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered[i].clone()).collect()
                     }
                 }
             };
