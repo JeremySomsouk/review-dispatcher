@@ -3866,9 +3866,9 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
 
-                // Filter by since_days (consistent with other commands - PRs older than N days)
+                // Filter by since_days (consistent with other commands - PRs created in last N days)
                 if let Some(days) = since_days {
-                    if age_days < days {
+                    if age_days >= days {
                         return false;
                     }
                 }
