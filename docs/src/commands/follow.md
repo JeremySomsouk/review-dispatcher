@@ -33,8 +33,8 @@ review-dispatcher follow <ACTION> [OPTIONS]
 |------|-------------|---------|
 | `<PR_NUMBERS>` | PR number(s) to follow (comma-separated, format: `repo#123` or `123`) | Required for `add`/`remove` |
 | `--json` | Output as JSON for scripting | `false` |
-| `--repo` | Filter by repository name (partial match, case-insensitive) | `none` |
-| `--author` | Filter by author username (partial match, case-insensitive) | `none` |
+| `--repo` | Filter by repository name (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
+| `--author` | Filter by author username (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
 | `--priority` / `-P` | Show priority indicator based on PR size (🟢 SMALL, 🟡 MEDIUM, 🔴 LARGE) | `false` |
 
 ## PR Format
@@ -55,6 +55,15 @@ review-dispatcher follow add 123,456,789
 
 # Follow PRs across different repos
 review-dispatcher follow add frontend#4821,backend#1024
+
+# Add: Show only PRs from a specific repo in interactive picker
+review-dispatcher follow add --repo frontend
+
+# Add: Show only PRs from a specific author in interactive picker
+review-dispatcher follow add --author alice
+
+# Add: Filter by both repo and author
+review-dispatcher follow add --repo frontend --author alice
 
 # List all followed PRs
 review-dispatcher follow list

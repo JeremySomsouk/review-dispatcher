@@ -5926,11 +5926,30 @@ async fn main() -> anyhow::Result<()> {
                             .collect();
                         all_prs
                     } else {
-                        if reviews.is_empty() {
+                        // Apply --repo and --author filters to pending reviews for interactive selection
+                        let filtered_reviews: Vec<_> = {
+                            let mut result = reviews.clone();
+
+                            // Apply --repo filter (partial match, case-insensitive)
+                            if let Some(ref repo_filter) = repo {
+                                let pattern = repo_filter.to_lowercase();
+                                result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                            }
+
+                            // Apply --author filter (partial match, case-insensitive)
+                            if let Some(ref author_filter) = author {
+                                let pattern = author_filter.to_lowercase();
+                                result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                            }
+
+                            result
+                        };
+
+                        if filtered_reviews.is_empty() {
                             println!("No pending reviews found to follow. Use --pr flag or specify PR numbers.");
                             return Ok(());
                         }
-                        logger::print_reviews(&reviews, false);
+                        logger::print_reviews(&filtered_reviews, false);
                         print!(
                             "\n{} ",
                             "Select PRs to follow [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
@@ -5938,10 +5957,10 @@ async fn main() -> anyhow::Result<()> {
                         io::stdout().flush()?;
                         let mut input = String::new();
                         io::stdin().read_line(&mut input)?;
-                        match parse_selection(input.trim(), reviews.len()) {
+                        match parse_selection(input.trim(), filtered_reviews.len()) {
                             Selection::Quit => return Ok(()),
                             Selection::Indices(indices) => {
-                                indices.into_iter().map(|i| reviews[i].clone()).collect()
+                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                             }
                         }
                     };
