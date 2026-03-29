@@ -1057,8 +1057,27 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, json, priority, repo, author } => {
+        Commands::Diff { pr_number, all, json, priority, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
+
+            // Apply --repo and --author filters to reviews first
+            let filtered: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
 
             let prs: Vec<github::PendingReview> = if target_pr.is_some() {
                 // When --pr is specified, bypass filters and fetch directly
@@ -1069,22 +1088,15 @@ async fn main() -> anyhow::Result<()> {
                     target_pr.unwrap(),
                 )
                 .await?
+            } else if all {
+                // When --all flag is set, return all filtered reviews without prompting
+                if filtered.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                filtered
             } else {
-                // Apply --repo and --author filters to reviews, then let user pick
-                let mut filtered = reviews.clone();
-
-                // Apply --repo filter (partial match, case-insensitive)
-                if let Some(ref repo_filter) = repo {
-                    let pattern = repo_filter.to_lowercase();
-                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
-                }
-
-                // Apply --author filter (partial match, case-insensitive)
-                if let Some(ref author_filter) = author {
-                    let pattern = author_filter.to_lowercase();
-                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
-                }
-
+                // Apply filters and let user pick
                 if filtered.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());

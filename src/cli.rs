@@ -192,6 +192,9 @@ pub enum Commands {
         /// PR number to show diff for
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Show diff/stats for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,

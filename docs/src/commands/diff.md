@@ -13,6 +13,7 @@ review-dispatcher diff [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--pr, -p <NUMBER>` | Target a specific PR by number | Interactive selection |
+| `--all, -a` | Show diff/stats for all pending reviews without prompting | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | None |
@@ -27,8 +28,11 @@ review-dispatcher diff --pr 4821
 # Interactive mode (select from pending reviews)
 review-dispatcher diff
 
-# Filter to specific repo before selecting
-review-dispatcher diff --repo frontend
+# Show diff/stats for ALL pending reviews at once
+review-dispatcher diff --all
+
+# Show diffs for all PRs in a specific repo
+review-dispatcher diff --all --repo frontend
 
 # Filter to specific author before selecting
 review-dispatcher diff --author sarah_dev
