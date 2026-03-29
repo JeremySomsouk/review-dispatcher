@@ -3214,9 +3214,12 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Search { query, since_days, sort_by, priority, json, repo, author } => {
+        Commands::Search { pr_number, query, since_days, sort_by, priority, json, repo, author } => {
             // Apply --pr filter first (targets specific PR even in search)
-            let filtered: Vec<_> = match cli.pr {
+            // Priority: global --pr flag > local --pr_number
+            let target_pr = cli.pr.or(pr_number);
+
+            let filtered: Vec<_> = match target_pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                 None => reviews.clone(),
             };
@@ -3266,7 +3269,7 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Filter out snoozed PRs (unless --pr is specified)
-            let filtered: Vec<_> = if cli.pr.is_none() {
+            let filtered: Vec<_> = if target_pr.is_none() {
                 let snooze_file = output_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("./reviews"))

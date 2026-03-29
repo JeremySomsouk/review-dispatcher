@@ -12,13 +12,14 @@ Find specific PRs without scrolling through the full list.
 ## Synopsis
 
 ```bash
-review-dispatcher search [OPTIONS] <KEYWORD>
+review-dispatcher search [OPTIONS] [PR_NUMBER] <KEYWORD>
 ```
 
 ## Options
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `[PR_NUMBER]` | Target a specific PR by number (shorthand for --pr) | None |
 | `<KEYWORD>` | Keyword to search for in PR titles | Required |
 | `-s, --since-days <DAYS>` | Only show PRs from the last N days | all |
 | `-p, --pr <NUM>` | Target a specific PR by number (bypasses search filters and snooze exclusion) | None |
@@ -55,7 +56,8 @@ review-dispatcher search update --sort-by title
 # Combine filters with priority display
 review-dispatcher search fix --repo api --author alice --priority
 
-# Target a specific PR (even if snoozed)
+# Target a specific PR (positional or --pr flag)
+review-dispatcher search anything 1234
 review-dispatcher search anything --pr 1234
 
 # JSON output for scripting

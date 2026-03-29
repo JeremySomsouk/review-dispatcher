@@ -507,6 +507,9 @@ pub enum Commands {
     },
     /// Search pending reviews by title keyword
     Search {
+        /// PR number to search within (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Keyword to search for in PR titles
         #[arg(value_name = "KEYWORD")]
         query: String,
