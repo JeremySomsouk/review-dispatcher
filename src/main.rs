@@ -7541,14 +7541,13 @@ async fn main() -> anyhow::Result<()> {
                         None => filtered_mentions,
                     };
 
-                    // Apply --author filter (partial match on repo, case-insensitive)
-                    // Note: GitHub notifications don't have direct author, but we filter by repo pattern for consistency
+                    // Apply --author filter (partial match, case-insensitive)
                     let filtered_mentions: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
                             filtered_mentions
                                 .into_iter()
-                                .filter(|m| m.repo.to_lowercase().contains(&pattern_lower))
+                                .filter(|m| m.author.to_lowercase().contains(&pattern_lower))
                                 .collect()
                         }
                         None => filtered_mentions,
@@ -7638,10 +7637,10 @@ async fn main() -> anyhow::Result<()> {
                                 unread_marker,
                                 priority_display
                             );
-                            println!("   📁 {}  •  ⏱️ {}  •  🔗 {}",
+                            println!("   👤 {}  •  📁 {}  •  ⏱️ {}",
+                                mention.author.cyan(),
                                 mention.repo.dimmed(),
                                 age_label,
-                                mention.pr_url.blue().underline()
                             );
                             if !mention.last_comment_preview.is_empty() {
                                 let preview = if mention.last_comment_preview.len() > 80 {

@@ -866,6 +866,8 @@ pub struct Mention {
     pub pr_number: u64,
     /// PR or issue title
     pub pr_title: String,
+    /// Author of the PR/issue
+    pub author: String,
     /// URL to the PR/issue
     pub pr_url: String,
     /// Whether this notification is unread
@@ -915,12 +917,13 @@ pub async fn fetch_mentions(
     }
 
     let all_notifications: Vec<Notification> = client
-        .get("notifications", Some(&[("per_page", "50")]))
+        .get("notifications", Some(&[("per_page", "100")]))
         .await
         .unwrap_or_default();
 
     let mut mentions = Vec::new();
 
+    // First pass: collect all notifications that match our filters (before fetching PR details)
     for notification in all_notifications {
         // Filter: only PR/issue notifications (not repository, discussions, etc.)
         if notification.subject.notification_type != "PullRequest"
@@ -939,18 +942,22 @@ pub async fn fetch_mentions(
             continue;
         }
 
-        // Parse the PR number from the subject URL
+        // Parse the PR/issue number and repo from the subject URL
         // URL format: https://api.github.com/repos/{org}/{repo}/pulls/{number}
-        let pr_number: u64 = notification
-            .subject
-            .url
-            .as_ref()
-            .and_then(|url| {
-                url.split('/')
-                    .last()
-                    .and_then(|s| s.parse().ok())
-            })
-            .unwrap_or(0);
+        let (org_repo, pr_number): (String, u64) = if let Some(ref url) = notification.subject.url {
+            let parts: Vec<&str> = url.split('/').collect();
+            if parts.len() >= 2 {
+                // parts: ["https:", "", "api.github.com", "repos", org, repo, "pulls", number]
+                let org = parts.get(4).unwrap_or(&"");
+                let repo = parts.get(5).unwrap_or(&"");
+                let num = parts.get(7).and_then(|s| s.parse().ok()).unwrap_or(0);
+                (format!("{}/{}", org, repo), num)
+            } else {
+                (notification.repository.full_name.clone(), 0)
+            }
+        } else {
+            (notification.repository.full_name.clone(), 0)
+        };
 
         // Convert API URL to web URL
         let pr_url = notification
@@ -973,21 +980,71 @@ pub async fn fetch_mentions(
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .unwrap_or_else(|_| chrono::Utc::now());
 
+        // Parse repo parts for the API call
+        let repo_parts: Vec<&str> = org_repo.split('/').collect();
+        let _org = repo_parts.get(0).unwrap_or(&"");
+        let _repo = repo_parts.get(1).unwrap_or(&"");
+
         mentions.push(Mention {
-            repo: notification.repository.full_name,
+            repo: org_repo,
             pr_number,
             pr_title: notification.subject.title,
+            author: String::new(), // Will be filled in parallel fetch
             pr_url,
             unread: notification.unread,
             reason: notification.reason,
             updated_at,
             last_comment_preview: String::new(),
         });
+    }
 
-        if mentions.len() >= limit {
-            break;
+    // Limit mentions before fetching details (avoid unnecessary API calls)
+    // We fetch a bit extra in case some fail or don't return PR data
+    let max_to_fetch = std::cmp::min(mentions.len(), limit * 2);
+    mentions.truncate(max_to_fetch);
+
+    // Parallel fetch PR details to get author information
+    let detail_futures = mentions.iter().filter(|m| m.pr_number > 0).map(|m| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = m.repo.clone();
+        let pr_number = m.pr_number;
+
+        async move {
+            // Parse repo parts
+            let parts: Vec<&str> = repo.split('/').collect();
+            let org = parts.get(0).unwrap_or(&"");
+            let repo_name = parts.get(1).unwrap_or(&"");
+            // For PullRequest notifications, fetch the PR to get author
+            client.pulls(org.to_string(), repo_name.to_string()).get(pr_number).await
+        }
+    });
+
+    let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
+
+    // Build a map of (repo, pr_number) -> author
+    let mut author_map: std::collections::HashMap<(String, u64), String> = std::collections::HashMap::new();
+    for (mention, result) in mentions.iter().zip(detail_results.into_iter()) {
+        if mention.pr_number > 0 {
+            if let Ok(detail) = result {
+                let author = detail.user.as_ref().map(|u| u.login.clone()).unwrap_or_default();
+                author_map.insert((mention.repo.clone(), mention.pr_number), author);
+            }
         }
     }
+
+    // Update mentions with author information and truncate to limit
+    for mention in &mut mentions {
+        if let Some(author) = author_map.get(&(mention.repo.clone(), mention.pr_number)) {
+            mention.author = author.clone();
+        } else if mention.pr_number > 0 {
+            mention.author = "unknown".to_string();
+        }
+    }
+
+    mentions.truncate(limit);
 
     // Sort by most recently updated
     mentions.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));

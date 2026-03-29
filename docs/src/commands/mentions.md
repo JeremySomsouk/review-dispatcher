@@ -4,6 +4,8 @@
 
 Stay on top of conversations without opening GitHub.
 
+> **Note:** The `--author` filter now properly fetches and matches against the PR author's username.
+
 ## When to Use
 
 - Morning check: "Any mentions while I was offline?"
