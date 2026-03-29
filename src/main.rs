@@ -8070,7 +8070,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Summary { json, repo, author, since_days } => {
+        Commands::Summary { json, repo, author, since_days, priority } => {
             use chrono::Utc;
 
             // Apply --repo filter (partial match, case-insensitive)
@@ -8283,6 +8283,60 @@ async fn main() -> anyhow::Result<()> {
                         .collect();
                     repo_parts.sort();
                     println!("   📁 {}", repo_parts.join(" • "));
+                }
+
+                // Detailed priority breakdown when --priority flag is set
+                if priority && !filtered.is_empty() {
+                    println!();
+                    println!("  ⭐ Priority breakdown:");
+                    let mut scored: Vec<_> = filtered.iter()
+                        .map(|r| {
+                            let score = logger::calculate_priority_score(r);
+                            (r, score)
+                        })
+                        .collect();
+                    scored.sort_by(|a, b| b.1.cmp(&a.1)); // highest priority first
+
+                    // Group by score
+                    let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
+                    for (review, score) in &scored {
+                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                    }
+
+                    for score in (1..=5).rev() {
+                        if let Some(prs) = score_groups.get(&score) {
+                            let stars = logger::priority_stars(score);
+                            let age_days = (chrono::Utc::now() - prs[0].created_at).num_days();
+                            let age_str = if age_days == 0 {
+                                "today".to_string()
+                            } else if age_days == 1 {
+                                "1 day".to_string()
+                            } else {
+                                format!("{} days", age_days)
+                            };
+                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                                stars,
+                                prs.len(),
+                                age_str,
+                                prs.iter().map(|r| r.additions).sum::<u64>(),
+                                prs.iter().map(|r| r.deletions).sum::<u64>()
+                            );
+                        }
+                    }
+
+                    // Highlight the single most urgent PR
+                    if let Some((most_urgent, top_score)) = scored.first() {
+                        let total = most_urgent.additions + most_urgent.deletions;
+                        println!("\n  🚨 Most Urgent:");
+                        println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
+                        println!("    👤 {}  •  📦 {} lines  •  {}  •  {}",
+                            most_urgent.pr_author.cyan(),
+                            total,
+                            format!("{} old", (chrono::Utc::now() - most_urgent.created_at).num_days()),
+                            most_urgent.repo.dimmed()
+                        );
+                        println!("    🔗 {}", most_urgent.pr_url.blue().underline());
+                    }
                 }
             }
         }

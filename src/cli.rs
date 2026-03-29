@@ -654,6 +654,9 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Show priority scores for each PR (1-5 stars based on age and size)
+        #[arg(long, short = 'P')]
+        priority: bool,
     },
     /// Analyze which PRs demand your immediate attention based on multiple urgency factors
     Attention {
