@@ -113,6 +113,9 @@ pub enum Commands {
         /// Target a specific PR by number
         #[arg(long, short = 'p')]
         pr_number: Option<u64>,
+        /// PR number(s) to show mine for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {

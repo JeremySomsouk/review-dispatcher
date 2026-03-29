@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine { json, all, priority, since_days, repo, author, pr_number } => {
+        Commands::Mine { json, all, priority, since_days, repo, author, pr_number, pr_numbers } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -165,12 +165,19 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            // Apply --pr filter first (global flag takes precedence over local pr_number)
+            // Apply --pr / --pr-numbers filter first (global --pr takes precedence)
             let filtered: Vec<_> = {
                 let target = cli.pr.or(pr_number);
-                match target {
-                    Some(num) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                    None => my_prs.clone(),
+                let pr_nums = pr_numbers.as_ref().map(|s| {
+                    s.split(',')
+                        .filter_map(|p| p.trim().parse::<u64>().ok())
+                        .collect::<Vec<u64>>()
+                });
+
+                match (target, pr_nums) {
+                    (Some(num), _) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    (None, Some(nums)) => my_prs.iter().filter(|r| nums.contains(&r.pr_number)).cloned().collect(),
+                    (None, None) => my_prs.clone(),
                 }
             };
 
@@ -211,7 +218,9 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Filter out snoozed PRs (consistent with list/delegate/search commands)
-            let filtered: Vec<_> = if cli.pr.is_none() && pr_number.is_none() {
+            // Skip snooze filtering when --pr, --pr_number, or --pr_numbers is specified
+            let skip_snooze_filter = cli.pr.is_some() || pr_number.is_some() || pr_numbers.is_some();
+            let filtered: Vec<_> = if !skip_snooze_filter {
                 let snooze_file = output_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("./reviews"))

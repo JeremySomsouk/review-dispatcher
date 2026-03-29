@@ -24,6 +24,7 @@ review-dispatcher mine [flags]
 - `--repo <REPO>` — Filter by repository name (partial match, case-insensitive)
 - `--author <AUTHOR>` — Filter by author username (partial match, case-insensitive)
 - `-p, --pr <PR_NUMBER>` — Target a specific PR by number
+- `--pr-numbers <NUMBERS>` — Target multiple PRs by number (comma-separated, e.g., `123,456,789`)
 
 ## Global Flags
 
@@ -36,7 +37,7 @@ These flags are available globally and work with `mine`:
 
 ## Snooze Behavior
 
-Snoozed PRs are automatically hidden from `mine` results (consistent with `list` and `delegate`). Use `--pr` to bypass this filter and view a specific snoozed PR.
+Snoozed PRs are automatically hidden from `mine` results (consistent with `list` and `delegate`). Use `--pr`, `--pr-number`, or `--pr-numbers` to bypass this filter and view specific snoozed PRs.
 
 ## Examples
 
@@ -64,6 +65,9 @@ review-dispatcher mine --author johndoe
 
 # Target a specific PR (bypasses snooze filter)
 review-dispatcher mine --pr 123
+
+# Target multiple specific PRs
+review-dispatcher mine --pr-numbers 123,456,789
 
 # Combine filters
 review-dispatcher mine --since-days 14 --repo api --priority
