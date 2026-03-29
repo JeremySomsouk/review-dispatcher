@@ -601,7 +601,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// PR number(s) to show labels for (comma-separated)
-        #[arg(long, short = 'n')]
+        #[arg(long)]
         pr_numbers: Option<String>,
         /// Show labels for specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
