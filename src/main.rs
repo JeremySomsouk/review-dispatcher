@@ -7434,7 +7434,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run, send, message, repo, author, priority, json } => {
+        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run, send, message, repo, author, priority, json, quiet } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -7613,20 +7613,28 @@ async fn main() -> anyhow::Result<()> {
                 for (entry, result) in chase_entries.iter().zip(results.into_iter()) {
                     match result {
                         Ok(_) => {
-                            println!("  ✅ Sent: #{} - {}", entry.pr_number, entry.pr_title.dimmed());
+                            if !quiet {
+                                println!("  ✅ Sent: #{} - {}", entry.pr_number, entry.pr_title.dimmed());
+                            }
                             sent += 1;
                         }
                         Err(e) => {
-                            println!("  ❌ Failed: #{} - {} ({})", entry.pr_number, entry.pr_title.dimmed(), e);
+                            if !quiet {
+                                println!("  ❌ Failed: #{} - {} ({})", entry.pr_number, entry.pr_title.dimmed(), e);
+                            }
                             failed += 1;
                         }
                     }
                 }
 
-                println!("\n📊 Sent: {}, Failed: {}\n", 
-                    sent.to_string().green(), 
-                    failed.to_string().red()
-                );
+                if !quiet {
+                    println!("\n📊 Sent: {}, Failed: {}\n", 
+                        sent.to_string().green(), 
+                        failed.to_string().red()
+                    );
+                } else {
+                    println!("Sent: {}, Failed: {}", sent, failed);
+                }
             } else {
                 // Preview mode (dry_run or default - preview already shown above)
                 if dry_run {

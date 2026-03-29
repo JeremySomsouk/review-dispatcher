@@ -32,6 +32,7 @@ review-dispatcher chase [OPTIONS]
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
+| `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `--json` | Output as JSON | `false` |
 
 ## Message Template
@@ -88,6 +89,9 @@ review-dispatcher chase --message "Hey {author}, bumping this - it's been {days}
 
 # Get JSON output for scripting
 review-dispatcher chase --json
+
+# Chase PRs silently (summary only, useful in scripts)
+review-dispatcher chase --send --quiet
 ```
 
 ## Output

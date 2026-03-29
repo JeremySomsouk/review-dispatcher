@@ -1219,6 +1219,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
     },
     /// Estimate review time for pending PRs based on size and complexity
     ReviewTime {
