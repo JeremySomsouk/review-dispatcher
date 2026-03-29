@@ -94,6 +94,8 @@ Extend snooze duration for already-snoozed PRs.
 
 ```bash
 review-dispatcher snooze extend 4821 --days 7
+review-dispatcher snooze extend --pr 4821 --days 7
+review-dispatcher snooze extend 4821,4822,4823 --days 5
 ```
 
 ## Examples

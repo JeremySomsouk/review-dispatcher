@@ -6319,7 +6319,46 @@ async fn main() -> anyhow::Result<()> {
                     let new_snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
                         .to_rfc3339();
 
-                    if let Some(ref nums) = pr_numbers {
+                    // Priority: global --pr flag > local --pr > local pr_number > pr_numbers
+                    let target_pr = cli.pr.or(pr).or(pr_number);
+
+                    // Handle direct PR targeting first (consistent with Add/Remove)
+                    if let Some(num) = target_pr {
+                        let _to_extend = vec![num];
+                        let mut extended_count = 0;
+                        let mut not_found_count = 0;
+
+                        for entry in &mut snoozed {
+                            if entry.pr_number == num {
+                                entry.snoozed_until = new_snooze_until.clone();
+                                extended_count += 1;
+                            }
+                        }
+
+                        if !snoozed.iter().any(|e| e.pr_number == num) {
+                            not_found_count += 1;
+                        }
+
+                        if extended_count > 0 {
+                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                                println!("  ⚠️ Failed to save snooze data: {}", e);
+                            } else {
+                                println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                    extended_count.to_string().green().bold(),
+                                    &new_snooze_until[..10].cyan(),
+                                    duration_days
+                                );
+                            }
+                        }
+
+                        if not_found_count > 0 {
+                            println!("  ⚠️ PR #{} was not in the snooze list — use `snooze add` to snooze it first", num);
+                        }
+
+                        if extended_count == 0 && not_found_count == 0 {
+                            println!("\n😶 No matching snoozed PRs found.");
+                        }
+                    } else if let Some(ref nums) = pr_numbers {
                         let to_extend: Vec<u64> = nums
                             .split(',')
                             .filter_map(|p| p.trim().parse().ok())
