@@ -23,7 +23,8 @@ review-dispatcher chase [OPTIONS]
 |------|-------------|---------|
 | `PR_NUMBER` | PR number to chase (shorthand for `--pr`) | - |
 | `-p, --pr <PR>` | Target a specific PR by number | - |
-| `-a, --min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
+| `--pr-numbers <NUMS>` | PR number(s) to chase (comma-separated) | - |
+| `--min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
 | `-s, --since-days <DAYS>` | Only chase PRs created since this many days ago | - |
 | `-n, --dry-run` | Preview chase comments without posting (explicit preview) | - |
 | `--send` | Actually post comments to GitHub (default: preview only) | `false` |
@@ -66,6 +67,9 @@ review-dispatcher chase --dry-run
 
 # Chase a specific PR (ignores --min-age, targets only that PR)
 review-dispatcher chase --pr 123
+
+# Chase multiple specific PRs by number
+review-dispatcher chase --pr-numbers 123,456,789
 
 # Chase PRs older than 14 days and post comments
 review-dispatcher chase --min-age 14 --send

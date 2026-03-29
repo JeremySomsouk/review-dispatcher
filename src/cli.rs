@@ -1092,8 +1092,14 @@ pub enum Commands {
         /// PR number to chase (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Chase specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// PR number(s) to chase (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
         /// Minimum age in days to chase (default: 7)
-        #[arg(long, short = 'a', default_value_t = 7)]
+        #[arg(long, default_value_t = 7)]
         min_age: u32,
         /// Only chase PRs created since this many days ago (newer PRs)
         #[arg(long, short = 's')]

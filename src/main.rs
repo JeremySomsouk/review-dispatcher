@@ -6934,17 +6934,45 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, min_age, since_days, dry_run, send, message, repo, author, priority, json } => {
+        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run, send, message, repo, author, priority, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
             let now = Utc::now();
             let cutoff = now - Duration::days(min_age_days);
 
-            // Handle --pr filter first (shorthand for specific PR)
-            let pr_filtered: Vec<_> = match cli.pr.or(pr_number) {
-                Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                None => reviews.clone(),
+            // Handle --pr filter (global --pr > local --pr > local --pr-number)
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
+            // Build initial filtered list: either target specific PR(s) or use all reviews
+            let pr_filtered: Vec<_> = if let Some(num) = target_pr {
+                // Single PR targeted - use fetch_pr_by_number for accurate data
+                match github::fetch_pr_by_number(&cfg.github_token, &cfg.github_org, &cfg.github_repos, num).await {
+                    Ok(prs) => prs,
+                    Err(e) => {
+                        println!("\n❌ Failed to fetch PR #{}: {}\n", num, e);
+                        return Ok(());
+                    }
+                }
+            } else if let Some(ref nums) = pr_numbers {
+                // Multiple PRs targeted - fetch all in parallel
+                let pr_nums: Vec<u64> = nums.split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
+                let mut results = Vec::new();
+                let fetch_futures = pr_nums.iter().map(|&num| {
+                    github::fetch_pr_by_number(&cfg.github_token, &cfg.github_org, &cfg.github_repos, num)
+                });
+                let fetched = join_all(fetch_futures).await;
+                for result in fetched {
+                    match result {
+                        Ok(prs) => results.extend(prs),
+                        Err(e) => eprintln!("Warning: Failed to fetch PR: {}", e),
+                    }
+                }
+                results
+            } else {
+                reviews.clone()
             };
 
             // Filter stale PRs (older than min_age)
