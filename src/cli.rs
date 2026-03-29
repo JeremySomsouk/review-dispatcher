@@ -612,6 +612,18 @@ pub enum Commands {
         /// Only show PRs with conflicts (hide clean PRs)
         #[arg(long, short = 'c')]
         only_conflicts: bool,
+        /// Show conflict status for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to check for conflicts (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// PR number to check conflicts for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Show conflict status for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

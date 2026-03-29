@@ -9203,47 +9203,85 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Conflicts { only_conflicts, repo, author, since_days, priority, json } => {
-            // Apply filters before fetching conflict status
-            let filtered: Vec<_> = {
-                let mut result = match cli.pr {
-                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                    None => reviews.clone(),
-                };
+        Commands::Conflicts { only_conflicts, all, pr_numbers, pr_number, pr, repo, author, since_days, priority, json } => {
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
-                // Apply --repo filter
+            let targets: Vec<_> = if let Some(num) = target_pr {
+                // When --pr is specified, bypass filters and fetch directly
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if all {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                reviews.clone()
+            } else if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Parallel fetch all specified PRs
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else {
+                if reviews.is_empty() {
+                    println!("No pending reviews found.");
+                    return Ok(());
+                }
+                // Apply --repo, --author, and --since-days filters early (reduce API calls)
+                let mut filtered = reviews.clone();
                 if let Some(ref repo_filter) = repo {
                     let pattern = repo_filter.to_lowercase();
-                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
                 }
-
-                // Apply --author filter
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
-                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
                 }
-
-                // Apply --since-days filter
                 if let Some(days) = since_days {
                     let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    result.retain(|r| r.created_at >= cutoff);
+                    filtered.retain(|r| r.created_at >= cutoff);
                 }
-
-                result
+                filtered
             };
 
-            if filtered.is_empty() {
-                println!("No matching PRs found.");
+            if targets.is_empty() {
+                println!("No PRs to check conflict status for.");
                 return Ok(());
             }
 
-            println!("\n🔍 Checking merge conflict status for {} PRs...\n", filtered.len());
+            println!("\n🔍 Checking merge conflict status for {} PR(s)...\n", targets.len());
             io::stdout().flush()?;
 
             match github::fetch_merge_conflict_status(
                 &cfg.github_token,
                 &cfg.github_org,
-                &filtered,
+                &targets,
             )
             .await
             {
@@ -9280,7 +9318,7 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", "─".repeat(50));
 
                         // Build a lookup from (repo, pr_number) -> PriorityReview for priority scores
-                        let priority_lookup: std::collections::HashMap<(String, u64), &github::PendingReview> = filtered
+                        let priority_lookup: std::collections::HashMap<(String, u64), &github::PendingReview> = targets
                             .iter()
                             .map(|r| ((r.repo.clone(), r.pr_number), r))
                             .collect();
