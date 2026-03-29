@@ -739,7 +739,7 @@ pub enum Commands {
         #[arg(long, short = 'n')]
         limit: Option<usize>,
         /// Minimum priority score threshold (1-5, default: 3)
-        #[arg(long, short = 's')]
+        #[arg(long)]
         min_score: Option<u8>,
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
@@ -750,6 +750,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Only show PRs created since this many days ago
+        #[arg(long)]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

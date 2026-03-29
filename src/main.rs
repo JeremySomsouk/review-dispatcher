@@ -3908,7 +3908,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Top { limit, min_score, priority, repo, author, json } => {
+        Commands::Top { limit, min_score, priority, repo, author, since_days, json } => {
             let limit = limit.unwrap_or(10);
             let min_score = min_score.unwrap_or(3).min(5);
 
@@ -3921,6 +3921,12 @@ async fn main() -> anyhow::Result<()> {
                 })
                 .filter(|(_, score)| *score >= min_score)
                 .collect();
+
+            // Apply --since-days filter (optional)
+            if let Some(days) = since_days {
+                let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                scored.retain(|(r, _)| r.created_at >= cutoff);
+            }
 
             // Apply --repo filter (partial match, case-insensitive)
             if let Some(ref repo_filter) = repo {
