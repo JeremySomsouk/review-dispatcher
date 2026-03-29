@@ -9888,7 +9888,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ping { emoji, pr_numbers, pr_number, pr, dry_run, all, send, repo, author, json } => {
+        Commands::Ping { emoji, pr_numbers, pr_number, pr, dry_run, all, send, repo, author, json, priority } => {
             // Priority: global --pr flag > local --pr > local pr_number > pr_numbers > interactive
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -10008,12 +10008,19 @@ async fn main() -> anyhow::Result<()> {
                 // Parallel send: display preview then send all in parallel
                 for review in &targets {
                     let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score))
+                    } else {
+                        String::new()
+                    };
                     println!(
-                        "  📤 Sending #{} — {} by @{} ({} days old)",
+                        "  📤 Sending #{} — {} by @{} ({} days old){}",
                         review.pr_number,
                         review.pr_title,
                         review.pr_author.cyan(),
-                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
+                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                        priority_label
                     );
                 }
 
@@ -10060,12 +10067,19 @@ async fn main() -> anyhow::Result<()> {
                 // Preview mode (dry_run or no --send)
                 for review in &targets {
                     let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score))
+                    } else {
+                        String::new()
+                    };
                     println!(
-                        "  🔍 Would send #{} — {} by @{} ({} days old)",
+                        "  🔍 Would send #{} — {} by @{} ({} days old){}",
                         review.pr_number,
                         review.pr_title,
                         review.pr_author.cyan(),
-                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) }
+                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                        priority_label
                     );
                     if dry_run {
                         println!("    (dry-run)");
