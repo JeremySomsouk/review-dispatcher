@@ -52,12 +52,13 @@ review-dispatcher snooze review --repo myrepo
 
 ### add
 
-Add PR(s) to the snooze list.
+Add PR(s) to the snooze list. When using interactive selection (no PR specified), `--repo` and `--author` filters are applied to narrow down the list of pending reviews shown.
 
 ```bash
 review-dispatcher snooze add 4821
 review-dispatcher snooze 4821 --days 7
 review-dispatcher snooze add 4821,4822,4823
+review-dispatcher snooze add --repo myservice --author johndoe
 ```
 
 ### remove
