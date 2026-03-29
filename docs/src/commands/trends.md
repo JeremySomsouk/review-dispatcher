@@ -26,6 +26,7 @@ review-dispatcher trends [OPTIONS]
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `-P, --priority` | Show priority scores (1-5 stars) for top reviewed PRs | `false` |
 | `--json` | Output as JSON for scripting | `false` |
+| `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
 
 ## Examples
 
@@ -47,6 +48,12 @@ review-dispatcher trends --author alice
 
 # Combine filters
 review-dispatcher trends --repo backend --author bob
+
+# Only show recent PRs (created in last 7 days)
+review-dispatcher trends --since-days 7
+
+# Combine filters with since-days
+review-dispatcher trends --repo frontend --since-days 14
 
 # JSON for dashboards/scripts
 review-dispatcher trends --json | jq '.avg_per_day'

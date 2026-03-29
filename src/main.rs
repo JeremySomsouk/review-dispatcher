@@ -7422,7 +7422,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Trends { days, limit, repo, author, json, priority } => {
+        Commands::Trends { days, limit, repo, author, json, priority, since_days } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
 
@@ -7539,6 +7539,14 @@ async fn main() -> anyhow::Result<()> {
                                                 let size = additions.saturating_add(deletions);
                                                 let age_days = (reviewed_at_tz - created_at_tz).num_days().max(0) as u32;
                                                 let priority_score = logger::calculate_priority_score_for_stats(size, age_days);
+
+                                                // Apply --since-days filter (PRs created within N days)
+                                                if let Some(since) = since_days {
+                                                    let since_cutoff = Utc::now() - Duration::days(since as i64);
+                                                    if created_at_tz < since_cutoff {
+                                                        continue;
+                                                    }
+                                                }
 
                                                 reviews_data.push(TrendedReview {
                                                     pr_title,
