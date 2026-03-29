@@ -1,175 +1,125 @@
-# 🦀 PRCtrl
+# PRCtrl
 
-> **Stop drowning in PR notifications. Let AI triage your reviews.**
+> **Terminal-native GitHub PR management. Stay on top of code reviews without leaving your terminal.**
 
-PRCtrl is a terminal-native tool that monitors GitHub PRs, sends you smart macOS notifications, and delegates review triage to Claude — so you can focus on what matters.
+PRCtrl helps engineering teams manage PR reviews efficiently. Monitor incoming PRs, get smart notifications, and integrate with AI for instant triage — all from the command line.
 
 ![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)
 ![macOS](https://img.shields.io/badge/macOS-native-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-## ⚡ What It Does
+## What It Does
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  🔔 PR #4821: feat: add CSV export                        │
-│  PRCtrl                                         │
-│  👤 alice • +120 lines • opened 2 days ago                 │
-│                                                             │
-│  ✅ Chrome opens automatically → PR ready for review       │
-└─────────────────────────────────────────────────────────────┘
+$ prctrl list
+
+  3 pending reviews
+
+  [1] feat: add CSV export        #4821  alice    backend    +120/-30   2 days
+  [2] fix: authentication bug     #3156  bob      frontend   +45/-12    1 day
+  [3] refactor: API client        #3102  charlie  backend   +280/-90   4 days
 ```
 
-**Monitor** your team's PRs in the background, get **notified** when new ones arrive, and **delegate** triage to Claude with one command.
+**Core features:**
+- **List & filter** PRs across repos, teams, and authors
+- **Monitor** for new PRs with native macOS notifications
+- **Delegate** triage to Claude for instant recommendations
+- **Track** review history and team metrics
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Install
-cargo install --git https://github.com/JeremySomsouk/prctrl
+cargo install prctrl
 
 # Configure
-cp .env.example .env
-# Edit .env with your GitHub token and org
-
-# Monitor for new PRs
-prctrl monitor
+prctrl config init
 
 # List pending reviews
 prctrl list
 
-# Let Claude triage everything
-prctrl delegate
+# Monitor for new PRs (background)
+prctrl monitor
 ```
 
-**That's it.** No web UI. No Slack. No browser tabs.
-
-## 🎯 Features
-
-### 🔔 Smart Notifications
-- Native macOS notifications with **🦀 crab emoji** branding
-- Auto-opens PR in Chrome — click-free workflow
-- Configurable polling interval (default: 5 minutes)
-- `prctrl monitor --notify` for background monitoring
-
-### 🤖 AI Triage with Claude
-```
-┌────────────────────────────────────────────────────────
-│ 🤖 Claude on: feat: add CSV export  #4821
-│
-│ This PR adds CSV export with validation.
-│ Key areas: data privacy, performance.
-│
-│ Recommendation: [REVIEW NOW] — security-critical changes
-└────────────────────────────────────────────────────────
-```
-
-Delegate to Claude Code for instant PR summaries and review recommendations.
-
-### 📊 PR Management
-- List all pending reviews with metadata
-- Filter by team, author, or repository
-- Crew mode for team-wide visibility
-- Auto-excludes chore/deps PRs
-
-### ⌨️ Interactive Mode
-```
-🔔 New PR detected: #123 - Fix login bug
-
-🎯 Quick Actions:
-  [d] Delegate to Claude    [o] Open in browser
-  [i] Open in IntelliJ     [s] Skip
-```
-
-## 📁 Example Workflow
-
-```bash
-# 1. See what's waiting
-prctrl list
-
-# Output:
-# 🔍 3 pending review(s)
-#   [1] feat: add CSV export  #4821 (frontend)
-#   [2] fix: flaky CI        #312 (backend)
-#   [3] chore: bump deps     #891 (excluded)
-
-# 2. Let AI triage the important ones
-prctrl delegate
-
-# 3. Monitor in background while you work
-prctrl monitor &
-```
-
-## ⚙️ Configuration
-
-```env
-# .env
-RD_GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
-RD_GITHUB_USERNAME=your-username
-RD_GITHUB_ORG=your-org
-RD_GITHUB_REPOS=frontend,backend,api
-RD_GITHUB_TEAMS=platform,backend
-RD_CREW_MEMBERS=alice,bob,charlie
-```
-
-### Custom Review Instructions
-
-Create an `instruction.md` file to customize Claude's review criteria:
-
-```bash
-# Project-specific (./instruction.md)
-cp instruction.md.example instruction.md
-
-# Or global (~/.prctrl/instruction.md)
-mkdir -p ~/.prctrl
-cp instruction.md.example ~/.prctrl/instruction.md
-```
-
-## 🛠️ Installation
+## Installation
 
 ### From Source
 ```bash
-git clone git@github.com:JeremySomsouk/prctrl.git
+git clone https://github.com/JeremySomsouk/prctrl.git
 cd prctrl
 cargo install --path .
 ```
 
 ### Requirements
 - Rust 1.70+
-- GitHub personal access token (fine-grained, PR read access)
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (for `delegate` command)
-- macOS (for notification features)
+- GitHub personal access token (read access to PRs)
+- macOS (for native notifications)
 
-## 📖 CLI Reference
+## Configuration
+
+```bash
+# Interactive setup
+prctrl config init
+
+# Or create ~/.prctrl/config.toml manually
+[github]
+token = "ghp_xxxxxxxxxxxx"
+username = "your-username"
+org = "your-org"
+repos = ["frontend", "backend", "api"]
+teams = ["platform", "backend"]
+
+[notifications]
+enabled = true
+interval = 300  # seconds
+```
+
+## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `prctrl list` | List all pending reviews |
-| `prctrl mine` | List your own open PRs |
-| `prctrl delegate` | Triage with Claude |
-| `prctrl delegate 4821` | Triage specific PR |
-| `prctrl monitor` | Background monitoring + notifications |
-| `prctrl monitor --interactive` | Interactive quick actions |
-| `prctrl clean` | Remove past review files |
+| `prctrl list` | List pending reviews |
+| `prctrl mine` | Your own open PRs |
+| `prctrl top` | Highest priority PRs |
+| `prctrl delegate [pr]` | AI triage with Claude |
+| `prctrl monitor` | Background monitoring |
+| `prctrl approve <pr>` | Quick approve |
+| `prctrl chase <pr>` | Follow up stale PRs |
+| `prctrl stats` | Team review metrics |
 
-### Shell Aliases
+See `prctrl --help` for full command list.
+
+## Workflow Example
 
 ```bash
-alias reviews="prctrl list"
-alias triage="prctrl delegate"
-alias monitor="prctrl monitor"
+# Morning: See what needs attention
+prctrl list --priority
+
+# Quick: Approve trivial PRs
+prctrl approve 4821
+
+# Deep work: Delegate triage to AI
+prctrl delegate
+
+# End of day: Check team stats
+prctrl team-summary
 ```
 
-## 🔮 Roadmap
+## Integrations
 
-- [ ] Slack integration
-- [ ] PR prioritization scoring
-- [ ] Review metrics dashboard
-- [ ] Windows/Linux notification support
+### Claude Integration
+```bash
+# Get AI-powered review summary
+prctrl delegate 4821
 
-## 🤝 Contributing
+# Uses your existing Claude Code CLI
+# Configure instructions in ~/.prctrl/instruction.md
+```
 
-Open issues or PRs welcome — bug fixes, features, docs, or performance improvements.
+## Contributing
+
+Issues and PRs welcome. Please read the docs in `docs/` before contributing.
 
 ## License
 
