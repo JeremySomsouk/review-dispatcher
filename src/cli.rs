@@ -329,7 +329,7 @@ pub enum Commands {
         #[arg(long, short = 's')]
         since_days: Option<u32>,
         /// Preview what would be assigned without actually assigning
-        #[arg(long)]
+        #[arg(long, short = 'n')]
         dry_run: bool,
         /// Output as JSON
         #[arg(long)]
@@ -362,7 +362,7 @@ pub enum Commands {
         #[arg(long, short = 's')]
         since_days: Option<u32>,
         /// Preview what would be unassigned without actually removing
-        #[arg(long)]
+        #[arg(long, short = 'n')]
         dry_run: bool,
         /// Output as JSON
         #[arg(long)]

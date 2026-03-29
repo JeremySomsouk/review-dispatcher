@@ -27,7 +27,7 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Unassign yourself from all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to unassign from (comma-separated, e.g. `123,456`) | - |
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
-| `--dry-run` | Preview what would be unassigned without actually removing | `false` |
+| `-n, --dry-run` | Preview what would be unassigned without actually removing | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |

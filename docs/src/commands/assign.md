@@ -26,7 +26,7 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Assign yourself to all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to assign (comma-separated, e.g. `123,456`) | - |
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
-| `--dry-run` | Preview what would be assigned without actually assigning | `false` |
+| `-n, --dry-run` | Preview what would be assigned without actually assigning | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
