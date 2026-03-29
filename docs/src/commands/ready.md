@@ -27,6 +27,7 @@ review-dispatcher ready [OPTIONS]
 |------|-------------|---------|
 | `--repo <NAME>` | Filter to specific repository (partial match) | All repos |
 | `--author <USER>` | Filter by author username (partial match) | All authors |
+| `--since-days, -s <DAYS>` | Only show PRs created since N days ago | All PRs |
 | `--priority, -P` | Show priority scores (1-5 stars) based on age and size | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
@@ -104,6 +105,12 @@ review-dispatcher ready --author alice
 
 # Filter by repo and author combined
 review-dispatcher ready --repo backend --author bob
+
+# Only show PRs from the last 7 days
+review-dispatcher ready --since-days 7
+
+# Only show PRs from today
+review-dispatcher ready --since-days 1
 
 # Show priority scores to identify most urgent ready PRs
 review-dispatcher ready --priority

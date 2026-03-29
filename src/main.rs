@@ -9949,12 +9949,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ready { repo, author, priority, json } => {
+        Commands::Ready { repo, author, priority, since_days, json } => {
             use std::collections::HashMap;
 
-            // Apply --repo and --author filters to reviews first
+            // Apply --repo, --author, and --since-days filters to reviews first
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
