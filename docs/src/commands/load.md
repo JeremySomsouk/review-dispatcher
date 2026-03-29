@@ -25,6 +25,7 @@ review-dispatcher load [OPTIONS]
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `--since-days, -s <N>` | Only show PRs created since this many days ago | |
+| `--priority, -P` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -47,6 +48,9 @@ review-dispatcher load --since-days 7
 
 # Combine filters
 review-dispatcher load --repo myservice --author sarah_dev --threshold 4
+
+# Show priority breakdown to identify urgent PRs
+review-dispatcher load --priority
 
 # JSON output for automation/dashboards
 review-dispatcher load --json
