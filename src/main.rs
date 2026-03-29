@@ -6495,7 +6495,10 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewTime { pr_numbers, all, grouped, priority, repo, author, since_days, json } => {
+        Commands::ReviewTime { pr_number, pr, pr_numbers, all, grouped, priority, repo, author, since_days, json } => {
+            // Target specific PR: global --pr flag > local --pr > local pr_number
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
             // Apply --repo and --author and --since-days filters first (consistent with other commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -6521,7 +6524,16 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
-            let targets: Vec<_> = if all {
+            // Target specific PR via --pr or positional
+            let targets: Vec<_> = if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if all {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
                     return Ok(());

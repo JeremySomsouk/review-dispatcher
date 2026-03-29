@@ -993,6 +993,12 @@ pub enum Commands {
     },
     /// Estimate review time for pending PRs based on size and complexity
     ReviewTime {
+        /// PR number to estimate review time for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// Show review time for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// PR number(s) to estimate (comma-separated)
         #[arg(value_name = "PR_NUMBERS")]
         pr_numbers: Option<String>,

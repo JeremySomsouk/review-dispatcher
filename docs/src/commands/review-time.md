@@ -21,6 +21,8 @@ review-dispatcher review-time [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `PR_NUMBER` | PR number to estimate review time for (shorthand for --pr) | Interactive |
+| `-p, --pr <PR>` | Show review time for specific PR (shorthand for --pr) | Interactive |
 | `PR_NUMBERS` | PR number(s) to estimate (comma-separated) | Interactive |
 | `-a, --all` | Show estimates for all pending reviews | `false` |
 | `-g, --grouped` | Group output by time category | `false` |
@@ -61,7 +63,11 @@ The estimation algorithm considers:
 # Interactive: select PRs from pending list
 review-dispatcher review-time
 
-# Estimate for specific PRs
+# Target specific PR directly (consistent with other commands)
+review-dispatcher review-time --pr 4821
+review-dispatcher review-time -p 4821
+
+# Estimate for specific PRs via positional arg
 review-dispatcher review-time 4821
 review-dispatcher review-time 4821,4815,4809
 
