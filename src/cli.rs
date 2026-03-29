@@ -397,7 +397,7 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
         /// Preview which PRs would be opened without actually opening them
-        #[arg(long)]
+        #[arg(long, short = 'n')]
         dry_run: bool,
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
