@@ -214,6 +214,9 @@ pub enum Commands {
         /// Show diff/stats for all pending reviews
         #[arg(long, short = 'a')]
         all: bool,
+        /// Preview which PRs would be diffed without actually displaying the diff
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -997,6 +1000,9 @@ pub enum Commands {
         /// Output as raw Markdown (no preamble)
         #[arg(long)]
         raw: bool,
+        /// Preview digest without generating (show what would be included)
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

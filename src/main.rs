@@ -1213,7 +1213,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, pr_numbers, pr, all, json, priority, repo, author, since_days } => {
+        Commands::Diff { pr_number, pr_numbers, pr, all, dry_run, json, priority, repo, author, since_days } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -1311,6 +1311,29 @@ async fn main() -> anyhow::Result<()> {
 
             if targets.is_empty() {
                 println!("No PRs found to diff.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be diffed
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be diffed:\n");
+                for (i, review) in targets.iter().enumerate() {
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan(),
+                        priority_label
+                    );
+                    println!("     🔗 {}", review.pr_url.blue());
+                }
+                println!("\n  Total: {} PR(s)\n", targets.len());
                 return Ok(());
             }
 
@@ -5376,7 +5399,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Digest { days, raw, repo, author, priority, since_days, older_than } => {
+        Commands::Digest { days, raw, dry_run, repo, author, priority, since_days, older_than } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -5411,6 +5434,34 @@ async fn main() -> anyhow::Result<()> {
 
                 result
             };
+
+            // Dry-run mode: show what would be included without generating the digest
+            if dry_run {
+                if filtered_reviews.is_empty() {
+                    println!("\n🔍 No PRs would be included in the digest (dry-run).\n");
+                    println!("  💡 Try adjusting your filters or increasing --days\n");
+                } else {
+                    println!("\n🔍 Dry-run: {} PR(s) would be included in the digest\n", filtered_reviews.len().to_string().yellow().bold());
+                    println!("  Filters:");
+                    if let Some(ref repo_filter) = repo {
+                        println!("    • repo: {}", repo_filter.yellow());
+                    }
+                    if let Some(ref author_filter) = author {
+                        println!("    • author: {}", author_filter.yellow());
+                    }
+                    if let Some(since) = since_days {
+                        println!("    • since_days: {}", since.to_string().yellow());
+                    }
+                    if let Some(older) = older_than {
+                        println!("    • older_than: {}", older.to_string().yellow());
+                    }
+                    println!("    • days: {}", days.to_string().yellow());
+                    println!("\n  PRs that would be included:\n");
+                    logger::print_reviews(&filtered_reviews, priority);
+                }
+                println!("\n  (dry-run — no digest generated)\n");
+                return Ok(());
+            }
 
             // Compute age buckets (continuous non-overlapping ranges: New 0-1d, Fresh 2-3d, Aging 4-7d, Stale 8-14d, Overdue 15d+)
             #[derive(Clone, Copy)]

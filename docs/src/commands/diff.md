@@ -16,6 +16,7 @@ review-dispatcher diff [OPTIONS]
 | `--pr, -p <NUMBER>` | Target a specific PR by number (shorthand) | Interactive selection |
 | `--pr-numbers <NUMBERS>` | Target multiple PRs by number (comma-separated) | None |
 | `--all, -a` | Show diff/stats for all pending reviews without prompting | `false` |
+| `--dry-run, -n` | Preview which PRs would be diffed without actually displaying | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | None |
@@ -40,6 +41,10 @@ review-dispatcher diff
 
 # Show diff/stats for ALL pending reviews at once
 review-dispatcher diff --all
+
+# Preview which PRs would be diffed (without displaying)
+review-dispatcher diff --all --dry-run
+review-dispatcher diff --all -n
 
 # Show diffs for all PRs in a specific repo
 review-dispatcher diff --all --repo frontend
