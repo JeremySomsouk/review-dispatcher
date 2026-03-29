@@ -113,6 +113,11 @@ review-dispatcher review-velocity --json | jq '.avg_hours_to_review'
 
 Review velocity reads the processed review files saved in your output directory (default: `./reviews/`). Each file contains both `Created` and `Reviewed on` timestamps, allowing calculation of the review time in hours.
 
+**Filters are applied efficiently:**
+- `--since-days` filter is checked **before** expensive parsing (early exit)
+- `--days` filter then filters by review date
+- `--repo` and `--author` filters are applied last for precise filtering
+
 **Time buckets:**
 - **< 4h** — Same day reviews (fast turnaround)
 - **4-24h** — Next day reviews (typical)

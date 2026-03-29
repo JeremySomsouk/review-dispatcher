@@ -8067,6 +8067,14 @@ async fn main() -> anyhow::Result<()> {
                                             let reviewed_at_tz = reviewed_at.with_timezone(&Utc);
                                             let created_at_tz = created_at.with_timezone(&Utc);
 
+                                            // Apply --since-days filter early (before expensive parsing)
+                                            if let Some(since) = since_days {
+                                                let since_cutoff = Utc::now() - Duration::days(since as i64);
+                                                if created_at_tz < since_cutoff {
+                                                    continue;
+                                                }
+                                            }
+
                                             if reviewed_at_tz >= cutoff {
                                                 let hours = (reviewed_at_tz - created_at_tz).num_hours() as f64;
 
@@ -8105,14 +8113,6 @@ async fn main() -> anyhow::Result<()> {
                                                 if let Some(ref author_filter) = author {
                                                     let pattern = author_filter.to_lowercase();
                                                     if !pr_author.to_lowercase().contains(&pattern) {
-                                                        continue;
-                                                    }
-                                                }
-
-                                                // Apply --since-days filter (PRs created within N days)
-                                                if let Some(since) = since_days {
-                                                    let since_cutoff = Utc::now() - Duration::days(since as i64);
-                                                    if created_at_tz < since_cutoff {
                                                         continue;
                                                     }
                                                 }
