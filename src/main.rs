@@ -3113,43 +3113,54 @@ async fn main() -> anyhow::Result<()> {
 
         Commands::Search { query, since_days, sort_by, priority, json, repo, author } => {
             // Apply --pr filter first (targets specific PR even in search)
-            let base_filtered: Vec<_> = match cli.pr {
+            let filtered: Vec<_> = match cli.pr {
                 Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                 None => reviews.clone(),
             };
 
             let query_lower = query.to_lowercase();
-            let now = chrono::Utc::now();
-            let filtered: Vec<_> = base_filtered
-                .iter()
-                .filter(|r| {
-                    // Filter by title (required - the query)
-                    if !r.pr_title.to_lowercase().contains(&query_lower) {
-                        return false;
-                    }
-                    // Filter by repo (optional)
-                    if let Some(ref repo_filter) = repo {
-                        if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
-                            return false;
-                        }
-                    }
-                    // Filter by author (optional)
-                    if let Some(ref author_filter) = author {
-                        if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
-                            return false;
-                        }
-                    }
-                    // Filter by since_days (optional)
-                    if let Some(days) = since_days {
-                        let age = (now - r.created_at).num_days() as u32;
-                        if age > days {
-                            return false;
-                        }
-                    }
-                    true
-                })
-                .cloned()
+
+            // Apply --since-days filter first (consistent with other commands)
+            let filtered: Vec<_> = match since_days {
+                Some(days) => {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.created_at >= cutoff)
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Filter by title (query is required)
+            let filtered: Vec<_> = filtered
+                .into_iter()
+                .filter(|r| r.pr_title.to_lowercase().contains(&query_lower))
                 .collect();
+
+            // Apply --repo filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match repo {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.repo.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Apply --author filter (partial match, case-insensitive)
+            let filtered: Vec<_> = match author {
+                Some(ref pattern) => {
+                    let pattern_lower = pattern.to_lowercase();
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.pr_author.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
 
             // Filter out snoozed PRs (unless --pr is specified)
             let filtered: Vec<_> = if cli.pr.is_none() {
