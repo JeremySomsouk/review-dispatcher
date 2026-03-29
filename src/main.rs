@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine { json, priority, since_days, repo, author, pr_number } => {
+        Commands::Mine { json, all, priority, since_days, repo, author, pr_number } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -165,10 +165,13 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
-            // If --pr is specified, filter to that specific PR first
-            let filtered: Vec<_> = match pr_number {
-                Some(num) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                None => my_prs.clone(),
+            // Apply --pr filter first (global flag takes precedence over local pr_number)
+            let filtered: Vec<_> = {
+                let target = cli.pr.or(pr_number);
+                match target {
+                    Some(num) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    None => my_prs.clone(),
+                }
             };
 
             // Apply --since filter
@@ -207,10 +210,107 @@ async fn main() -> anyhow::Result<()> {
                 None => filtered,
             };
 
-            if json {
-                println!("{}", serde_json::to_string_pretty(&filtered)?);
+            // Filter out snoozed PRs (consistent with list/delegate/search commands)
+            let filtered: Vec<_> = if cli.pr.is_none() && pr_number.is_none() {
+                let snooze_file = output_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("./reviews"))
+                    .join(".snoozed.json");
+
+                let now = chrono::Utc::now();
+                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            entries
+                                .into_iter()
+                                .filter_map(|e| {
+                                    let repo = e.get("repo")?.as_str()?.to_string();
+                                    let pr_number = e.get("pr_number")?.as_u64()?;
+                                    let until_str = e.get("snoozed_until")?.as_str()?;
+                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if until.with_timezone(&chrono::Utc) > now {
+                                            return Some((repo, pr_number));
+                                        }
+                                    }
+                                    None
+                                })
+                                .collect()
+                        } else {
+                            Vec::new()
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                filtered
+                    .into_iter()
+                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .collect()
             } else {
+                filtered
+            };
+
+            if filtered.is_empty() {
+                if cli.pr.or(pr_number).is_some() {
+                    println!("No PR #{} found in your open PRs.", cli.pr.or(pr_number).unwrap());
+                } else {
+                    println!("No matching PRs found.");
+                }
+                return Ok(());
+            }
+
+            // If --all flag is set, show all without prompting
+            if all {
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&filtered)?);
+                } else {
+                    logger::print_reviews(&filtered, priority);
+                }
+            } else {
+                // Interactive selection
                 logger::print_reviews(&filtered, priority);
+                print!(
+                    "\n{} ",
+                    "Select PRs [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), filtered.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        let selected: Vec<_> = indices.into_iter().map(|i| filtered[i].clone()).collect();
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(&selected)?);
+                        } else {
+                            // Re-print with details
+                            for review in &selected {
+                                let age_days = (chrono::Utc::now() - review.created_at).num_days();
+                                let priority_display = if priority {
+                                    let score = logger::calculate_priority_score(review);
+                                    format!("  ⭐ {}/5", logger::priority_stars(score))
+                                } else {
+                                    String::new()
+                                };
+                                println!(
+                                    "  #{} {}  ({}){}\n    👤 {}  •  📦 +{}/-{}  •  ⏱️ {} days\n    🔗 {}",
+                                    review.pr_number,
+                                    review.pr_title.bold(),
+                                    review.repo.cyan(),
+                                    priority_display,
+                                    review.pr_author.cyan(),
+                                    review.additions,
+                                    review.deletions,
+                                    age_days,
+                                    review.pr_url.blue().underline()
+                                );
+                            }
+                        }
+                    }
+                }
             }
 
             if let Some(ref dir) = output_dir {

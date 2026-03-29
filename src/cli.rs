@@ -89,6 +89,9 @@ pub enum Commands {
         /// Output as JSON (useful for scripting)
         #[arg(long)]
         json: bool,
+        /// Show all matching PRs at once (without prompting)
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Show priority score (1-5 stars) based on age and size
         #[arg(long, short = 'P')]
         priority: bool,
