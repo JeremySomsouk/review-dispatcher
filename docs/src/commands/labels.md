@@ -26,6 +26,7 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 | `-l, --filter-by <LABEL>` | Filter by label name (partial match, case-insensitive) | - |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 | `--json` | Output as JSON | `false` |
 | `-P, --priority` | Show priority score for each PR (1-5 stars based on age and size) | `false` |
 
@@ -50,8 +51,11 @@ review-dispatcher labels --repo api-service
 # Filter by author
 review-dispatcher labels --author alice
 
+# Show labels for all PRs from the last 7 days
+review-dispatcher labels -a --since-days 7
+
 # Combine filters
-review-dispatcher labels -a --repo api --author alice
+review-dispatcher labels -a --repo api --author alice --since-days 14
 
 # Output as JSON for scripting
 review-dispatcher labels --pr 4821 --json
