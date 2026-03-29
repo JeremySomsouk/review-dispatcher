@@ -23,7 +23,7 @@ review-dispatcher approve [OPTIONS]
 |------|-------------|---------|
 | `-p, --pr <NUM>` | PR number to approve | - |
 | `-a, --all` | Approve all pending reviews at once | `false` |
-| `-n, --pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
+| `--pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
 | `-m, --message <TEXT>` | Approval comment (optional, default: "LGTM!") | `LGTM!` |
 | `-s, --since-days <DAYS>` | Only approve PRs created since this many days ago | - |
 | `-n, --dry-run` | Preview what would be approved without actually approving | `false` |
