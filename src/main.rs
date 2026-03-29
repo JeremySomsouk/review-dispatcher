@@ -7949,7 +7949,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Summary { json, repo, author } => {
+        Commands::Summary { json, repo, author, since_days } => {
             use chrono::Utc;
 
             // Apply --repo filter (partial match, case-insensitive)
@@ -7972,6 +7972,18 @@ async fn main() -> anyhow::Result<()> {
                     filtered
                         .into_iter()
                         .filter(|r| r.pr_author.to_lowercase().contains(&pattern_lower))
+                        .collect()
+                }
+                None => filtered,
+            };
+
+            // Apply --since-days filter
+            let filtered: Vec<_> = match since_days {
+                Some(days) => {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    filtered
+                        .into_iter()
+                        .filter(|r| r.created_at >= cutoff)
                         .collect()
                 }
                 None => filtered,

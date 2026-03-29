@@ -22,6 +22,7 @@ review-dispatcher summary [OPTIONS]
 | `--json` | Output as JSON | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | |
 | `--author` | Filter by author username (partial match, case-insensitive) | |
+| `--since-days`, `-s` | Only show PRs created since this many days ago | |
 
 ## Examples
 
@@ -30,6 +31,7 @@ review-dispatcher summary
 review-dispatcher summary --json
 review-dispatcher summary --repo myrepo
 review-dispatcher summary --author johndoe
+review-dispatcher summary --since-days 7
 ```
 
 ## Output Example
