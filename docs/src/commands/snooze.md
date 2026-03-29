@@ -67,6 +67,8 @@ Remove PR(s) from the snooze list (wake them up).
 
 ```bash
 review-dispatcher snooze remove 4821
+review-dispatcher snooze remove --pr 4821
+review-dispatcher snooze remove 4821,4822,4823
 ```
 
 ### clear

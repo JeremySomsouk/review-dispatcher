@@ -5406,32 +5406,37 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 cli::SnoozeAction::Remove => {
-                    if let Some(ref nums) = pr_numbers {
-                        let to_remove: Vec<u64> = nums
-                            .split(',')
+                    // Priority: global --pr flag > local --pr > local pr_number > pr_numbers
+                    let target_pr = cli.pr.or(pr).or(pr_number);
+
+                    let to_remove: Vec<u64> = if let Some(ref nums) = pr_numbers {
+                        nums.split(',')
                             .filter_map(|p| p.trim().parse().ok())
-                            .collect();
-
-                        if to_remove.is_empty() {
-                            println!("❌ No valid PR numbers provided.");
-                            return Ok(());
-                        }
-
-                        let initial_len = snoozed.len();
-                        snoozed.retain(|e| !to_remove.contains(&e.pr_number));
-
-                        let removed = initial_len - snoozed.len();
-                        if removed > 0 {
-                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
-                                println!("  ⚠️ Failed to save snooze data: {}", e);
-                            } else {
-                                println!("\n✅ Removed {} PR(s) from snooze list ({} remaining)", removed, snoozed.len());
-                            }
-                        } else {
-                            println!("\n😶 No matching snoozed PRs found.");
-                        }
+                            .collect()
+                    } else if let Some(num) = target_pr {
+                        vec![num]
                     } else {
                         println!("\n❌ Please specify PR numbers to remove: `snooze remove --pr 123,456`\n");
+                        return Ok(());
+                    };
+
+                    if to_remove.is_empty() {
+                        println!("❌ No valid PR numbers provided.");
+                        return Ok(());
+                    }
+
+                    let initial_len = snoozed.len();
+                    snoozed.retain(|e| !to_remove.contains(&e.pr_number));
+
+                    let removed = initial_len - snoozed.len();
+                    if removed > 0 {
+                        if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                            println!("  ⚠️ Failed to save snooze data: {}", e);
+                        } else {
+                            println!("\n✅ Removed {} PR(s) from snooze list ({} remaining)", removed, snoozed.len());
+                        }
+                    } else {
+                        println!("\n😶 No matching snoozed PRs found.");
                     }
                 }
 
