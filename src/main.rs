@@ -1900,7 +1900,34 @@ async fn main() -> anyhow::Result<()> {
                     .filter_map(|r| r.ok())
                     .flatten()
                     .collect();
-                all_prs
+                let all_prs_len = all_prs.len();
+
+                // Apply --repo and --author filters to fetched PRs (consistent with --all and interactive)
+                let filtered: Vec<_> = if all_prs.is_empty() {
+                    Vec::new()
+                } else {
+                    all_prs
+                        .into_iter()
+                        .filter(|r| {
+                            let mut matches = true;
+                            if let Some(ref repo_filter) = repo {
+                                let pattern = repo_filter.to_lowercase();
+                                matches = matches && r.repo.to_lowercase().contains(&pattern);
+                            }
+                            if let Some(ref author_filter) = author {
+                                let pattern = author_filter.to_lowercase();
+                                matches = matches && r.pr_author.to_lowercase().contains(&pattern);
+                            }
+                            matches
+                        })
+                        .collect()
+                };
+
+                if filtered.is_empty() && all_prs_len > 0 {
+                    println!("❌ No matching reviews found among specified PRs.");
+                    return Ok(());
+                }
+                filtered
             } else {
                 // Interactive: show list and let user pick (using filtered reviews)
                 if filtered_reviews.is_empty() {
@@ -9600,6 +9627,31 @@ async fn main() -> anyhow::Result<()> {
         Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, since_days, priority, json } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
+            // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let targets: Vec<_> = if let Some(num) = target_pr {
                 // When --pr is specified, bypass filters and fetch directly
                 github::fetch_pr_by_number(
@@ -9610,11 +9662,12 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await?
             } else if all {
-                if reviews.is_empty() {
+                // --all flag: use all filtered pending reviews
+                if filtered_reviews.is_empty() {
                     println!("No pending reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews
             } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
@@ -9643,25 +9696,8 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
-                    return Ok(());
-                }
-                // Apply --repo, --author, and --since-days filters early (reduce API calls)
-                let mut filtered = reviews.clone();
-                if let Some(ref repo_filter) = repo {
-                    let pattern = repo_filter.to_lowercase();
-                    filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
-                }
-                if let Some(ref author_filter) = author {
-                    let pattern = author_filter.to_lowercase();
-                    filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
-                }
-                if let Some(days) = since_days {
-                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    filtered.retain(|r| r.created_at >= cutoff);
-                }
-                filtered
+                // Interactive selection uses filtered_reviews
+                filtered_reviews
             };
 
             if targets.is_empty() {

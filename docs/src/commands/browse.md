@@ -41,6 +41,9 @@ review-dispatcher browse --pr 4821
 # Open multiple PRs in browser
 review-dispatcher browse --pr-numbers 4821,3156,2890
 
+# Open multiple PRs from a specific repository (filters applied after fetch)
+review-dispatcher browse --pr-numbers 4821,3156,2890 --repo myservice
+
 # Open all pending reviews at once
 review-dispatcher browse --all
 
