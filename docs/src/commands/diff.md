@@ -18,6 +18,7 @@ review-dispatcher diff [OPTIONS]
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | None |
+| `--since-days, -s <DAYS>` | Only show PRs created since this many days ago | None |
 
 ## Examples
 
@@ -36,6 +37,12 @@ review-dispatcher diff --all --repo frontend
 
 # Filter to specific author before selecting
 review-dispatcher diff --author sarah_dev
+
+# Show only recent PRs (last 7 days)
+review-dispatcher diff --all --since-days 7
+
+# Combine filters
+review-dispatcher diff --all --repo frontend --since-days 14
 
 # JSON output for scripting
 review-dispatcher diff --pr 4821 --json

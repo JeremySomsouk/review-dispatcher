@@ -1057,7 +1057,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, all, json, priority, repo, author } => {
+        Commands::Diff { pr_number, all, json, priority, repo, author, since_days } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters to reviews first
@@ -1074,6 +1074,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter (relative - PRs newer than N days)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result
