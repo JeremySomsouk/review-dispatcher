@@ -2258,15 +2258,34 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { all, pr_numbers, pr_number, message, json } => {
+        Commands::Approve { all, pr_numbers, pr_number, message, json, priority, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
+            // Apply --repo and --author filters (consistent with other commands)
+            let filtered_reviews: Vec<_> = {
+                let mut result = reviews.clone();
+
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            };
+
             let prs: Vec<github::PendingReview> = if all {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
+                filtered_reviews.clone()
             } else if let Some(ref nums) = pr_numbers {
                 let mut results = Vec::new();
                 for part in nums.split(',') {
@@ -2302,11 +2321,11 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await?
             } else {
-                if reviews.is_empty() {
-                    println!("No pending reviews found.");
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&reviews, false);
+                logger::print_reviews(&filtered_reviews, priority);
                 print!(
                     "\n{} ",
                     "Select PRs to approve [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -2314,10 +2333,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), reviews.len()) {
+                match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| reviews[i].clone()).collect()
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
             };
@@ -2433,9 +2452,19 @@ async fn main() -> anyhow::Result<()> {
                                         error: None,
                                     });
                                 } else {
+                                    let priority_display = if priority {
+                                        let score = logger::calculate_priority_score(review);
+                                        format!("  ⭐ {}/5  ", score)
+                                    } else {
+                                        String::new()
+                                    };
                                     println!("{}", "✅ Approved".green());
                                     println!("   👍 You approved {} ({})", review.pr_title, review.repo);
-                                    println!("   🔗 {}", review.pr_url.blue().underline());
+                                    if priority {
+                                        println!("   {}🔗 {}", priority_display, review.pr_url.blue().underline());
+                                    } else {
+                                        println!("   🔗 {}", review.pr_url.blue().underline());
+                                    }
                                 }
                             }
                             Some(Err(e)) => {

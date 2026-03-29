@@ -25,6 +25,9 @@ review-dispatcher approve [OPTIONS]
 | `-a, --all` | Approve all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
 | `-m, --message <TEXT>` | Approval comment (optional, default: "LGTM!") | `LGTM!` |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
+| `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON (useful for scripting) | `false` |
 
 ## Examples
@@ -42,6 +45,15 @@ review-dispatcher approve --pr 4821 -m ""
 # Approve all pending reviews at once
 review-dispatcher approve --all
 
+# Approve all PRs from a specific author
+review-dispatcher approve --all --author johndoe
+
+# Approve all PRs from a specific repository
+review-dispatcher approve --all --repo myservice
+
+# Approve with priority scores shown
+review-dispatcher approve --all --priority
+
 # Approve multiple specific PRs
 review-dispatcher approve --pr-numbers 4821,4822,4823
 
@@ -52,6 +64,8 @@ review-dispatcher approve --pr 4821 --json
 ## Tips
 
 - Use `--all` to quickly approve ALL pending reviews at once
+- Use `--author` and `--repo` filters to narrow down which reviews to approve
+- Use `--priority` to see priority scores when selecting reviews interactively
 - Use `--pr-numbers` to approve multiple specific PRs in one command
 - Parallel requests are used when approving multiple PRs for speed
 - If no PR number is provided and `--all` is not used, shows your pending reviews and lets you select interactively
