@@ -24,6 +24,7 @@ review-dispatcher load [OPTIONS]
 | `--threshold, -t <N>` | Minimum PRs to be considered "loaded" | `3` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
+| `--since-days, -s <N>` | Only show PRs created since this many days ago | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -40,6 +41,9 @@ review-dispatcher load --repo myservice
 
 # Filter to a specific author
 review-dispatcher load --author sarah_dev
+
+# Only show recent PRs (last 7 days) to focus on fresh requests
+review-dispatcher load --since-days 7
 
 # Combine filters
 review-dispatcher load --repo myservice --author sarah_dev --threshold 4
@@ -112,6 +116,7 @@ The command provides actionable recommendations:
 - Run before sprint planning to balance review load
 - Use `--repo` to focus on specific repository workload distribution
 - Use `--author` to see load breakdown for specific team members
+- Use `--since-days` to focus on recent PRs only (e.g., `--since-days 7` for last week's requests)
 
 ## Related Commands
 

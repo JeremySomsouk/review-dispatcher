@@ -786,7 +786,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Load { threshold, repo, author, json } => {
+        Commands::Load { threshold, repo, author, since_days, json } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
@@ -806,7 +806,7 @@ async fn main() -> anyhow::Result<()> {
                 overloaded: bool,
             }
 
-            // Apply --repo and --author filters to reviews first
+            // Apply --repo, --author, and --since-days filters to reviews first
             let filtered: Vec<_> = {
                 let mut result = reviews.clone();
 
@@ -820,6 +820,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result
