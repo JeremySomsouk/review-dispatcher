@@ -119,7 +119,7 @@ prctrl delegate 4821
 
 ## Documentation
 
-Full documentation at **https://somsouk.fr/prctrl**
+Full documentation at **https://www.somsouk.fr/prctrl**
 
 ## Contributing
 
