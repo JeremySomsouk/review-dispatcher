@@ -1691,13 +1691,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json, repo, author } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json, repo, author, since_days } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
-            // Apply --repo and --author filters when using interactive selection or --all
+            // Apply --repo and --author and --since-days filters when using interactive selection or --all
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
