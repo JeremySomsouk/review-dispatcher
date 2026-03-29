@@ -26,6 +26,7 @@ review-dispatcher activity [OPTIONS]
 | `-p, --pr <PR>` | Show activity for specific PR (shorthand for global `--pr`) | all |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs reviewed since this many days ago | all |
 
 ## Examples
 
@@ -53,4 +54,7 @@ review-dispatcher activity --priority
 
 # JSON output for scripting
 review-dispatcher activity --json
+
+# Only show PRs reviewed in the last 7 days (even if --days is 30)
+review-dispatcher activity --days 30 --since-days 7
 ```

@@ -7380,7 +7380,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, repo, author, pr, json, priority } => {
+        Commands::Activity { days, repo, author, pr, json, priority, since_days } => {
             println!("\n📈 Fetching your review activity (last {} days)...\n", days);
 
             match github::fetch_my_review_activity(
@@ -7408,6 +7408,12 @@ async fn main() -> anyhow::Result<()> {
                     if let Some(ref author_filter) = author {
                         let pattern = author_filter.to_lowercase();
                         activities.retain(|a| a.author.to_lowercase().contains(&pattern));
+                    }
+
+                    // Apply --since-days filter (PRs reviewed within N days)
+                    if let Some(since) = since_days {
+                        let cutoff = chrono::Utc::now() - chrono::Duration::days(since as i64);
+                        activities.retain(|a| a.reviewed_at >= cutoff);
                     }
 
                     // When --priority is specified, fetch PR details in parallel for priority scoring

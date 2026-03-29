@@ -657,6 +657,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
     },
     /// Show GitHub notifications where you were mentioned or directly involved
     Mentions {
