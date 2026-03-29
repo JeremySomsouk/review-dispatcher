@@ -300,6 +300,9 @@ pub enum Commands {
         /// Approve with a custom comment
         #[arg(long, short = 'm')]
         message: Option<String>,
+        /// Only approve PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,

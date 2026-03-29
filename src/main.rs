@@ -2258,7 +2258,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { all, pr_numbers, pr_number, message, json, priority, repo, author } => {
+        Commands::Approve { all, pr_numbers, pr_number, message, since_days, json, priority, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other commands)
@@ -2275,6 +2275,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result

@@ -25,6 +25,7 @@ review-dispatcher approve [OPTIONS]
 | `-a, --all` | Approve all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
 | `-m, --message <TEXT>` | Approval comment (optional, default: "LGTM!") | `LGTM!` |
+| `-s, --since-days <DAYS>` | Only approve PRs created since this many days ago | - |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
@@ -50,6 +51,9 @@ review-dispatcher approve --all --author johndoe
 
 # Approve all PRs from a specific repository
 review-dispatcher approve --all --repo myservice
+
+# Approve PRs from the last 3 days only
+review-dispatcher approve --all --since-days 3
 
 # Approve with priority scores shown
 review-dispatcher approve --all --priority
