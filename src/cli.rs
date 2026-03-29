@@ -435,6 +435,9 @@ pub enum Commands {
         /// Preview which PRs would be opened without actually opening them
         #[arg(long, short = 'n')]
         dry_run: bool,
+        /// Suppress per-PR success/failure messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
         /// Output URLs as JSON (useful for scripting)
         #[arg(long)]
         json: bool,

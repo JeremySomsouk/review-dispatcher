@@ -24,6 +24,7 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 | `--pr-numbers <NUMS>` | PR number(s) to open (comma-separated) | - |
 | `-a, --all` | Open all pending reviews | `false` |
 | `-n, --dry-run` | Preview which PRs would be opened without opening them | `false` |
+| `-q, --quiet` | Suppress per-PR success/failure messages (show only summary) | `false` |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
@@ -70,4 +71,7 @@ review-dispatcher browse --pr-numbers 4821,3156 --dry-run
 
 # Output URLs as JSON (useful for scripting)
 review-dispatcher browse --pr 4821 --json
+
+# Quiet mode - open PRs with minimal output
+review-dispatcher browse --all --quiet
 ```

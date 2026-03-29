@@ -1827,7 +1827,9 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, json, repo, author, since_days } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, quiet, json, repo, author, since_days } => {
+            // In JSON mode, also suppress per-PR output
+            let quiet = quiet || json;
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -1990,18 +1992,33 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            println!("\n🌐 Opening {} PR(s) in browser...\n", targets.len());
+            if !quiet {
+                println!("\n🌐 Opening {} PR(s) in browser...\n", targets.len());
+            }
+            let mut success_count = 0usize;
+            let mut fail_count = 0usize;
             for review in &targets {
                 match open::that(&review.pr_url) {
                     Ok(_) => {
-                        println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                        success_count += 1;
+                        if !quiet {
+                            println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                        }
                     }
                     Err(e) => {
-                        println!("  ❌ Failed to open {}: {}", review.pr_url, e);
+                        fail_count += 1;
+                        if !quiet {
+                            println!("  ❌ Failed to open {}: {}", review.pr_url, e);
+                        }
                     }
                 }
             }
-            println!();
+            if !quiet {
+                println!();
+            } else {
+                // In quiet mode, just show summary
+                println!("Opened {} PR(s) ({} success, {} failed)", targets.len(), success_count, fail_count);
+            }
         }
 
         Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author, priority } => {
