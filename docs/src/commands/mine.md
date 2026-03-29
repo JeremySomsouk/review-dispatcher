@@ -22,6 +22,7 @@ review-dispatcher mine [flags]
 - `-s, --since-days <DAYS>` — Only show PRs created since this many days ago
 - `--repo <REPO>` — Filter by repository name (partial match, case-insensitive)
 - `--author <AUTHOR>` — Filter by author username (partial match, case-insensitive)
+- `-p, --pr-number <PR_NUMBER>` — Target a specific PR by number
 
 ## Examples
 
@@ -43,6 +44,9 @@ review-dispatcher mine --repo my-repo
 
 # Filter by author
 review-dispatcher mine --author johndoe
+
+# Target a specific PR
+review-dispatcher mine --pr-number 123
 
 # Combine filters
 review-dispatcher mine --since-days 14 --repo api --priority

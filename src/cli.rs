@@ -101,6 +101,9 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
+        /// Target a specific PR by number
+        #[arg(long, short = 'p')]
+        pr_number: Option<u64>,
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {

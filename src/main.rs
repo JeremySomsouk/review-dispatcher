@@ -154,7 +154,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine { json, priority, since_days, repo, author } => {
+        Commands::Mine { json, priority, since_days, repo, author, pr_number } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -165,17 +165,22 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
 
+            // If --pr is specified, filter to that specific PR first
+            let filtered: Vec<_> = match pr_number {
+                Some(num) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                None => my_prs.clone(),
+            };
+
             // Apply --since filter
             let filtered: Vec<_> = match since_days {
                 Some(days) => {
                     let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    my_prs
-                        .iter()
+                    filtered
+                        .into_iter()
                         .filter(|r| r.created_at >= cutoff)
-                        .cloned()
                         .collect()
                 }
-                None => my_prs.clone(),
+                None => filtered,
             };
 
             // Apply --repo filter (partial match, case-insensitive)
