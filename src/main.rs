@@ -10574,7 +10574,7 @@ async fn main() -> anyhow::Result<()> {
                     failed.to_string().red()
                 );
             } else {
-                // Preview mode (dry_run or no --send)
+                // Preview mode (default when no --send)
                 for review in &targets {
                     let age_days = (chrono::Utc::now() - review.created_at).num_days();
                     let priority_label = if priority {
@@ -10583,28 +10583,36 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!(
-                        "  🔍 Would send #{} — {} by @{} ({} days old){}",
-                        review.pr_number,
-                        review.pr_title,
-                        review.pr_author.cyan(),
-                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
-                        priority_label
-                    );
                     if dry_run {
-                        println!("    (dry-run)");
+                        println!(
+                            "  🔍 Dry-run: would ping #{} — {} by @{} ({} days old){}",
+                            review.pr_number,
+                            review.pr_title,
+                            review.pr_author.cyan(),
+                            if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                            priority_label
+                        );
                     } else {
-                        println!("    Preview only — use `--send` to actually ping");
+                        println!(
+                            "  🔍 Will ping #{} — {} by @{} ({} days old){}",
+                            review.pr_number,
+                            review.pr_title,
+                            review.pr_author.cyan(),
+                            if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                            priority_label
+                        );
                     }
                 }
 
                 println!();
                 println!("{}", "─".repeat(50));
                 if dry_run {
+                    println!("  (dry-run — no emoji reactions sent)\n");
+                } else {
                     println!("  💡 Use `--send` to actually send the emoji reactions");
+                    println!("  💡 Available emojis: eyes (default), rocket, heart, +1, hooray");
+                    println!("  💡 Use `-e rocket` or `-e heart` to change emoji\n");
                 }
-                println!("  💡 Available emojis: eyes (default), rocket, heart, +1, hooray");
-                println!("  💡 Use `-e rocket` or `-e heart` to change emoji\n");
             }
         }
 

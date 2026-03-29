@@ -64,8 +64,7 @@ Unlike comments, reactions:
 ──────────────────────────────────────────────────
   Emoji: eyes
 
-  🔍 Would send #4821 — Fix authentication bug by @alice (3 days old)
-    Preview only — use `--send` to actually ping
+  🔍 Will ping #4821 — Fix authentication bug by @alice (3 days old)
 
 ──────────────────────────────────────────────────
   💡 Use `--send` to actually send the emoji reactions
@@ -76,16 +75,13 @@ Unlike comments, reactions:
 **Dry-run mode:**
 ```
 👀 Ping Command
-──────────────────────────────────────────────────
+────────────────────────────────────────────────--
   Emoji: eyes
 
-  🔍 Would send #4821 — Fix authentication bug by @alice (3 days old)
-    (dry-run)
+  🔍 Dry-run: would ping #4821 — Fix authentication bug by @alice (3 days old)
 
-──────────────────────────────────────────────────
-  💡 Use `--send` to actually send the emoji reactions
-  💡 Available emojis: eyes (default), rocket, heart, +1, hooray
-  💡 Use `-e rocket` or `-e heart` to change emoji
+────────────────────────────────────────────────--
+  (dry-run — no emoji reactions sent)
 ```
 
 **JSON output:**
