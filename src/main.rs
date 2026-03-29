@@ -6200,7 +6200,7 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_number, pr_numbers, pr, json, repo, author, priority } => {
+        Commands::Follow { action, pr_number, pr_numbers, pr, json, repo, author, priority, since_days } => {
             use serde::{Deserialize, Serialize};
 
             // Compute target PRs: global --pr > local --pr > local --pr-number > --pr-numbers
@@ -6283,9 +6283,15 @@ async fn main() -> anyhow::Result<()> {
                             .collect();
                         all_prs
                     } else {
-                        // Apply --repo and --author filters to pending reviews for interactive selection
+                        // Apply --repo, --author, and --since-days filters to pending reviews for interactive selection
                         let filtered_reviews: Vec<_> = {
                             let mut result = reviews.clone();
+
+                            // Apply --since-days filter
+                            if let Some(days) = since_days {
+                                let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                                result.retain(|r| r.created_at >= cutoff);
+                            }
 
                             // Apply --repo filter (partial match, case-insensitive)
                             if let Some(ref repo_filter) = repo {

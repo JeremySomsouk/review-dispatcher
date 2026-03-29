@@ -39,6 +39,7 @@ review-dispatcher follow <ACTION> [OPTIONS]
 | `--repo` | Filter by repository name (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
 | `--author` | Filter by author username (partial match, case-insensitive). For `add`: filters which PRs are shown in interactive picker. For `list`/`remove`: filters followed PRs. | `none` |
 | `--priority` / `-P` | Show priority indicator based on PR size (🟢 SMALL, 🟡 MEDIUM, 🔴 LARGE) | `false` |
+| `--since-days` / `-s` | Only show PRs created since this many days ago (for `add`: filters pending reviews; for `list`/`remove`: filters followed PRs by follow date) | `none` |
 
 ## PR Format
 
@@ -73,6 +74,9 @@ review-dispatcher follow add --author alice
 
 # Add: Filter by both repo and author
 review-dispatcher follow add --repo frontend --author alice
+
+# Add: Follow only recent PRs (created in last 7 days)
+review-dispatcher follow add --since-days 7
 
 # List all followed PRs
 review-dispatcher follow list
