@@ -922,13 +922,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json, all: _all, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
+        Commands::TeamSummary { json, all: _all, pr, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
+            // Priority: global --pr flag > local --pr > local --pr_number
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
-                let mut result = match cli.pr.or(pr_number) {
+                let mut result = match target_pr {
                     Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                     None => reviews.clone(),
                 };
@@ -1049,7 +1052,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Load { threshold, repo, author, since_days, priority, json } => {
+        Commands::Load { threshold, repo, author, since_days, priority, json, pr, pr_numbers } => {
             use std::collections::HashMap;
             use serde::Serialize;
 
@@ -1069,9 +1072,45 @@ async fn main() -> anyhow::Result<()> {
                 overloaded: bool,
             }
 
+            // Priority: global --pr flag > local --pr > local --pr_number > --pr-numbers
+            let target_pr = cli.pr.or(pr);
+
+            // Handle batch PR numbers first
+            let base_reviews: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let nums: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                if nums.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                let fetch_futures = nums.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect()
+            } else if let Some(num) = target_pr {
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else {
+                reviews.clone()
+            };
+
             // Apply --repo, --author, and --since-days filters to reviews first
             let filtered: Vec<_> = {
-                let mut result = reviews.clone();
+                let mut result = base_reviews;
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

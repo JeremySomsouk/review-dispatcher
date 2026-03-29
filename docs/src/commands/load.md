@@ -25,8 +25,12 @@ review-dispatcher load [OPTIONS]
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `--since-days, -s <N>` | Only show PRs created since this many days ago | |
+| `-p, --pr <NUMBER>` | Target a specific PR by number | - |
+| `--pr-numbers <NUMS>` | Target specific PRs by number (comma-separated) | - |
 | `--priority, -P` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output as JSON for scripting | `false` |
+
+**Note:** The global `--pr` flag (`-p`) also works with this command for consistency with other commands.
 
 ## Examples
 

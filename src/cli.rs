@@ -152,12 +152,15 @@ pub enum Commands {
         /// Show team summary for all pending reviews (no interactive selection)
         #[arg(long, short = 'a')]
         all: bool,
+        /// Target a specific PR by number (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// PR number(s) to show team summary for (comma-separated)
         #[arg(long)]
         pr_numbers: Option<String>,
-        /// PR number to show team summary for (shorthand for --pr)
-        #[arg(value_name = "PR_NUMBER")]
-        pr_number: Option<u64>,
+        /// Target a specific PR by number
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -188,6 +191,12 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Target a specific PR by number
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// PR number(s) to show load for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,

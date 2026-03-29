@@ -20,10 +20,10 @@ review-dispatcher team-summary [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-a, --all` | Show team summary for all pending reviews without interactive selection | `false` |
-| `--pr-numbers <NUMS>` | Show team summary for specific PR numbers (comma-separated) | - |
 | `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
-| `--json` | Output as JSON for scripting | `false` |
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |
+| `--pr-numbers <NUMS>` | Show team summary for specific PR numbers (comma-separated) | - |
+| `--json` | Output as JSON for scripting | `false` |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority breakdown (stars by age/size score) | `false` |
