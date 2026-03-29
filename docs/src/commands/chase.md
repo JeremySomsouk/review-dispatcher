@@ -25,6 +25,7 @@ review-dispatcher chase [OPTIONS]
 | `-p, --pr <PR>` | Target a specific PR by number | - |
 | `-a, --min-age <DAYS>` | Minimum age in days to chase (default: 7) | `7` |
 | `-s, --since-days <DAYS>` | Only chase PRs created since this many days ago | - |
+| `-n, --dry-run` | Preview chase comments without posting (explicit preview) | - |
 | `--send` | Actually post comments to GitHub (default: preview only) | `false` |
 | `-m, --message <TEXT>` | Custom message template | Default template |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
@@ -57,8 +58,11 @@ Your custom message can include these placeholders:
 ## Examples
 
 ```bash
-# Preview chase comments for PRs older than 7 days
+# Preview chase comments for PRs older than 7 days (default behavior)
 review-dispatcher chase
+
+# Explicitly preview what would be sent
+review-dispatcher chase --dry-run
 
 # Chase a specific PR (ignores --min-age, targets only that PR)
 review-dispatcher chase --pr 123
@@ -99,7 +103,7 @@ When run with `--send`:
 
 ## Safety
 
-**Dry-run by default**: The `--send` flag is required to actually post comments. This prevents accidental spam.
+**Dry-run by default**: Without any flag, the command shows a preview. Use `--dry-run` to be explicit, or `--send` to actually post comments to GitHub.
 
 ## Tips
 

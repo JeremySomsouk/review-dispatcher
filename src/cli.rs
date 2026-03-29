@@ -1005,7 +1005,10 @@ pub enum Commands {
         /// Only chase PRs created since this many days ago (newer PRs)
         #[arg(long, short = 's')]
         since_days: Option<u32>,
-        /// Send actual comments instead of just previewing
+        /// Preview chase comments without posting them (default behavior shows preview)
+        #[arg(long, short = 'n')]
+        dry_run: bool,
+        /// Actually post chase comments to GitHub (default is to preview)
         #[arg(long)]
         send: bool,
         /// Custom message template (use {author} and {title} as placeholders)

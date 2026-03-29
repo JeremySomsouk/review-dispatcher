@@ -6473,7 +6473,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, min_age, since_days, send, message, repo, author, priority, json } => {
+        Commands::Chase { pr_number, min_age, since_days, dry_run, send, message, repo, author, priority, json } => {
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -6639,7 +6639,12 @@ async fn main() -> anyhow::Result<()> {
                     failed.to_string().red()
                 );
             } else {
-                println!("  💡 Use --send to actually post these comments to GitHub\n");
+                // Preview mode (dry_run or default - preview already shown above)
+                if dry_run {
+                    println!("  (dry-run)\n");
+                } else {
+                    println!("  💡 Use --dry-run to preview or --send to post comments to GitHub\n");
+                }
             }
         }
 
