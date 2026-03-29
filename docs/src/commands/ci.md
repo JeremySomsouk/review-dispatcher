@@ -10,6 +10,10 @@ See which PRs are green, failing, or still running.
 - CI debugging: "Why is this failing?"
 - Merge planning: "Which PRs can I merge now?"
 
+## Filter Behavior
+
+Filters (`--repo`, `--author`, `--since-days`) are applied **before** fetching CI status, reducing API calls and improving performance. When a specific PR is targeted via positional argument or `--pr`, filters are skipped to ensure accurate targeting.
+
 ## Synopsis
 
 ```bash

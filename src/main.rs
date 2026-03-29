@@ -9153,19 +9153,8 @@ async fn main() -> anyhow::Result<()> {
                     println!("No pending reviews found.");
                     return Ok(());
                 }
-                reviews.clone()
-            };
-
-            if targets.is_empty() {
-                println!("No PRs to check CI status for.");
-                return Ok(());
-            }
-
-            // Apply --repo, --author, and --since-days filters (skip if --pr was used since we already targeted exact PR)
-            let targets: Vec<_> = if target_pr.is_some() {
-                targets
-            } else {
-                let mut filtered = targets;
+                // Apply --repo, --author, and --since-days filters early (reduce API calls)
+                let mut filtered = reviews.clone();
                 if let Some(ref repo_filter) = repo {
                     let pattern = repo_filter.to_lowercase();
                     filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
@@ -9174,7 +9163,6 @@ async fn main() -> anyhow::Result<()> {
                     let pattern = author_filter.to_lowercase();
                     filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
                 }
-                // Apply --since-days filter
                 if let Some(days) = since_days {
                     let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
                     filtered.retain(|r| r.created_at >= cutoff);
@@ -9183,7 +9171,7 @@ async fn main() -> anyhow::Result<()> {
             };
 
             if targets.is_empty() {
-                println!("No PRs match the specified filters.");
+                println!("No PRs to check CI status for.");
                 return Ok(());
             }
 
