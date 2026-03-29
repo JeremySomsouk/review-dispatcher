@@ -367,7 +367,7 @@ pub enum Commands {
         #[arg(long, short = 'a')]
         all: bool,
         /// PR number(s) to claim (comma-separated)
-        #[arg(value_name = "PR_NUMBERS")]
+        #[arg(long)]
         pr_numbers: Option<String>,
         /// Preview what would be claimed without taking action
         #[arg(long, short = 'n')]
@@ -421,7 +421,7 @@ pub enum Commands {
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// PR number(s) to show files for (comma-separated)
-        #[arg(long, short = 'n')]
+        #[arg(long)]
         pr_numbers: Option<String>,
         /// Show files for specific PR (shorthand for --pr)
         #[arg(long, short = 'p')]
