@@ -5027,7 +5027,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Snooze { action, pr_number, pr, pr_numbers, days, json, priority, repo, author } => {
+        Commands::Snooze { action, pr_number, pr, pr_numbers, days, since_days, json, priority, repo, author } => {
             use serde::{Deserialize, Serialize};
 
             // Snooze storage file
@@ -5108,7 +5108,7 @@ async fn main() -> anyhow::Result<()> {
                             .collect();
                         all_prs
                     } else {
-                        // Apply --repo and --author filters (consistent with snooze list/review)
+                        // Apply --repo, --author, and --since-days filters (consistent with other commands)
                         let mut filtered = reviews.clone();
 
                         if let Some(ref repo_filter) = repo {
@@ -5119,6 +5119,12 @@ async fn main() -> anyhow::Result<()> {
                         if let Some(ref author_filter) = author {
                             let pattern = author_filter.to_lowercase();
                             filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                        }
+
+                        // Apply --since-days filter
+                        if let Some(days) = since_days {
+                            let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                            filtered.retain(|r| r.created_at >= cutoff);
                         }
 
                         if filtered.is_empty() {

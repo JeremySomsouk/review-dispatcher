@@ -960,6 +960,9 @@ pub enum Commands {
         /// Snooze duration in days (default: 3)
         #[arg(long, short = 'd')]
         days: Option<u32>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON (useful for scripting)
         #[arg(long)]
         json: bool,

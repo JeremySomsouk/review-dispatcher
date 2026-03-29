@@ -23,6 +23,7 @@ review-dispatcher snooze [OPTIONS] [PR_NUMBER] [PR_NUMBERS]
 | `-p, --pr <NUM>` | Snooze specific PR | `none` |
 | `PR_NUMBERS` | PR number(s) to snooze (comma-separated) | `none` |
 | `-d, --days <NUM>` | Days to snooze | `3` |
+| `-s, --since-days <NUM>` | Only show PRs created since this many days ago | `none` |
 | `--json` | Output as JSON (useful for scripting) | `false` |
 | `-P, --priority` | Show priority scores for listed snoozed PRs | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | `none` |
@@ -106,6 +107,9 @@ review-dispatcher snooze add --pr 4821
 
 # Snooze for 7 days
 review-dispatcher snooze 4821 --days 7
+
+# Snooze all PRs from the last 2 weeks (interactive selection)
+review-dispatcher snooze add --since-days 14
 
 # List snoozed PRs as JSON (for scripting)
 review-dispatcher snooze list --json
