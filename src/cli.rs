@@ -438,6 +438,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Only show pending PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
     },
     /// Search pending reviews by title keyword
     Search {

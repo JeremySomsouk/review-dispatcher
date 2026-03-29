@@ -6821,7 +6821,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Report { days, json, repo, author, priority } => {
+        Commands::Report { days, json, repo, author, priority, since_days } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -6832,7 +6832,7 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Apply filters to pending reviews for display (--repo, --author, --priority)
+            // Apply filters to pending reviews for display (--repo, --author)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
 
@@ -6846,6 +6846,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter (consistent with other commands)
+                if let Some(days_filter) = since_days {
+                    let cutoff = Utc::now() - Duration::days(days_filter as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result
