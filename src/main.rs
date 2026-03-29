@@ -2235,12 +2235,18 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { all, pr_numbers, pr_number, text, dry_run, json, repo, author } => {
+        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
-            // Apply --repo and --author filters (consistent with other batch commands)
+            // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

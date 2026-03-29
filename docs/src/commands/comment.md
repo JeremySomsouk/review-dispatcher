@@ -28,6 +28,7 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 | `-p, --pr` | Global flag: target a specific PR number | - |
 | `-n, --dry-run` | Preview what would be commented without actually posting | `false` |
 | `--json` | Output as JSON (useful for scripting) |
+| `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
 
@@ -45,6 +46,9 @@ review-dispatcher comment --all --text "Please address feedback before merging"
 
 # Comment on multiple specific PRs
 review-dispatcher comment --pr-numbers 4821,4822 --text "LGTM!"
+
+# Comment on recent PRs only (last 7 days)
+review-dispatcher comment --all --since-days 7 --text "Great work!"
 
 # With JSON output (for scripting)
 review-dispatcher comment 4821 --text "LGTM!" --json
