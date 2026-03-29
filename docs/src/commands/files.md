@@ -27,6 +27,7 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 | `--json` | Output as JSON (useful for scripting) | `false` |
 | `--repo <REPO>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <USER>` | Filter by author username (partial match, case-insensitive) | - |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 
 ## Examples
 
@@ -49,6 +50,9 @@ review-dispatcher files --all --author johndoe
 
 # Combined filters
 review-dispatcher files --all --repo api --priority
+
+# Only show files for recent PRs (last 7 days)
+review-dispatcher files --all --since-days 7
 
 # JSON output for scripting
 review-dispatcher files --pr 4821 --json
