@@ -27,6 +27,7 @@ review-dispatcher trends [OPTIONS]
 | `-P, --priority` | Show priority scores (1-5 stars) for top reviewed PRs | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
+| `-p, --pr <NUM>` | Target a specific PR by number (global flag, available on all commands) | |
 
 ## Examples
 
@@ -60,6 +61,9 @@ review-dispatcher trends --json | jq '.avg_per_day'
 
 # Show top PRs by priority score
 review-dispatcher trends --priority
+
+# Show trends for a specific PR
+review-dispatcher trends --pr 123
 ```
 
 ## Output Example

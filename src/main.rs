@@ -7715,6 +7715,9 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Target specific PR: global --pr flag
+            let target_pr = cli.pr;
+
             let cutoff = Utc::now() - Duration::days(days as i64);
 
             #[derive(Debug, Clone, serde::Serialize)]
@@ -7779,6 +7782,13 @@ async fn main() -> anyhow::Result<()> {
                                                     .and_then(|l| l.strip_prefix("- **Repository**:"))
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
+
+                                                // Apply --pr filter (target specific PR via global flag)
+                                                if let Some(target) = target_pr {
+                                                    if pr_number != target {
+                                                        continue;
+                                                    }
+                                                }
 
                                                 // Apply --repo filter (partial match, case-insensitive)
                                                 if let Some(ref repo_filter) = repo {
