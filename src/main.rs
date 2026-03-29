@@ -3940,6 +3940,42 @@ async fn main() -> anyhow::Result<()> {
                 scored.retain(|(r, _)| r.pr_author.to_lowercase().contains(&pattern));
             }
 
+            // Filter out snoozed PRs (consistent with list/delegate/search/summary commands)
+            let snooze_file = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"))
+                .join(".snoozed.json");
+
+            let now = chrono::Utc::now();
+            let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                    if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        entries
+                            .into_iter()
+                            .filter_map(|e| {
+                                let repo = e.get("repo")?.as_str()?.to_string();
+                                let pr_number = e.get("pr_number")?.as_u64()?;
+                                let until_str = e.get("snoozed_until")?.as_str()?;
+                                if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if until.with_timezone(&chrono::Utc) > now {
+                                        return Some((repo, pr_number));
+                                    }
+                                }
+                                None
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            scored.retain(|(r, _)| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo));
+
             // Sort by priority score descending, then by age ascending
             scored.sort_by(|a, b| {
                 let score_cmp = b.1.cmp(&a.1);
@@ -8486,7 +8522,7 @@ async fn main() -> anyhow::Result<()> {
             use crate::github::PendingReview;
 
             // Apply --repo and --author filters
-            let filtered_reviews: Vec<_> = {
+            let mut filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
 
                 // Apply --repo filter (partial match, case-insensitive)
@@ -8503,6 +8539,42 @@ async fn main() -> anyhow::Result<()> {
 
                 result
             };
+
+            // Filter out snoozed PRs (consistent with list/delegate/search/summary commands)
+            let snooze_file = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"))
+                .join(".snoozed.json");
+
+            let now = chrono::Utc::now();
+            let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                    if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        entries
+                            .into_iter()
+                            .filter_map(|e| {
+                                let repo = e.get("repo")?.as_str()?.to_string();
+                                let pr_number = e.get("pr_number")?.as_u64()?;
+                                let until_str = e.get("snoozed_until")?.as_str()?;
+                                if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if until.with_timezone(&chrono::Utc) > now {
+                                        return Some((repo, pr_number));
+                                    }
+                                }
+                                None
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            };
+
+            filtered_reviews.retain(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo));
 
             if filtered_reviews.is_empty() {
                 if json {

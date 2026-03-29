@@ -113,9 +113,12 @@ review-dispatcher attention --json
 - Combine with `--detailed` when explaining to others why a PR is urgent
 - Use `--json` for integration with external tools or Slack notifications
 - Pair with `focus --open` to immediately start reviewing the most urgent PR
+- Snoozed PRs are automatically excluded from results (consistent with `list`, `delegate`, etc.)
+- Use `review-dispatcher snooze add` to temporarily hide PRs from results
 
 ## Related Commands
 
 - [`focus`](./focus.md) — Show the single most urgent PR
 - [`summary`](./summary.md) — Quick one-line overview
 - [`top`](./top.md) — Highest priority PRs by score
+- [`snooze`](./snooze.md) — Temporarily hide PRs from results

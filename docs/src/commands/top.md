@@ -56,3 +56,15 @@ review-dispatcher top --since-days 7
 # Show top PRs from the last 14 days in a specific repo
 review-dispatcher top --since-days 14 --repo my-service
 ```
+
+## Notes
+
+- Snoozed PRs are automatically excluded from results (consistent with `list`, `delegate`, `search`, etc.)
+- Use `review-dispatcher snooze add` to temporarily hide PRs from results
+
+## Related Commands
+
+- [`attention`](./attention.md) — Multi-factor urgency analysis
+- [`focus`](./focus.md) — Show the single most urgent PR
+- [`summary`](./summary.md) — Quick one-line overview
+- [`snooze`](./snooze.md) — Temporarily hide PRs from results
