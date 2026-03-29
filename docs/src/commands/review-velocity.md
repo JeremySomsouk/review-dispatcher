@@ -26,6 +26,7 @@ review-dispatcher review-velocity [OPTIONS]
 | `-P, --priority` | Show priority vs review time breakdown | `false` |
 | `--repo <TEXT>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <TEXT>` | Filter by author username (partial match, case-insensitive) | |
+| `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -54,6 +55,12 @@ review-dispatcher review-velocity --author alice
 
 # Combine filters with bottleneck analysis
 review-dispatcher review-velocity --repo api --bottlenecks
+
+# Only PRs created in the last 14 days (regardless of when reviewed)
+review-dispatcher review-velocity --since-days 14
+
+# Combine --since-days with other filters
+review-dispatcher review-velocity --since-days 7 --repo backend --bottlenecks
 
 # JSON for dashboards
 review-dispatcher review-velocity --json | jq '.avg_hours_to_review'

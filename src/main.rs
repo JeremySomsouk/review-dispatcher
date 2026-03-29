@@ -7754,7 +7754,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, json } => {
+        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, since_days, json } => {
             use chrono::{Duration, Utc};
             use std::collections::{HashMap, BTreeMap};
             use crate::logger;
@@ -7851,6 +7851,14 @@ async fn main() -> anyhow::Result<()> {
                                                 if let Some(ref author_filter) = author {
                                                     let pattern = author_filter.to_lowercase();
                                                     if !pr_author.to_lowercase().contains(&pattern) {
+                                                        continue;
+                                                    }
+                                                }
+
+                                                // Apply --since-days filter (PRs created within N days)
+                                                if let Some(since) = since_days {
+                                                    let since_cutoff = Utc::now() - Duration::days(since as i64);
+                                                    if created_at_tz < since_cutoff {
                                                         continue;
                                                     }
                                                 }
