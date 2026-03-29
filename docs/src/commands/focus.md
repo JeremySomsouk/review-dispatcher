@@ -25,11 +25,14 @@ prctrl focus [OPTIONS]
 | `-a, --all` | Show all matching PRs sorted by priority (default: show only the top 1) | `false` |
 | `-l, --limit` | Limit the number of PRs shown (use with `--all`, default: 10) | `10` |
 | `-o, --open` | Open the focused PR in your browser (only for single PR) | `false` |
+| `PR_NUMBER` | Target specific PR by number (shorthand for `--pr`) | - |
+| `--pr-numbers` | PR number(s) to focus on (comma-separated) | - |
+| `-p, --pr <NUM>` | Target specific PR by number | - |
 | `--json` | Output as JSON (one object per line with `--all`) | `false` |
 | `-P, --priority` | Show priority score for each PR (1-5 stars) | `false` |
-| `--repo` | Filter by repository name (partial match, case-insensitive) | |
-| `--author` | Filter by author username (partial match, case-insensitive) | |
-| `-s, --since-days` | Only show PRs created since this many days ago | |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `-s, --since-days` | Only show PRs created since this many days ago | - |
 
 ## Examples
 
@@ -59,7 +62,13 @@ prctrl focus --author johndoe
 prctrl focus --priority
 
 # Focus only on recently created PRs (last 7 days)
-prctrl focus --since-days 7
+review-dispatcher focus --since-days 7
+
+# Target a specific PR (bypasses priority sorting)
+review-dispatcher focus --pr 4821
+
+# Focus on multiple specific PRs
+review-dispatcher focus --pr-numbers 4821,4822,4823 --all
 ```
 
 ## Priority Calculation

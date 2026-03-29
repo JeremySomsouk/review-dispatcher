@@ -9939,8 +9939,70 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Focus { dry_run, all, limit, open, json, priority, repo, author, since_days } => {
+        Commands::Focus { dry_run, all, limit, open, json, priority, repo, author, since_days, pr_number, pr_numbers, pr } => {
             use chrono::Utc;
+
+            // Target specific PR(s): global --pr > local --pr > local --pr-number > --pr-numbers
+            let target_pr = cli.pr.or(pr).or(pr_number);
+
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            // If pr_numbers was provided, use those PRs directly
+            if pr_numbers.is_some() {
+                if prs_from_numbers.is_empty() {
+                    println!("No PRs found for the specified numbers.");
+                    return Ok(());
+                }
+                // Determine how many PRs to show
+                let show_count = if all { limit.unwrap_or(10) } else { 1 };
+                let focused_prs: Vec<_> = prs_from_numbers.into_iter().take(show_count).collect();
+                // Apply sorting by priority
+                let mut sorted = focused_prs.clone();
+                sorted.sort_by(|a, b| {
+                    let score_a = logger::calculate_priority_score(a);
+                    let score_b = logger::calculate_priority_score(b);
+                    let age_a = (Utc::now() - a.created_at).num_days();
+                    let age_b = (Utc::now() - b.created_at).num_days();
+                    (score_b, age_a).cmp(&(score_a, age_b))
+                });
+                let focused_prs = if all { sorted } else { sorted.into_iter().take(1).collect() };
+                // Output (simplified - just show the PRs)
+                for pr in &focused_prs {
+                    let score = logger::calculate_priority_score(pr);
+                    println!("#{} {} [⭐{}/5]", pr.pr_number, pr.pr_title, score);
+                    println!("   {}  •  {}  •  +{}/-{} lines", pr.repo, pr.pr_author, pr.additions, pr.deletions);
+                }
+                return Ok(());
+            }
 
             // Determine how many PRs to show
             let show_count = if all { limit.unwrap_or(10) } else { 1 };
@@ -9970,8 +10032,28 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
-            // Filter out snoozed PRs (consistent with list/delegate/search/filter/top commands)
-            let filtered: Vec<_> = if cli.pr.is_none() {
+            // If target_pr is set, fetch that specific PR
+            let base_reviews: Vec<github::PendingReview> = if let Some(num) = target_pr {
+                // Single PR via --pr or --pr-number - fetch and use that
+                match github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await {
+                    Ok(prs) => prs,
+                    Err(e) => {
+                        println!("❌ Failed to fetch PR #{}: {}", num, e);
+                        return Ok(());
+                    }
+                }
+            } else {
+                filtered
+            };
+
+            // Filter out snoozed PRs (unless --pr is specified, consistent with list/delegate/search/filter/top commands)
+            let filtered: Vec<_> = if target_pr.is_none() {
                 let snooze_file = output_dir
                     .clone()
                     .unwrap_or_else(|| PathBuf::from("./reviews"))
@@ -10006,13 +10088,13 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 let _snoozed_count = snoozed_prs.len();
-                filtered
+                base_reviews
                     .into_iter()
                     .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
                     .inspect(|_| ())
                     .collect()
             } else {
-                filtered
+                base_reviews
             };
 
             if filtered.is_empty() {
@@ -10024,7 +10106,11 @@ async fn main() -> anyhow::Result<()> {
                     }))?);
                 } else {
                     println!("🎯 No matching PRs found.");
-                    println!("   No PR matches your filters (--repo, --author).");
+                    if target_pr.is_some() {
+                        println!("   PR #{} not found in pending reviews.", target_pr.unwrap());
+                    } else {
+                        println!("   No PR matches your filters (--repo, --author).");
+                    }
                     if !reviews.is_empty() {
                         println!("   You have {} total pending PRs.", reviews.len());
                     }

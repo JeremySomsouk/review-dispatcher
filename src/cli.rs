@@ -889,6 +889,15 @@ pub enum Commands {
         /// Open the focused PR in your browser instead of printing details
         #[arg(long, short = 'o')]
         open: bool,
+        /// PR number to focus on (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
+        /// PR number(s) to focus on (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Target specific PR by number (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
