@@ -28,14 +28,24 @@ pub async fn fetch_pr_by_number(
         .personal_token(token.to_string())
         .build()?;
 
-    let mut results = vec![];
+    // Parallel fetch from all repos using join_all
+    let futures = repos.iter().map(|repo| {
+        let client = &client;
+        let repo_name = repo.clone();
+        async move {
+            (repo_name, client.pulls(org, repo).get(pr_number).await)
+        }
+    });
 
-    for repo in repos {
-        match client.pulls(org, repo).get(pr_number).await {
+    let results_vec: Vec<(String, Result<_, _>)> = join_all(futures).await;
+
+    let mut results = vec![];
+    for (repo_name, result) in results_vec {
+        match result {
             Ok(pr) => {
                 let author = pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default();
                 results.push(PendingReview {
-                    repo: repo.clone(),
+                    repo: repo_name,
                     pr_number: pr.number,
                     pr_title: pr.title.clone().unwrap_or_default(),
                     pr_author: author,
