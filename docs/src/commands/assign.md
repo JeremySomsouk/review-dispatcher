@@ -26,6 +26,7 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Assign yourself to all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to assign (comma-separated, e.g. `123,456`) | - |
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
+| `--dry-run` | Preview what would be assigned without actually assigning | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
@@ -35,6 +36,9 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 ```bash
 # Assign to a specific PR
 review-dispatcher assign 4821
+
+# Preview what would be assigned (dry-run)
+review-dispatcher assign --all --dry-run
 
 # Assign using global --pr flag
 review-dispatcher --pr 4821 assign
@@ -73,4 +77,5 @@ When `--json` is used, returns an array of results:
 
 - Use `--all` to quickly assign yourself to ALL pending reviews without prompting
 - Use `--pr-numbers` to assign to multiple specific PRs in one command
+- Use `--dry-run` to preview what would be assigned before making changes
 - Parallel requests are used when assigning to multiple PRs for speed

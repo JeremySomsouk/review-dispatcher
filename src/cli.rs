@@ -270,6 +270,9 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Preview what would be assigned without actually assigning
+        #[arg(long)]
+        dry_run: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -294,6 +297,9 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Preview what would be unassigned without actually removing
+        #[arg(long)]
+        dry_run: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -318,6 +324,9 @@ pub enum Commands {
         /// Comment text (supports markdown)
         #[arg(long, short = 't', value_name = "TEXT")]
         text: String,
+        /// Preview what would be commented without actually posting
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,

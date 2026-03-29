@@ -27,6 +27,7 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Unassign yourself from all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to unassign from (comma-separated, e.g. `123,456`) | - |
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
+| `--dry-run` | Preview what would be unassigned without actually removing | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
@@ -36,6 +37,9 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 ```bash
 # Unassign from a specific PR
 review-dispatcher unassign 4821
+
+# Preview what would be unassigned (dry-run)
+review-dispatcher unassign --all --dry-run
 
 # Unassign from all pending reviews at once
 review-dispatcher unassign --all
@@ -57,6 +61,7 @@ review-dispatcher unassign --all --since-days 3
 
 - Use `--all` to quickly unassign yourself from ALL pending reviews without prompting
 - Use `--pr-numbers` to unassign from multiple specific PRs in one command
+- Use `--dry-run` to preview what would be unassigned before making changes
 - Parallel requests are used when unassigning from multiple PRs for speed
 - If no PR number is provided and `--all` is not used, shows your pending reviews and lets you select interactively
 

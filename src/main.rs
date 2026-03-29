@@ -1847,7 +1847,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Assign { all, pr_numbers, pr_number, since_days, json, repo, author } => {
+        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -1941,6 +1941,21 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Dry-run mode: just show what would be assigned
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be assigned:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", prs.len());
+                return Ok(());
+            }
+
             #[derive(serde::Serialize)]
             struct AssignResult<'a> {
                 pr_number: u64,
@@ -2026,7 +2041,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { all, pr_numbers, pr_number, since_days, json, repo, author } => {
+        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2120,6 +2135,21 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Dry-run mode: just show what would be unassigned
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be unassigned:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", prs.len());
+                return Ok(());
+            }
+
             #[derive(serde::Serialize)]
             struct UnassignResult<'a> {
                 pr_number: u64,
@@ -2205,7 +2235,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { all, pr_numbers, pr_number, text, json, repo, author } => {
+        Commands::Comment { all, pr_numbers, pr_number, text, dry_run, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2290,6 +2320,22 @@ async fn main() -> anyhow::Result<()> {
 
             if prs.is_empty() {
                 println!("No PR found to comment on.");
+                return Ok(());
+            }
+
+            // Dry-run mode: just show what would be commented
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would receive a comment:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
+                    );
+                }
+                println!("\n  Comment text: \"{}\"", text.yellow());
+                println!("\n  Total: {} PR(s)\n", prs.len());
                 return Ok(());
             }
 
