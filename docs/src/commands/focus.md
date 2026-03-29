@@ -80,9 +80,14 @@ When run normally, `focus` shows:
 
 When run with `--open`, it opens the PR directly in your default browser.
 
+## Snooze Behavior
+
+Snoozed PRs are automatically excluded from focus results (consistent with `list`, `delegate`, `top`, `search`, etc.). Use `review-dispatcher snooze add` to temporarily hide PRs from consideration.
+
 ## Tips
 
 - Pair with `claim` to assign yourself to the focused PR immediately
 - Use `--open` to jump straight into reviewing without copy-pasting URLs
 - Use `--repo` and `--author` filters to narrow down which PRs to consider
 - If you have no pending reviews, you'll see an encouraging "You're all clear!" message
+- Use [`snooze`](./snooze.md) to temporarily hide PRs from results when you need a break from certain reviews

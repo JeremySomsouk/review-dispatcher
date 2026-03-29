@@ -9464,6 +9464,51 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
+            // Filter out snoozed PRs (consistent with list/delegate/search/filter/top commands)
+            let filtered: Vec<_> = if cli.pr.is_none() {
+                let snooze_file = output_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("./reviews"))
+                    .join(".snoozed.json");
+
+                let now = chrono::Utc::now();
+                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            entries
+                                .into_iter()
+                                .filter_map(|e| {
+                                    let repo = e.get("repo")?.as_str()?.to_string();
+                                    let pr_number = e.get("pr_number")?.as_u64()?;
+                                    let until_str = e.get("snoozed_until")?.as_str()?;
+                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if until.with_timezone(&chrono::Utc) > now {
+                                            return Some((repo, pr_number));
+                                        }
+                                    }
+                                    None
+                                })
+                                .collect()
+                        } else {
+                            Vec::new()
+                        }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                let _snoozed_count = snoozed_prs.len();
+                filtered
+                    .into_iter()
+                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .inspect(|_| ())
+                    .collect()
+            } else {
+                filtered
+            };
+
             if filtered.is_empty() {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&serde_json::json!({
