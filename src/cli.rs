@@ -113,6 +113,12 @@ pub enum Commands {
         /// PR number to show stats for (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Show stats for all pending reviews (no interactive selection)
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Preview which PRs would be included without showing stats
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Output as JSON for scripting
         #[arg(long)]
         json: bool,

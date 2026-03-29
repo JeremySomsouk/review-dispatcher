@@ -607,13 +607,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Stats { json, pr_number, repo, author, priority, since_days } => {
+        Commands::Stats { json, all, dry_run, pr_number, repo, author, priority, since_days } => {
             use std::collections::HashMap;
             use chrono::Duration;
 
+            // Priority: global --pr flag > local --pr > positional PR_NUMBER
+            let target_pr = cli.pr.or(pr_number);
+
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
-                let mut result = match cli.pr.or(pr_number) {
+                let mut result = match target_pr {
                     Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
                     None => reviews.clone(),
                 };
@@ -633,12 +636,63 @@ async fn main() -> anyhow::Result<()> {
                 result
             };
 
+            // Dry-run mode: preview which PRs would be included
+            if dry_run {
+                if filtered.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                println!("\n📊 {} PR(s) would be included in stats:\n", filtered.len());
+                for (i, review) in filtered.iter().enumerate() {
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!("  ⭐ {}/5", score)
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}  {}#{} — {}{}", i + 1, review.repo.dimmed(), review.pr_number, review.pr_title.bold(), priority_label);
+                }
+                println!();
+                return Ok(());
+            }
+
+            // --all flag: show stats without interactive selection
+            let stats_reviews: Vec<_> = if all {
+                if filtered.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                filtered
+            } else if target_pr.is_none() {
+                // Interactive mode: let user select PRs
+                if filtered.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&filtered, false);
+                print!(
+                    "\n{} ",
+                    "Select PRs to include in stats [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), filtered.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| filtered[i].clone()).collect()
+                    }
+                }
+            } else {
+                filtered
+            };
+
             let mut repo_counts: HashMap<String, usize> = HashMap::new();
             let mut author_counts: HashMap<String, usize> = HashMap::new();
             let mut total_additions = 0u64;
             let mut total_deletions = 0u64;
 
-            for review in &filtered {
+            for review in &stats_reviews {
                 *repo_counts.entry(review.repo.clone()).or_insert(0) += 1;
                 if !review.pr_author.is_empty() {
                     *author_counts.entry(review.pr_author.clone()).or_insert(0) += 1;
@@ -661,20 +715,20 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let now = chrono::Utc::now();
-                let avg_wait_days = if filtered.is_empty() {
+                let avg_wait_days = if stats_reviews.is_empty() {
                     0.0
                 } else {
-                    let total_wait: Duration = filtered.iter().map(|r| now - r.created_at).sum();
-                    (total_wait / filtered.len() as i32).num_hours() as f64 / 24.0
+                    let total_wait: Duration = stats_reviews.iter().map(|r| now - r.created_at).sum();
+                    (total_wait / stats_reviews.len() as i32).num_hours() as f64 / 24.0
                 };
 
-                let oldest_pr = filtered.first().map(|r| {
+                let oldest_pr = stats_reviews.first().map(|r| {
                     let age = (now - r.created_at).num_days();
                     (r.pr_number, age)
                 });
 
                 let output = StatsOutput {
-                    total: filtered.len(),
+                    total: stats_reviews.len(),
                     total_additions,
                     total_deletions,
                     avg_wait_days: avg_wait_days.round(),
@@ -686,22 +740,22 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 println!("\n📊 Review Statistics\n{}", "─".repeat(40));
-                println!("  Total pending reviews: {}", filtered.len());
+                println!("  Total pending reviews: {}", stats_reviews.len());
                 println!("  Total lines changed:   +{} / -{}",
                     total_additions.to_string().green(),
                     total_deletions.to_string().red()
                 );
 
-                if !filtered.is_empty() {
+                if !stats_reviews.is_empty() {
                     // Average wait time
                     let now = chrono::Utc::now();
-                    let total_wait: Duration = filtered.iter().map(|r| now - r.created_at).sum();
-                    let avg_wait = total_wait / filtered.len() as i32;
+                    let total_wait: Duration = stats_reviews.iter().map(|r| now - r.created_at).sum();
+                    let avg_wait = total_wait / stats_reviews.len() as i32;
                     println!("  Avg time waiting:      {} days",
                         (avg_wait.num_hours() as f64 / 24.0).round());
 
                     // Oldest PR
-                    if let Some(oldest) = filtered.first() {
+                    if let Some(oldest) = stats_reviews.first() {
                         let age = now - oldest.created_at;
                         println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
                             format_duration(age));
@@ -729,8 +783,8 @@ async fn main() -> anyhow::Result<()> {
                     }
 
                     // Priority breakdown if --priority flag is set
-                    if priority && !filtered.is_empty() {
-                        let mut scored: Vec<_> = filtered.iter()
+                    if priority && !stats_reviews.is_empty() {
+                        let mut scored: Vec<_> = stats_reviews.iter()
                             .map(|r| {
                                 let score = logger::calculate_priority_score(r);
                                 (r, score)

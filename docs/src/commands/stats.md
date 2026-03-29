@@ -20,6 +20,8 @@ review-dispatcher stats [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
+| `-a, --all` | Show stats for all matching PRs without interactive selection | `false` |
+| `-n, --dry-run` | Preview which PRs would be included without showing stats | `false` |
 | `--json` | Output as JSON | `false` |
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
@@ -53,6 +55,15 @@ review-dispatcher stats --priority
 
 # Stats for PRs created in the last 7 days only
 review-dispatcher stats --since-days 7
+
+# Stats for all matching PRs without interactive selection
+review-dispatcher stats --all
+
+# Preview which PRs would be included in stats
+review-dispatcher stats --dry-run
+
+# Combine --all with filters
+review-dispatcher stats --all --repo frontend --priority
 ```
 
 ## Output
@@ -79,3 +90,10 @@ When `--priority` is enabled, `stats` also shows:
 - Total lines changed per group
 
 This helps you understand both the overall queue health and the most critical item needing action.
+
+## Dry-Run Mode
+
+When using `--dry-run`, the command shows a preview of which PRs would be included in the stats without actually computing or displaying the statistics. This is useful for:
+- Checking which PRs match your filters before running full stats
+- Verifying filter criteria are correct
+- Quickly listing matching PRs
