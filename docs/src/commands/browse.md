@@ -25,6 +25,7 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Open all pending reviews | `false` |
 | `-n, --dry-run` | Preview which PRs would be opened without opening them | `false` |
 | `-q, --quiet` | Suppress per-PR success/failure messages (show only summary) | `false` |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--json` | Output URLs as JSON (without opening browser) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
@@ -74,4 +75,10 @@ review-dispatcher browse --pr 4821 --json
 
 # Quiet mode - open PRs with minimal output
 review-dispatcher browse --all --quiet
+
+# Show priority scores when browsing (helps decide which PRs to open first)
+review-dispatcher browse --all --priority
+
+# Show priority scores in JSON output for scripting
+review-dispatcher browse --all --json --priority
 ```

@@ -1827,7 +1827,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, quiet, json, repo, author, since_days } => {
+        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, quiet, json, priority, repo, author, since_days } => {
             // In JSON mode, also suppress per-PR output
             let quiet = quiet || json;
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
@@ -1961,11 +1961,18 @@ async fn main() -> anyhow::Result<()> {
             if dry_run {
                 println!("\n🔍 Dry-run mode — the following PRs would be opened:\n");
                 for (i, review) in targets.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
-                        review.repo.cyan()
+                        review.repo.cyan(),
+                        priority_label
                     );
                     println!("     🔗 {}", review.pr_url.blue());
                 }
@@ -1981,12 +1988,15 @@ async fn main() -> anyhow::Result<()> {
                     pr_title: &'a str,
                     repo: &'a str,
                     url: &'a str,
+                    #[serde(skip_serializing_if = "Option::is_none")]
+                    priority_score: Option<u8>,
                 }
                 let output: Vec<BrowseOutput> = targets.iter().map(|r| BrowseOutput {
                     pr_number: r.pr_number,
                     pr_title: &r.pr_title,
                     repo: &r.repo,
                     url: &r.pr_url,
+                    priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
                 }).collect();
                 println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
                 return Ok(());
@@ -1998,17 +2008,23 @@ async fn main() -> anyhow::Result<()> {
             let mut success_count = 0usize;
             let mut fail_count = 0usize;
             for review in &targets {
+                let priority_label = if priority {
+                    let score = logger::calculate_priority_score(review);
+                    format!(" {} ", logger::priority_stars(score))
+                } else {
+                    String::new()
+                };
                 match open::that(&review.pr_url) {
                     Ok(_) => {
                         success_count += 1;
                         if !quiet {
-                            println!("  ✅ {} ({})", review.pr_title.dimmed(), review.pr_url.cyan());
+                            println!("  ✅ {}{}({})", review.pr_title.dimmed(), priority_label, review.pr_url.cyan());
                         }
                     }
                     Err(e) => {
                         fail_count += 1;
                         if !quiet {
-                            println!("  ❌ Failed to open {}: {}", review.pr_url, e);
+                            println!("  ❌ Failed to open {}{}: {}", review.pr_title.dimmed(), priority_label, e);
                         }
                     }
                 }
