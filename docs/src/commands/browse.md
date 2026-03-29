@@ -1,8 +1,10 @@
-# browse
+# Browse
 
 **Open one or more PRs in your browser.**
 
 Jump straight to GitHub without switching windows or copying URLs.
+
+> **Note:** Snoozed PRs are automatically excluded from results (unless you specify a specific PR with `--pr` or `--pr-numbers`). This is consistent with other commands like `list` and `delegate`.
 
 ## When to Use
 
