@@ -8,6 +8,7 @@ See your review activity over time — PRs reviewed, time spent, patterns.
 
 - Weekly summary: "What did I review this week?"
 - Team reporting: "Show my review output"
+- Per-PR analysis: "Show me details for a specific PR"
 
 ## Synopsis
 
@@ -19,12 +20,13 @@ review-dispatcher report [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `[PR_NUMBER]` | Target a specific PR by number | |
 | `-d, --days <NUM>` | Number of days to look back for processed reviews | `7` |
 | `-s, --since-days <NUM>` | Only show pending PRs created since this many days ago | |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
 | `-P, --priority` | Show priority breakdown for pending PRs | `false` |
-| `--json` | Output as JSON | `false` |
+| `--json` | Output as JSON (includes filtered PR details when using `--pr`) | `false` |
 
 ## Examples
 
@@ -35,6 +37,8 @@ review-dispatcher report --repo api
 review-dispatcher report --author alice --priority
 review-dispatcher report --days 14 --repo backend --priority
 review-dispatcher report --since-days 3 --priority
+review-dispatcher report --pr 123
+review-dispatcher report --pr 123 --json
 ```
 
 ## Tips
@@ -43,3 +47,4 @@ review-dispatcher report --since-days 3 --priority
 - Use `clean` before generating a fresh report
 - Use `--priority` to see which pending PRs are most urgent
 - Use `--since-days` to filter pending PRs (consistent with `list`, `stats`, `delegate` commands)
+- Use `[PR_NUMBER]` or `--pr` to target a specific PR (JSON output includes full PR details)

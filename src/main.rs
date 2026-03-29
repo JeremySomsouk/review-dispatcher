@@ -7142,7 +7142,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Report { days, json, repo, author, priority, since_days } => {
+        Commands::Report { pr_number, days, json, repo, author, priority, since_days } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -7153,9 +7153,17 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Apply filters to pending reviews for display (--repo, --author)
+            // Target specific PR: global --pr flag > local --pr_number
+            let target_pr = cli.pr.or(pr_number);
+
+            // Apply filters to pending reviews for display (--pr, --repo, --author)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Filter by specific PR number (if provided)
+                if let Some(num) = target_pr {
+                    result.retain(|r| r.pr_number == num);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
@@ -7242,16 +7250,38 @@ async fn main() -> anyhow::Result<()> {
             let pending_additions: u64 = filtered_reviews.iter().map(|r| r.additions).sum();
             let pending_deletions: u64 = filtered_reviews.iter().map(|r| r.deletions).sum();
 
+            // Include filtered PR details in JSON output when targeting specific PR
+            let filtered_prs_json: Vec<serde_json::Value> = filtered_reviews.iter()
+                .map(|r| {
+                    let score = logger::calculate_priority_score(r);
+                    let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
+                    serde_json::json!({
+                        "repo": r.repo,
+                        "number": r.pr_number,
+                        "title": r.pr_title,
+                        "author": r.pr_author,
+                        "additions": r.additions,
+                        "deletions": r.deletions,
+                        "age_days": age_days,
+                        "priority_score": score,
+                        "draft": r.draft,
+                        "url": r.pr_url
+                    })
+                })
+                .collect();
+
             let report = serde_json::json!({
                 "period_days": days,
                 "generated_at": Utc::now().to_rfc3339(),
+                "target_pr": target_pr,
                 "processed_reviews": processed_count,
                 "pending_reviews": pending_total,
                 "pending_old_count": pending_old,
                 "pending_additions": pending_additions,
                 "pending_deletions": pending_deletions,
                 "by_author": processed_by_author,
-                "by_repository": processed_by_repo
+                "by_repository": processed_by_repo,
+                "filtered_prs": filtered_prs_json
             });
 
             if json {

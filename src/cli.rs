@@ -462,6 +462,9 @@ pub enum Commands {
     },
     /// Generate a weekly review report from processed review files
     Report {
+        /// PR number to show report for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Number of days to look back (default: 7)
         #[arg(long, default_value_t = 7)]
         days: u32,
