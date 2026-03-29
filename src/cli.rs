@@ -43,6 +43,7 @@ pub struct Cli {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// List all PRs waiting for your review
+    #[command(alias = "ls")]
     List {
         /// Output as JSON
         #[arg(long)]
@@ -61,6 +62,7 @@ pub enum Commands {
         author: Option<String>,
     },
     /// Ask Claude to triage each pending review
+    #[command(alias = "del")]
     Delegate {
         /// Output as JSON
         #[arg(long)]
@@ -91,6 +93,7 @@ pub enum Commands {
         pr_numbers: Option<String>,
     },
     /// List your own open PRs (draft or not)
+    #[command(alias = "mine")]
     Mine {
         /// Output as JSON
         #[arg(long)]
@@ -118,6 +121,7 @@ pub enum Commands {
         pr_numbers: Option<String>,
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
+    #[command(alias = "stat")]
     Stats {
         /// Show stats for all pending reviews (no interactive selection)
         #[arg(long, short = 'a')]
@@ -148,6 +152,7 @@ pub enum Commands {
         since_days: Option<u32>,
     },
     /// Show team review summary (how many PRs each crew member has waiting)
+    #[command(alias = "team")]
     TeamSummary {
         /// Show team summary for all pending reviews (no interactive selection)
         #[arg(long, short = 'a')]
@@ -672,6 +677,7 @@ pub enum Commands {
         json: bool,
     },
     /// Show CI/CD pipeline status for pending PRs (GitHub Actions, etc.)
+    #[command(alias = "ci")]
     Ci {
         /// Only show PRs with failing checks
         #[arg(long, short = 'f')]
@@ -876,6 +882,7 @@ pub enum Commands {
         json: bool,
     },
     /// Show the ONE PR you should focus on right now — the most urgent by priority score
+    #[command(alias = "focus")]
     Focus {
         /// Preview which PR would be selected without opening it
         #[arg(long, short = 'n')]

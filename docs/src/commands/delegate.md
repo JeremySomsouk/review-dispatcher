@@ -14,6 +14,7 @@ Let Claude Code analyze your PRs, summarize changes, identify risks, and recomme
 
 ```bash
 prctrl delegate [OPTIONS]
+prctrl del [OPTIONS]       # shorthand alias
 ```
 
 ## Options

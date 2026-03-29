@@ -13,6 +13,7 @@ Gives you a high-level overview of your review queue at a glance.
 
 ```bash
 prctrl stats [OPTIONS]
+prctrl stat [OPTIONS]      # shorthand alias
 ```
 
 ## Options

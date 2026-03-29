@@ -59,21 +59,21 @@ cargo install --path .
 ## Configuration
 
 ```bash
-# Interactive setup
-prctrl config init
-
-# Or create ~/.prctrl/config.toml manually
-[github]
-token = "ghp_xxxxxxxxxxxx"
-username = "your-username"
-org = "your-org"
-repos = ["frontend", "backend", "api"]
-teams = ["platform", "backend"]
-
-[notifications]
-enabled = true
-interval = 300  # seconds
+# Create .env file in project root or ~/.prctrl/.env
+cp .env.example .env
+# Edit with your GitHub token and settings
 ```
+
+**Required environment variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `RD_GITHUB_TOKEN` | GitHub personal access token |
+| `RD_GITHUB_USERNAME` | Your GitHub username |
+| `RD_GITHUB_ORG` | GitHub organization name |
+| `RD_GITHUB_REPOS` | Repos to monitor (comma-separated) |
+| `RD_GITHUB_TEAMS` | Teams to filter (optional) |
+| `RD_ANTHROPIC_API_KEY` | For Claude integration (optional) |
 
 ## CLI Reference
 

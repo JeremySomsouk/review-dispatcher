@@ -14,6 +14,7 @@ This is your starting point. Shows every PR where you're requested as a reviewer
 
 ```bash
 prctrl list [OPTIONS]
+prctrl ls [OPTIONS]     # shorthand alias
 ```
 
 ## Options
