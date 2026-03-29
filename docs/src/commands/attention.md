@@ -27,6 +27,7 @@ review-dispatcher attention [OPTIONS]
 | `-P, --priority` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | |
+| `-s, --since-days <NUM>` | Only show PRs created since this many days ago | |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Attention Score Calculation
@@ -72,6 +73,9 @@ review-dispatcher attention --repo myorg/frontend
 
 # Filter by author
 review-dispatcher attention --author alice
+
+# Only show PRs from the last 7 days
+review-dispatcher attention --since-days 7
 
 # Combine filters
 review-dispatcher attention --repo myorg --author alice --priority

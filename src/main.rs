@@ -8644,28 +8644,33 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Attention { threshold, detailed, limit, priority, repo, author, json } => {
+        Commands::Attention { threshold, detailed, limit, priority, repo, author, since_days, json } => {
             use chrono::Utc;
             use crate::github::PendingReview;
 
-            // Apply --repo and --author filters
-            let mut filtered_reviews: Vec<_> = {
-                let mut result = reviews.clone();
+            // Apply --since-days filter first (consistent with other commands)
+            let mut filtered_reviews: Vec<_> = match since_days {
+                Some(days) => {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    reviews.iter().filter(|r| r.created_at >= cutoff).cloned().collect()
+                }
+                None => reviews.clone(),
+            };
 
+            // Apply --repo and --author filters
+            {
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
                     let pattern = repo_filter.to_lowercase();
-                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                    filtered_reviews.retain(|r| r.repo.to_lowercase().contains(&pattern));
                 }
 
                 // Apply --author filter (partial match, case-insensitive)
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
-                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                    filtered_reviews.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
                 }
-
-                result
-            };
+            }
 
             // Filter out snoozed PRs (consistent with list/delegate/search/summary commands)
             let snooze_file = output_dir
