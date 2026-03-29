@@ -8579,7 +8579,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Conflicts { only_conflicts, repo, author, priority, json } => {
+        Commands::Conflicts { only_conflicts, repo, author, since_days, priority, json } => {
             // Apply filters before fetching conflict status
             let filtered: Vec<_> = {
                 let mut result = match cli.pr {
@@ -8597,6 +8597,12 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(ref author_filter) = author {
                     let pattern = author_filter.to_lowercase();
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                // Apply --since-days filter
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
 
                 result

@@ -23,6 +23,7 @@ review-dispatcher conflicts [OPTIONS]
 | `--conflicts-only`, `-c` | Hide PRs without conflicts | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `--since-days`, `-s` | Only show PRs created since this many days ago | - |
 | `--priority`, `-P` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--pr` | Target a specific PR by number | - |
 | `--json` | Output as JSON | `false` |
@@ -47,4 +48,7 @@ review-dispatcher conflicts --pr 123
 
 # Show priority scores alongside conflict status
 review-dispatcher conflicts --priority
+
+# Check conflicts for PRs created in the last 3 days
+review-dispatcher conflicts --since-days 3
 ```
