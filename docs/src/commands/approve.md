@@ -26,6 +26,7 @@ review-dispatcher approve [OPTIONS]
 | `-n, --pr-numbers` | PR number(s) to approve (comma-separated, e.g. `123,456`) | - |
 | `-m, --message <TEXT>` | Approval comment (optional, default: "LGTM!") | `LGTM!` |
 | `-s, --since-days <DAYS>` | Only approve PRs created since this many days ago | - |
+| `-n, --dry-run` | Preview what would be approved without actually approving | `false` |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
@@ -42,6 +43,12 @@ review-dispatcher approve --pr 4821 -m "LGTM! Nice work on the tests."
 
 # Approve without comment
 review-dispatcher approve --pr 4821 -m ""
+
+# Preview what would be approved (dry-run)
+review-dispatcher approve --pr 4821 -n
+
+# Preview what would be approved for all pending
+review-dispatcher approve --all -n
 
 # Approve all pending reviews at once
 review-dispatcher approve --all
@@ -67,6 +74,7 @@ review-dispatcher approve --pr 4821 --json
 
 ## Tips
 
+- Use `--dry-run` (`-n`) to preview what would be approved before actually approving
 - Use `--all` to quickly approve ALL pending reviews at once
 - Use `--author` and `--repo` filters to narrow down which reviews to approve
 - Use `--priority` to see priority scores when selecting reviews interactively

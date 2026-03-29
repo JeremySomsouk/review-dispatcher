@@ -2380,7 +2380,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { all, pr_numbers, pr_number, message, since_days, json, priority, repo, author } => {
+        Commands::Approve { all, pr_numbers, pr_number, message, since_days, dry_run, json, priority, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other commands)
@@ -2486,6 +2486,28 @@ async fn main() -> anyhow::Result<()> {
 
             let mut results: Vec<ApproveResult> = Vec::new();
             let approval_message = message.clone().unwrap_or_else(|| "LGTM!".to_string());
+
+            // Dry-run mode: just show what would be approved
+            if dry_run {
+                println!("\n🔍 Dry-run mode — the following PRs would be approved:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan(),
+                        priority_label
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", prs.len());
+                return Ok(());
+            }
 
             // Phase 1: Fetch PR details (to get commit SHAs) in parallel
             let detail_futures = prs.iter().map(|review| {

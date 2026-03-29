@@ -345,6 +345,9 @@ pub enum Commands {
         /// Only approve PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Preview what would be approved without actually approving
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Output as JSON
         #[arg(long)]
         json: bool,
