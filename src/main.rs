@@ -7172,7 +7172,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Report { pr_number, days, json, repo, author, priority, since_days } => {
+        Commands::Report { pr_number, pr_numbers, all, days, json, repo, author, priority, since_days } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -7183,14 +7183,112 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            // Target specific PR: global --pr flag > local --pr_number
+            // Target specific PR: global --pr flag > local --pr_number > pr_numbers
             let target_pr = cli.pr.or(pr_number);
 
-            // Apply filters to pending reviews for display (--pr, --repo, --author)
-            let filtered_reviews: Vec<_> = {
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else {
+                Vec::new()
+            };
+
+            // If pr_numbers was provided, we're done (show report for those specific PRs)
+            if pr_numbers.is_some() {
+                if prs_from_numbers.is_empty() {
+                    println!("No PRs found for the specified numbers.");
+                    return Ok(());
+                }
+
+                // Apply --repo and --author filters to the fetched PRs
+                let filtered: Vec<_> = {
+                    let mut result = prs_from_numbers;
+
+                    if let Some(ref repo_filter) = repo {
+                        let pattern = repo_filter.to_lowercase();
+                        result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                    }
+
+                    if let Some(ref author_filter) = author {
+                        let pattern = author_filter.to_lowercase();
+                        result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                    }
+
+                    result
+                };
+
+                if json {
+                    let filtered_prs_json: Vec<serde_json::Value> = filtered.iter()
+                        .map(|r| {
+                            let score = logger::calculate_priority_score(r);
+                            let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
+                            serde_json::json!({
+                                "repo": r.repo,
+                                "number": r.pr_number,
+                                "title": r.pr_title,
+                                "author": r.pr_author,
+                                "additions": r.additions,
+                                "deletions": r.deletions,
+                                "age_days": age_days,
+                                "priority_score": score,
+                                "draft": r.draft,
+                                "url": r.pr_url
+                            })
+                        })
+                        .collect();
+                    println!("{}", serde_json::to_string_pretty(&filtered_prs_json)?);
+                } else {
+                    println!("\n📊 Report for {} PR(s)\n", filtered.len());
+                    logger::print_reviews(&filtered, priority);
+                }
+                return Ok(());
+            }
+
+            // Apply filters to pending reviews for display (--pr, --repo, --author, --all)
+            let filtered_reviews: Vec<_> = if all {
+                // --all flag: use all pending reviews (skip filters, but still apply --repo/--author)
                 let mut result = reviews.clone();
 
-                // Filter by specific PR number (if provided)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
+
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
+
+                result
+            } else {
+                let mut result = reviews.clone();
+
+                // Filter by specific PR number (if provided via --pr)
                 if let Some(num) = target_pr {
                     result.retain(|r| r.pr_number == num);
                 }

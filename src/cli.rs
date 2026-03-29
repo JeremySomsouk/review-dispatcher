@@ -471,6 +471,12 @@ pub enum Commands {
         /// PR number to show report for (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// PR number(s) to include in report (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Include all pending reviews in the report
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Number of days to look back (default: 7)
         #[arg(long, default_value_t = 7)]
         days: u32,
