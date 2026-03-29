@@ -117,6 +117,10 @@ prctrl delegate 4821
 # Configure instructions in ~/.prctrl/instruction.md
 ```
 
+## Documentation
+
+Full documentation at **https://somsouk.fr/prctrl**
+
 ## Contributing
 
 Issues and PRs welcome. Please read the docs in `docs/` before contributing.
