@@ -19,8 +19,9 @@ review-dispatcher stats [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
 | `-a, --all` | Show stats for all matching PRs without interactive selection | `false` |
+| `--pr-numbers <NUMS>` | Show stats for specific PR numbers (comma-separated) | - |
+| `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
 | `-n, --dry-run` | Preview which PRs would be included without showing stats | `false` |
 | `--json` | Output as JSON | `false` |
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |

@@ -21,25 +21,33 @@ review-dispatcher monitor [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-i, --interval <SECONDS>` | How often to check GitHub | `300` (5 min) |
-| `--notify` | Send macOS notifications | `true` |
-| `--auto-open` | Auto-open PR in Chrome when notified | `true` |
-| `--no-auto-open` | Notifications only, no browser | - |
+| `--notify` | Send macOS notifications for new PRs | `false` |
+| `--auto-open` | Auto-open PR in Chrome when notified | `false` |
+| `--no-auto-open` | Disable auto-opening (use with `--notify`) | `false` |
 | `--interactive` | Prompt for action on each new PR | `false` |
+
+**Note:** `--notify` and `--auto-open` are disabled by default. Use `--notify` to enable notifications, and `--auto-open` (or `--notify --auto-open`) to also open PRs automatically.
 
 ## Examples
 
 ```bash
-# Start monitoring with defaults (checks every 5 minutes)
+# Start monitoring with defaults (checks every 5 minutes, no notifications)
 review-dispatcher monitor
 
 # Check more frequently (every minute)
 review-dispatcher monitor --interval 60
 
-# Notification only, no auto-open (good for meetings)
-review-dispatcher monitor --no-auto-open
+# Enable notifications (no auto-open)
+review-dispatcher monitor --notify
+
+# Enable notifications AND auto-open in Chrome
+review-dispatcher monitor --notify --auto-open
+
+# Notifications only, no auto-open (good for meetings)
+review-dispatcher monitor --notify --no-auto-open
 
 # Interactive mode - choose what to do for each new PR
-review-dispatcher monitor --interactive
+review-dispatcher monitor --notify --interactive
 
 # Run in background (add & to detach)
 review-dispatcher monitor &

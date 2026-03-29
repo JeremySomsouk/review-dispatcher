@@ -19,6 +19,8 @@ review-dispatcher team-summary [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `-a, --all` | Show team summary for all pending reviews without interactive selection | `false` |
+| `--pr-numbers <NUMS>` | Show team summary for specific PR numbers (comma-separated) | - |
 | `PR_NUMBER` | Filter to specific PR (shorthand for `--pr`) | - |
 | `--json` | Output as JSON for scripting | `false` |
 | `-p, --pr <NUMBER>` | Filter to a specific PR number | - |

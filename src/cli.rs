@@ -44,13 +44,13 @@ pub struct Cli {
 pub enum Commands {
     /// List all PRs waiting for your review
     List {
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
-        /// Show priority score (1-5 stars) based on age and size
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -62,7 +62,7 @@ pub enum Commands {
     },
     /// Ask Claude to triage each pending review
     Delegate {
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Preview delegation without executing (show what would be delegated)
@@ -92,13 +92,13 @@ pub enum Commands {
     },
     /// List your own open PRs (draft or not)
     Mine {
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Show all matching PRs at once (without prompting)
         #[arg(long, short = 'a')]
         all: bool,
-        /// Show priority score (1-5 stars) based on age and size
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Only show PRs created since this many days ago
@@ -119,16 +119,19 @@ pub enum Commands {
     },
     /// Show review statistics (pending count, avg wait time, breakdown by repo)
     Stats {
-        /// PR number to show stats for (shorthand for --pr)
-        #[arg(value_name = "PR_NUMBER")]
-        pr_number: Option<u64>,
         /// Show stats for all pending reviews (no interactive selection)
         #[arg(long, short = 'a')]
         all: bool,
+        /// PR number(s) to show stats for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// PR number to show stats for (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Preview which PRs would be included without showing stats
         #[arg(long, short = 'n')]
         dry_run: bool,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -146,10 +149,16 @@ pub enum Commands {
     },
     /// Show team review summary (how many PRs each crew member has waiting)
     TeamSummary {
+        /// Show team summary for all pending reviews (no interactive selection)
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to show team summary for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
         /// PR number to show team summary for (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -182,7 +191,7 @@ pub enum Commands {
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
     },
@@ -198,17 +207,17 @@ pub enum Commands {
     /// Monitor for new PRs and send macOS notifications
     Monitor {
         /// Polling interval in seconds (default: 300)
-        #[arg(long, short, default_value_t = 300)]
+        #[arg(long, short = 'i', default_value_t = 300)]
         interval: u64,
         /// Send macOS notifications for new PRs
-        #[arg(long, default_value_t = true)]
+        #[arg(long)]
         notify: bool,
         /// Automatically open PRs in Chrome when notifications appear
-        #[arg(long, default_value_t = true)]
+        #[arg(long)]
         auto_open: bool,
         
         /// Disable automatic opening of PRs in Chrome
-        #[arg(long, overrides_with = "auto_open")]
+        #[arg(long)]
         no_auto_open: bool,
         /// Interactive mode - prompt for actions on new PRs
         #[arg(long)]
@@ -238,7 +247,7 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// Show priority score for the PR (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -259,7 +268,7 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// Show priority score for the PR (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -307,7 +316,7 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
-        /// Show priority score for each PR (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Only show PRs created since this many days ago
@@ -568,7 +577,7 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
-        /// Show priority scores for pending PRs (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Output as JSON
@@ -580,12 +589,15 @@ pub enum Commands {
     },
     /// Search pending reviews by title keyword
     Search {
-        /// PR number to search within (shorthand for --pr)
-        #[arg(value_name = "PR_NUMBER")]
-        pr_number: Option<u64>,
         /// Keyword to search for in PR titles
         #[arg(value_name = "KEYWORD")]
         query: String,
+        /// PR number(s) to search within (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// PR number to search within (shorthand for --pr)
+        #[arg(value_name = "PR_NUMBER")]
+        pr_number: Option<u64>,
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
@@ -598,7 +610,7 @@ pub enum Commands {
         /// Sort results by: priority, age, size, or title (default: priority)
         #[arg(long, value_name = "FIELD", default_value = "priority")]
         sort_by: Option<String>,
-        /// Show priority scores for search results
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Output as JSON
@@ -643,7 +655,7 @@ pub enum Commands {
         /// Show only non-draft PRs
         #[arg(long)]
         no_drafts: bool,
-        /// Show priority scores for filtered results
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Output as JSON
@@ -757,6 +769,12 @@ pub enum Commands {
         /// Number of days to look back (default: 7)
         #[arg(long, short = 'd', default_value_t = 7)]
         days: u32,
+        /// PR number(s) to show activity for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Show activity for all pending reviews (no interactive selection)
+        #[arg(long, short = 'a')]
+        all: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
@@ -796,7 +814,7 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
-        /// Show priority scores for each notification (1-5 stars based on age and repo count)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Output as JSON
@@ -832,7 +850,7 @@ pub enum Commands {
         /// Limit the number of results shown (default: 10)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
-        /// Show priority scores (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -856,10 +874,10 @@ pub enum Commands {
         /// Open the focused PR in your browser instead of printing details
         #[arg(long, short = 'o')]
         open: bool,
-        /// Output as JSON (includes full PR details)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// Show priority score for the focused PR (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -913,7 +931,7 @@ pub enum Commands {
         /// Limit the number of results shown (default: 10)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
-        /// Show priority scores for quick wins (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -991,7 +1009,7 @@ pub enum Commands {
         /// Group output by size bucket instead of flat list
         #[arg(long, short = 'g', default_value_t = false)]
         grouped: bool,
-        /// Show priority scores for each PR
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -1033,7 +1051,7 @@ pub enum Commands {
         /// Language hint for syntax highlighting (auto-detected if not specified)
         #[arg(long, short = 'l')]
         language: Option<String>,
-        /// Show priority score for each PR (1-5 stars based on age and size)
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -1093,7 +1111,7 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Show priority scores for each PR (1-5 stars based on age and size)
@@ -1120,7 +1138,7 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Show velocity for specific PR (shorthand for --pr)
@@ -1150,10 +1168,10 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
-        /// Show priority scores for listed snoozed PRs
+        /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -1258,7 +1276,7 @@ pub enum Commands {
         /// Export all pending reviews (not just current session)
         #[arg(long, short = 'a')]
         all: bool,
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -1291,7 +1309,7 @@ pub enum Commands {
         /// Limit the number of results shown (default: 50)
         #[arg(long, short = 'n')]
         limit: Option<usize>,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
     },
@@ -1357,7 +1375,7 @@ pub enum Commands {
         /// PR number to follow (shorthand for --pr-numbers with single value)
         #[arg(long, short = 'p')]
         pr: Option<u64>,
-        /// Output as JSON for scripting
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Filter by repository name (partial match, case-insensitive)
@@ -1432,7 +1450,7 @@ pub enum Commands {
         /// Filter by author username (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
-        /// Output as JSON (useful for scripting)
+        /// Output as JSON
         #[arg(long)]
         json: bool,
         /// Show priority scores for each PR (1-5 stars based on age and size)

@@ -19,8 +19,9 @@ review-dispatcher search [OPTIONS] [PR_NUMBER] <KEYWORD>
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `[PR_NUMBER]` | Target a specific PR by number (shorthand for --pr) | None |
 | `<KEYWORD>` | Keyword to search for in PR titles | Required |
+| `--pr-numbers <NUMS>` | Search within specific PR numbers (comma-separated) | - |
+| `PR_NUMBER` | Target a specific PR by number (shorthand for `--pr`) | None |
 | `-s, --since-days <DAYS>` | Only show PRs from the last N days | all |
 | `-p, --pr <NUM>` | Target a specific PR by number (bypasses search filters and snooze exclusion) | None |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
