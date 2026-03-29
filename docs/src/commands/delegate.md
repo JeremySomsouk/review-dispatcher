@@ -26,6 +26,8 @@ review-dispatcher delegate [OPTIONS]
 | `--dry-run`, `-n` | Preview delegation without executing | `false` |
 | `--priority`, `-P` | Show priority scores (1-5 stars) in dry-run output | `false` |
 | `--since-days`, `-s` | Only delegate PRs created since N days ago | All |
+| `--quiet`, `-q` | Suppress per-PR progress messages | `false` |
+| `--pr-numbers` | PR number(s) to delegate (comma-separated) | - |
 | `--repo <NAME>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 
@@ -70,6 +72,12 @@ review-dispatcher delegate --all --repo frontend
 
 # Delegate specific PR and get JSON result
 review-dispatcher delegate --pr 4821 --json
+
+# Quiet mode - suppresses per-PR output for cleaner batch processing
+review-dispatcher delegate --all --quiet
+
+# Delegate multiple PRs at once with --pr-numbers
+review-dispatcher delegate --pr-numbers 4821,4822,4823 --all
 ```
 
 ## Output

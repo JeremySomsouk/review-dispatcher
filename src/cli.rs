@@ -83,6 +83,12 @@ pub enum Commands {
         /// Delegate all matching PRs at once (without prompting)
         #[arg(long, short = 'a')]
         all: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
+        /// PR number(s) to delegate (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
     },
     /// List your own open PRs (draft or not)
     Mine {

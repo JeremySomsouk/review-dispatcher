@@ -326,7 +326,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { json, dry_run, priority, since_days, repo, author, all } => {
+        Commands::Delegate { json, dry_run, priority, since_days, repo, author, all, quiet, pr_numbers } => {
             let pr_number = cli.pr;
 
             // Apply filters to reviews (same logic as List command) unless --pr is specified
@@ -464,13 +464,66 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 None => {
-                    if filtered_reviews.is_empty() {
+                    // Handle --pr-numbers first (consistent with Assign/Unassign/Approve/Claim)
+                    if let Some(ref nums) = pr_numbers {
+                        let mut results = Vec::new();
+                        for part in nums.split(',') {
+                            if let Ok(num) = part.trim().parse::<u64>() {
+                                results.push(num);
+                            }
+                        }
+                        if results.is_empty() {
+                            println!("❌ No valid PR numbers provided.");
+                            return Ok(());
+                        }
+                        // Fetch all specified PRs in parallel
+                        let fetch_futures = results.iter().map(|num| {
+                            github::fetch_pr_by_number(
+                                &cfg.github_token,
+                                &cfg.github_org,
+                                &cfg.github_repos,
+                                *num,
+                            )
+                        });
+                        let all_prs: Vec<_> = join_all(fetch_futures)
+                            .await
+                            .into_iter()
+                            .filter_map(|r| r.ok())
+                            .flatten()
+                            .collect();
+                        
+                        if all_prs.is_empty() {
+                            println!("No PRs found for the specified numbers.");
+                            return Ok(());
+                        }
+                        
+                        // Apply filters to fetched PRs
+                        let filtered: Vec<_> = all_prs
+                            .into_iter()
+                            .filter(|r| {
+                                let mut matches = true;
+                                if let Some(ref repo_filter) = repo {
+                                    let pattern = repo_filter.to_lowercase();
+                                    matches = matches && r.repo.to_lowercase().contains(&pattern);
+                                }
+                                if let Some(ref author_filter) = author {
+                                    let pattern = author_filter.to_lowercase();
+                                    matches = matches && r.pr_author.to_lowercase().contains(&pattern);
+                                }
+                                matches
+                            })
+                            .collect();
+                        
+                        if filtered.is_empty() {
+                            println!("No matching reviews found among specified PRs.");
+                            return Ok(());
+                        }
+                        
+                        filtered
+                    } else if filtered_reviews.is_empty() {
                         println!("No matching reviews found.");
                         return Ok(());
-                    }
-
-                    // If --all flag is set, delegate all without prompting
-                    if all {
+                    } else if all {
                         filtered_reviews.into_iter().collect()
                     } else {
                         logger::print_reviews(&filtered_reviews, false);
@@ -575,32 +628,42 @@ async fn main() -> anyhow::Result<()> {
                 // Show results as they complete with progress
                 let total = targets.len();
                 for (i, (review, summary)) in results.into_iter().enumerate() {
-                    print!(
-                        "\n[{:>2}/{:<2}] #{} {}... ",
-                        i + 1,
-                        total,
-                        review.pr_number,
-                        review.pr_title
-                    );
-                    io::stdout().flush()?;
+                    if !quiet {
+                        print!(
+                            "\n[{:>2}/{:<2}] #{} {}... ",
+                            i + 1,
+                            total,
+                            review.pr_number,
+                            review.pr_title
+                        );
+                        io::stdout().flush()?;
+                    }
 
                     match summary {
                         Ok(summary) => {
-                            println!("{}", "✅ Done".green());
-                            logger::print_delegate_result(&review, &summary);
+                            if !quiet {
+                                println!("{}", "✅ Done".green());
+                                logger::print_delegate_result(&review, &summary);
 
-                            if let Some(ref dir) = output_dir {
-                                let path = writer::write_review(dir, &review, Some(&summary))?;
-                                println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                                if let Some(ref dir) = output_dir {
+                                    let path = writer::write_review(dir, &review, Some(&summary))?;
+                                    println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                                }
                             }
                         }
                         Err(e) => {
-                            println!("{}", "❌ Failed".red());
-                            eprintln!("   Error: {}", e);
+                            if !quiet {
+                                println!("{}", "❌ Failed".red());
+                                eprintln!("   Error: {}", e);
+                            }
                         }
                     }
                 }
 
+                if !quiet {
+                    println!();
+                }
+                
                 if let Some(ref dir) = output_dir {
                     writer::write_index(dir, &reviews)?;
                 }
