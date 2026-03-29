@@ -2247,7 +2247,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author, priority } => {
+        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, quiet, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2397,7 +2397,7 @@ async fn main() -> anyhow::Result<()> {
             let assign_results: Vec<Result<_, _>> = join_all(assign_futures).await;
 
             for (review, result) in prs.iter().zip(assign_results.into_iter()) {
-                if !json {
+                if !json && !quiet {
                     print!(
                         "\n⏳ Requesting review on #{} {}... ",
                         review.pr_number,
@@ -2417,7 +2417,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: true,
                                 error: None,
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "✅ Assigned".green());
                             println!("   👤 You're now a reviewer on {} ({})", review.pr_title, review.repo);
                             println!("   🔗 {}", review.pr_url.blue().underline());
@@ -2433,7 +2433,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: false,
                                 error: Some(e.to_string()),
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "❌ Failed".red());
                             println!("   Error: {}", e);
                         }
@@ -2448,7 +2448,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author, priority } => {
+        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, quiet, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2598,7 +2598,7 @@ async fn main() -> anyhow::Result<()> {
             let unassign_results: Vec<Result<_, _>> = join_all(unassign_futures).await;
 
             for (review, result) in prs.iter().zip(unassign_results.into_iter()) {
-                if !json {
+                if !json && !quiet {
                     print!(
                         "\n⏳ Removing yourself from review on #{} {}... ",
                         review.pr_number,
@@ -2618,7 +2618,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: true,
                                 error: None,
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "✅ Unassigned".green());
                             println!("   👤 You're no longer a reviewer on {} ({})", review.pr_title, review.repo);
                             println!("   🔗 {}", review.pr_url.blue().underline());
@@ -2634,7 +2634,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: false,
                                 error: Some(e.to_string()),
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "❌ Failed".red());
                             println!("   Error: {}", e);
                         }
@@ -2649,7 +2649,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, repo, author, priority } => {
+        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, quiet, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
             // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
@@ -2794,7 +2794,7 @@ async fn main() -> anyhow::Result<()> {
             let comment_results: Vec<Result<_, _>> = join_all(comment_futures).await;
 
             for (review, result) in prs.iter().zip(comment_results.into_iter()) {
-                if !json {
+                if !json && !quiet {
                     print!(
                         "\n💬 Posting comment on #{} {}... ",
                         review.pr_number,
@@ -2814,7 +2814,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: true,
                                 error: None,
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "✅ Commented".green());
                             println!("   📝 {} ({})", review.pr_title, review.repo);
                             println!("   💬 \"{}\"", text.yellow());
@@ -2831,7 +2831,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: false,
                                 error: Some(e.to_string()),
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "❌ Failed".red());
                             println!("   Error: {}", e);
                         }
@@ -2846,7 +2846,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { all, pr_numbers, pr_number, message, since_days, dry_run, json, priority, repo, author } => {
+        Commands::Approve { all, pr_numbers, pr_number, message, since_days, dry_run, json, priority, quiet, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other commands)
@@ -3070,7 +3070,7 @@ async fn main() -> anyhow::Result<()> {
             // Process results, matching them with failed detail fetches
             let mut approve_iter = approve_results.into_iter();
             for (review, detail_result) in prs.iter().zip(detail_results.iter()) {
-                if !json {
+                if !json && !quiet {
                     print!(
                         "\n⏳ Approving #{} {}... ",
                         review.pr_number,
@@ -3090,7 +3090,7 @@ async fn main() -> anyhow::Result<()> {
                                 success: false,
                                 error: Some(format!("Failed to get PR details: {}", e)),
                             });
-                        } else {
+                        } else if !quiet {
                             println!("{}", "❌ Failed".red());
                             println!("   Error getting PR details: {}", e);
                         }
@@ -3108,7 +3108,7 @@ async fn main() -> anyhow::Result<()> {
                                         success: true,
                                         error: None,
                                     });
-                                } else {
+                                } else if !quiet {
                                     let priority_display = if priority {
                                         let score = logger::calculate_priority_score(review);
                                         format!("  ⭐ {}/5  ", score)
@@ -3134,7 +3134,7 @@ async fn main() -> anyhow::Result<()> {
                                         success: false,
                                         error: Some(e.to_string()),
                                     });
-                                } else {
+                                } else if !quiet {
                                     println!("{}", "❌ Failed".red());
                                     println!("   Error: {}", e);
                                 }
@@ -3150,7 +3150,7 @@ async fn main() -> anyhow::Result<()> {
                                         success: false,
                                         error: Some("Internal error: missing approval result".to_string()),
                                     });
-                                } else {
+                                } else if !quiet {
                                     println!("{}", "❌ Failed".red());
                                     println!("   Internal error",);
                                 }

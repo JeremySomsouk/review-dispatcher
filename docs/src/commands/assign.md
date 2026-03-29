@@ -28,6 +28,7 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--dry-run` | Preview what would be assigned without actually assigning | `false` |
 | `--json` | Output as JSON for scripting | `false` |
+| `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |

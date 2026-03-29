@@ -28,6 +28,7 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 | `-p, --pr` | Global flag: target a specific PR number | - |
 | `-n, --dry-run` | Preview what would be commented without actually posting | `false` |
 | `--json` | Output as JSON (useful for scripting) |
+| `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |

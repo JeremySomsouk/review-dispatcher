@@ -316,6 +316,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
@@ -346,6 +349,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
@@ -376,6 +382,9 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
@@ -415,6 +424,9 @@ pub enum Commands {
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
+        /// Suppress per-PR progress messages (show only summary)
+        #[arg(long, short = 'q')]
+        quiet: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

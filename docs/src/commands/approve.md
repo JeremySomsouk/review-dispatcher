@@ -28,6 +28,7 @@ review-dispatcher approve [OPTIONS]
 | `-s, --since-days <DAYS>` | Only approve PRs created since this many days ago | - |
 | `-n, --dry-run` | Preview what would be approved without actually approving | `false` |
 | `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
+| `-q, --quiet` | Suppress per-PR progress messages (show only summary) | `false` |
 | `--repo <PATTERN>` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author username (partial match, case-insensitive) | - |
 | `--json` | Output as JSON (useful for scripting) | `false` |
