@@ -3168,11 +3168,58 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Filter { pr_number, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
-            // Target specific PR: global --pr flag > local --pr_number
+        Commands::Filter { pr_number, pr_numbers, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
+            // Target specific PR: global --pr flag > local --pr_number > pr_numbers
             let target_pr = cli.pr.or(pr_number);
 
-            // Apply filters to the reviews
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        *num,
+                    )
+                });
+                let all_prs: Vec<_> = join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
+                all_prs
+            } else {
+                Vec::new()
+            };
+
+            // If pr_numbers was provided, we're done (skip other filters for batch mode)
+            if pr_numbers.is_some() {
+                if prs_from_numbers.is_empty() {
+                    println!("No PRs found for the specified numbers.");
+                    return Ok(());
+                }
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&prs_from_numbers)?);
+                } else {
+                    println!("\n🔍 {} PR(s) found\n", prs_from_numbers.len().to_string().yellow().bold());
+                    logger::print_reviews(&prs_from_numbers, priority);
+                }
+                return Ok(());
+            }
+
+            // Apply filters to the reviews (for non-batch mode)
             let filtered: Vec<_> = reviews.iter().filter(|r| {
                 // Filter by specific PR number (if provided)
                 if let Some(num) = target_pr {
