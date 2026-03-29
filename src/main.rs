@@ -1442,7 +1442,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Timeline { pr_number, json, repo, author, priority } => {
+        Commands::Timeline { pr_number, json, repo, author, priority, since_days } => {
             let target_pr = cli.pr.or(pr_number);
 
             // When --pr is specified, bypass filters and fetch directly
@@ -1457,6 +1457,12 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 // Apply --repo and --author filters to reviews, then let user pick
                 let mut filtered = reviews.clone();
+
+                // Apply --since-days filter (before repo/author filters)
+                if let Some(since) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(since as i64);
+                    filtered.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

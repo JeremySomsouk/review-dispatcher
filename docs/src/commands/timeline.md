@@ -28,6 +28,7 @@ review-dispatcher timeline [OPTIONS]
 | `--repo` | Filter by repository name (partial match, case-insensitive) | All repos |
 | `--author` | Filter by author username (partial match, case-insensitive) | All authors |
 | `-P, --priority` | Show priority score for each PR (1-5 stars based on age and size) | `false` |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | All ages |
 
 ## Examples
 
@@ -52,6 +53,12 @@ review-dispatcher timeline --repo myorg --author reviewer1
 
 # Show with priority scores to identify urgent PRs
 review-dispatcher timeline --priority
+
+# Show timelines for recent PRs only (last 7 days)
+review-dispatcher timeline --since-days 7
+
+# Combine filters
+review-dispatcher timeline --repo myorg --author reviewer1 --since-days 14
 
 ## Output
 
