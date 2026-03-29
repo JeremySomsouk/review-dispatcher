@@ -7333,10 +7333,10 @@ async fn main() -> anyhow::Result<()> {
                     result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
                 }
 
-                // Apply --since-days filter (consistent with other commands)
+                // Apply --since-days filter (consistent with other commands - PRs older than N days)
                 if let Some(days_filter) = since_days {
                     let cutoff = Utc::now() - Duration::days(days_filter as i64);
-                    result.retain(|r| r.created_at >= cutoff);
+                    result.retain(|r| r.created_at < cutoff);
                 }
 
                 result
