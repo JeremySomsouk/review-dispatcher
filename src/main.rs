@@ -1835,12 +1835,18 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Assign { all, pr_numbers, pr_number, json, repo, author } => {
+        Commands::Assign { all, pr_numbers, pr_number, since_days, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {
@@ -2008,12 +2014,18 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { all, pr_numbers, pr_number, json, repo, author } => {
+        Commands::Unassign { all, pr_numbers, pr_number, since_days, json, repo, author } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

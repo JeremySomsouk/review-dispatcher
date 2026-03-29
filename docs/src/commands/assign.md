@@ -25,6 +25,7 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 | `-p, --pr` | Global flag: target a specific PR number | - |
 | `-a, --all` | Assign yourself to all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to assign (comma-separated, e.g. `123,456`) | - |
+| `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
@@ -46,6 +47,9 @@ review-dispatcher assign --pr-numbers 4821,4822,4823
 
 # Assign with JSON output (for scripting)
 review-dispatcher assign 4821 --json
+
+# Assign to all PRs created in the last 3 days
+review-dispatcher assign --all --since-days 3
 ```
 
 ## JSON Output

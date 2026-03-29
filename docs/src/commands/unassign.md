@@ -26,6 +26,7 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 | `-p, --pr` | Global flag: target a specific PR number | - |
 | `-a, --all` | Unassign yourself from all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to unassign from (comma-separated, e.g. `123,456`) | - |
+| `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
@@ -47,6 +48,9 @@ review-dispatcher unassign
 
 # Unassign with JSON output (for scripting)
 review-dispatcher unassign 4821 --json
+
+# Unassign from all PRs created in the last 3 days
+review-dispatcher unassign --all --since-days 3
 ```
 
 ## Tips

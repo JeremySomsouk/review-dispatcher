@@ -264,6 +264,9 @@ pub enum Commands {
         /// PR number to assign yourself to (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -285,6 +288,9 @@ pub enum Commands {
         /// PR number to unassign yourself from (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
+        /// Only show PRs created since this many days ago
+        #[arg(long, short = 's')]
+        since_days: Option<u32>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
