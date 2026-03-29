@@ -1877,7 +1877,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author } => {
+        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -1950,7 +1950,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered_reviews, false);
+                logger::print_reviews(&filtered_reviews, priority);
                 print!(
                     "\n{} ",
                     "Select PRs to assign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -1975,11 +1975,18 @@ async fn main() -> anyhow::Result<()> {
             if dry_run {
                 println!("\n🔍 Dry-run mode — the following PRs would be assigned:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
-                        review.repo.cyan()
+                        review.repo.cyan(),
+                        priority_label
                     );
                 }
                 println!("\n  Total: {} PR(s)\n", prs.len());
@@ -2071,7 +2078,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author } => {
+        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2144,7 +2151,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered_reviews, false);
+                logger::print_reviews(&filtered_reviews, priority);
                 print!(
                     "\n{} ",
                     "Select PRs to unassign yourself [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
@@ -2169,11 +2176,18 @@ async fn main() -> anyhow::Result<()> {
             if dry_run {
                 println!("\n🔍 Dry-run mode — the following PRs would be unassigned:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    let priority_label = if priority {
+                        let score = logger::calculate_priority_score(review);
+                        format!(" {}", logger::priority_stars(score).dimmed())
+                    } else {
+                        String::new()
+                    };
+                    println!("  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
-                        review.repo.cyan()
+                        review.repo.cyan(),
+                        priority_label
                     );
                 }
                 println!("\n  Total: {} PR(s)\n", prs.len());
@@ -2265,7 +2279,7 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, repo, author } => {
+        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, repo, author, priority } => {
             let target_pr = cli.pr.or(pr_number.clone());
 
             // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
@@ -2338,7 +2352,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                logger::print_reviews(&filtered_reviews, false);
+                logger::print_reviews(&filtered_reviews, priority);
                 print!(
                     "\n{} ",
                     "Select PRs to comment on [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()

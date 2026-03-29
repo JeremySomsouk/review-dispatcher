@@ -31,6 +31,7 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 | `-s, --since-days` | Only show PRs created since this many days ago | - |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -50,8 +51,8 @@ review-dispatcher comment --pr-numbers 4821,4822 --text "LGTM!"
 # Comment on recent PRs only (last 7 days)
 review-dispatcher comment --all --since-days 7 --text "Great work!"
 
-# With JSON output (for scripting)
-review-dispatcher comment 4821 --text "LGTM!" --json
+# Comment with priority scores shown (to pick which PRs to comment on)
+review-dispatcher comment --priority --text "Please review"
 ```
 
 ## Tips

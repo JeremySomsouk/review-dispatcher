@@ -31,6 +31,7 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -55,6 +56,9 @@ review-dispatcher unassign 4821 --json
 
 # Unassign from all PRs created in the last 3 days
 review-dispatcher unassign --all --since-days 3
+
+# Unassign with priority scores shown
+review-dispatcher unassign --priority
 ```
 
 ## Tips

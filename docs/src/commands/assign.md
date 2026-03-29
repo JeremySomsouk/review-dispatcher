@@ -30,6 +30,7 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | - |
 | `--author` | Filter by author username (partial match, case-insensitive) | - |
+| `-P, --priority` | Show priority scores for each PR (1-5 stars based on age and size) | `false` |
 
 ## Examples
 
@@ -54,6 +55,9 @@ review-dispatcher assign 4821 --json
 
 # Assign to all PRs created in the last 3 days
 review-dispatcher assign --all --since-days 3
+
+# Assign with priority scores shown (to pick highest priority PRs)
+review-dispatcher assign --priority
 ```
 
 ## JSON Output
