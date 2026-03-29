@@ -261,6 +261,12 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Remove yourself as a reviewer from a PR
     Unassign {
@@ -276,6 +282,12 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Post a comment on a PR directly from the CLI
     Comment {
@@ -294,6 +306,12 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Filter by repository name (partial match, case-insensitive)
+        #[arg(long)]
+        repo: Option<String>,
+        /// Filter by author username (partial match, case-insensitive)
+        #[arg(long)]
+        author: Option<String>,
     },
     /// Approve a PR directly from the CLI
     Approve {

@@ -27,6 +27,8 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 | `-a, --all` | Unassign yourself from all pending reviews at once | `false` |
 | `-n, --pr-numbers` | PR number(s) to unassign from (comma-separated, e.g. `123,456`) | - |
 | `--json` | Output as JSON for scripting | `false` |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author` | Filter by author username (partial match, case-insensitive) | - |
 
 ## Examples
 

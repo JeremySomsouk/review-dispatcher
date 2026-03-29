@@ -27,6 +27,8 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 | `-n, --pr-numbers` | PR number(s) to comment on (comma-separated, e.g. `123,456`) | - |
 | `-p, --pr` | Global flag: target a specific PR number | - |
 | `--json` | Output as JSON (useful for scripting) |
+| `--repo` | Filter by repository name (partial match, case-insensitive) | - |
+| `--author` | Filter by author username (partial match, case-insensitive) | - |
 
 ## Examples
 
