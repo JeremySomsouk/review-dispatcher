@@ -6862,7 +6862,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, repo, author, json } => {
+        Commands::Activity { days, repo, author, pr, json } => {
             println!("\n📈 Fetching your review activity (last {} days)...\n", days);
 
             match github::fetch_my_review_activity(
@@ -6875,6 +6875,11 @@ async fn main() -> anyhow::Result<()> {
             .await
             {
                 Ok(mut activities) => {
+                    // Apply --pr filter (shorthand for global --pr)
+                    if let Some(target_pr) = cli.pr.or(pr) {
+                        activities.retain(|a| a.pr_number == target_pr);
+                    }
+
                     // Apply --repo filter (partial match, case-insensitive)
                     if let Some(ref repo_filter) = repo {
                         let pattern = repo_filter.to_lowercase();
@@ -6890,12 +6895,11 @@ async fn main() -> anyhow::Result<()> {
                     if json {
                         println!("{}", serde_json::to_string_pretty(&activities)?);
                     } else {
-                        println!("📊 Your Review Activity  (last {} days)\n{}", days, "─".repeat(45));
-                        println!("  Total PRs reviewed:  {}", activities.len());
-
                         if activities.is_empty() {
-                            println!("\n  😴 No review activity found in this period.\n");
+                            println!("\n  😴 No review activity found.\n");
                         } else {
+                            println!("📊 Your Review Activity  (last {} days)\n{}", days, "─".repeat(45));
+                            println!("  Total PRs reviewed:  {}", activities.len());
                             // Group by day
                             use std::collections::HashMap;
                             let mut by_day: HashMap<String, Vec<_>> = HashMap::new();
