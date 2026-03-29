@@ -105,3 +105,4 @@ Returns an array of results with:
 - Progress feedback shows completion status for each PR as it finishes
 - Combine filters (`--since-days`, `--repo`, `--author`) with `--dry-run` to preview targeted delegation
 - Snoozed PRs are automatically excluded (consistent with `list` command)
+- When `--pr` is combined with `--repo`, `--author`, or `--since-days`, the PR must match all filters to be selected (filters take precedence over direct fetch)

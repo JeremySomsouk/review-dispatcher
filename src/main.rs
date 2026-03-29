@@ -396,37 +396,69 @@ async fn main() -> anyhow::Result<()> {
 
             let targets: Vec<_> = match pr_number {
                 Some(num) => {
-                    // Fetch the PR directly, bypassing review-request filters
-                    let direct = github::fetch_pr_by_number(
-                        &cfg.github_token,
-                        &cfg.github_org,
-                        &cfg.github_repos,
-                        num,
-                    )
-                    .await?;
-                    if direct.is_empty() {
-                        println!("No PR #{} found across configured repos.", num);
-                        return Ok(());
-                    }
-                    if direct.len() == 1 {
-                        direct
-                    } else {
-                        // Same PR number in multiple repos — show matches + prompt
-                        println!("PR #{} found in multiple repos:", num);
-                        for (i, r) in direct.iter().enumerate() {
-                            println!("  [{}] {} ({})", i + 1, r.pr_title, r.repo);
+                    // First, check if the PR exists in filtered_reviews (respects --repo, --author, --since filters + snooze)
+                    let from_list: Vec<_> = filtered_reviews.iter()
+                        .filter(|r| r.pr_number == num)
+                        .cloned()
+                        .collect();
+
+                    if !from_list.is_empty() {
+                        // Found in filtered list - use that (respects filters)
+                        if from_list.len() == 1 {
+                            from_list
+                        } else {
+                            // Same PR number in multiple repos — show matches + prompt
+                            println!("PR #{} found in multiple repos:", num);
+                            for (i, r) in from_list.iter().enumerate() {
+                                println!("  [{}] {} ({})", i + 1, r.pr_title, r.repo);
+                            }
+                            print!(
+                                "\n{} ",
+                                "Select repo [e.g. 1] (q to quit):".bold()
+                            );
+                            io::stdout().flush()?;
+                            let mut input = String::new();
+                            io::stdin().read_line(&mut input)?;
+                            match parse_selection(input.trim(), from_list.len()) {
+                                Selection::Quit => return Ok(()),
+                                Selection::Indices(indices) => {
+                                    indices.into_iter().map(|i| from_list[i].clone()).collect()
+                                }
+                            }
                         }
-                        print!(
-                            "\n{} ",
-                            "Select repo [e.g. 1] (q to quit):".bold()
-                        );
-                        io::stdout().flush()?;
-                        let mut input = String::new();
-                        io::stdin().read_line(&mut input)?;
-                        match parse_selection(input.trim(), direct.len()) {
-                            Selection::Quit => return Ok(()),
-                            Selection::Indices(indices) => {
-                                indices.into_iter().map(|i| direct[i].clone()).collect()
+                    } else {
+                        // Not found in filtered list - fetch directly from GitHub as fallback
+                        let direct = github::fetch_pr_by_number(
+                            &cfg.github_token,
+                            &cfg.github_org,
+                            &cfg.github_repos,
+                            num,
+                        )
+                        .await?;
+                        if direct.is_empty() {
+                            println!("No PR #{} found across configured repos.", num);
+                            return Ok(());
+                        }
+                        if direct.len() == 1 {
+                            direct
+                        } else {
+                            // Same PR number in multiple repos — show matches + prompt
+                            println!("PR #{} found in multiple repos:", num);
+                            for (i, r) in direct.iter().enumerate() {
+                                println!("  [{}] {} ({})", i + 1, r.pr_title, r.repo);
+                            }
+                            print!(
+                                "\n{} ",
+                                "Select repo [e.g. 1] (q to quit):".bold()
+                            );
+                            io::stdout().flush()?;
+                            let mut input = String::new();
+                            io::stdin().read_line(&mut input)?;
+                            match parse_selection(input.trim(), direct.len()) {
+                                Selection::Quit => return Ok(()),
+                                Selection::Indices(indices) => {
+                                    indices.into_iter().map(|i| direct[i].clone()).collect()
+                                }
                             }
                         }
                     }
