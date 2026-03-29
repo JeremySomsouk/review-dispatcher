@@ -1454,60 +1454,152 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Info { pr_number, json, priority, repo, author, since_days } => {
-            let target_pr = cli.pr.or(pr_number);
+        Commands::Info { pr_number, json, priority, repo, author, since_days, all, pr_numbers, pr } => {
+            // Priority: global --pr flag > local --pr > positional PR_NUMBER
+            let target_pr = cli.pr.or(pr).or(pr_number);
 
-            let prs = match target_pr {
-                Some(num) => {
+            // Handle batch PR numbers - fetch all specified PRs in parallel
+            let prs_from_numbers: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
+                let mut results = Vec::new();
+                for part in nums.split(',') {
+                    if let Ok(num) = part.trim().parse::<u64>() {
+                        results.push(num);
+                    }
+                }
+                if results.is_empty() {
+                    println!("❌ No valid PR numbers provided.");
+                    return Ok(());
+                }
+                // Fetch all specified PRs in parallel
+                let fetch_futures = results.iter().map(|num| {
                     github::fetch_pr_by_number(
                         &cfg.github_token,
                         &cfg.github_org,
                         &cfg.github_repos,
-                        num,
+                        *num,
                     )
-                    .await?
+                });
+                join_all(fetch_futures)
+                    .await
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            // Determine base PR list based on targeting mode
+            let base_reviews: Vec<github::PendingReview> = if let Some(num) = target_pr {
+                // Single PR via --pr or positional
+                github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await?
+            } else if pr_numbers.is_some() {
+                // Batch mode via --pr-numbers
+                prs_from_numbers
+            } else if all {
+                // --all flag: use all pending reviews
+                reviews.clone()
+            } else {
+                // Interactive mode: use filtered reviews from main fetch
+                reviews.clone()
+            };
+
+            // Apply --repo, --author, and --since-days filters to reviews
+            let filtered_reviews: Vec<_> = {
+                let mut result = base_reviews;
+
+                // Apply --since-days filter (only show PRs created since N days ago)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
                 }
-                None => {
-                    // Apply --repo, --author, and --since-days filters to reviews
-                    let mut filtered = reviews.clone();
 
-                    // Apply --since-days filter
-                    if let Some(days) = since_days {
-                        let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                        filtered.retain(|r| r.created_at >= cutoff);
-                    }
+                // Apply --repo filter (partial match, case-insensitive)
+                if let Some(ref repo_filter) = repo {
+                    let pattern = repo_filter.to_lowercase();
+                    result.retain(|r| r.repo.to_lowercase().contains(&pattern));
+                }
 
-                    // Apply --repo filter (partial match, case-insensitive)
-                    if let Some(ref repo_filter) = repo {
-                        let pattern = repo_filter.to_lowercase();
-                        filtered.retain(|r| r.repo.to_lowercase().contains(&pattern));
-                    }
+                // Apply --author filter (partial match, case-insensitive)
+                if let Some(ref author_filter) = author {
+                    let pattern = author_filter.to_lowercase();
+                    result.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
+                }
 
-                    // Apply --author filter (partial match, case-insensitive)
-                    if let Some(ref author_filter) = author {
-                        let pattern = author_filter.to_lowercase();
-                        filtered.retain(|r| r.pr_author.to_lowercase().contains(&pattern));
-                    }
+                result
+            };
 
-                    if filtered.is_empty() {
-                        println!("No matching reviews found.");
-                        return Ok(());
-                    }
-                    logger::print_reviews(&filtered, false);
-                    print!(
-                        "\n{} ",
-                        "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                    );
-                    io::stdout().flush()?;
-                    let mut input = String::new();
-                    io::stdin().read_line(&mut input)?;
-                    match parse_selection(input.trim(), filtered.len()) {
-                        Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| filtered[i].clone()).collect()
+            // Apply snooze filtering (unless --pr, --pr-numbers, or --all is specified)
+            let filtered_reviews: Vec<github::PendingReview> = if target_pr.is_none() && pr_numbers.is_none() && !all {
+                let snooze_file = output_dir
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("./reviews"))
+                    .join(".snoozed.json");
+
+                let now = chrono::Utc::now();
+                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            entries
+                                .into_iter()
+                                .filter_map(|e| {
+                                    let repo = e.get("repo")?.as_str()?.to_string();
+                                    let pr_number = e.get("pr_number")?.as_u64()?;
+                                    let until_str = e.get("snoozed_until")?.as_str()?;
+                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if until.with_timezone(&chrono::Utc) > now {
+                                            return Some((repo, pr_number));
+                                        }
+                                    }
+                                    None
+                                })
+                                .collect()
+                        } else {
+                            Vec::new()
                         }
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
+
+                filtered_reviews
+                    .into_iter()
+                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .collect()
+            } else {
+                filtered_reviews
+            };
+
+            // Handle interactive selection if no targeting flags provided
+            let prs: Vec<github::PendingReview> = if target_pr.is_none() && pr_numbers.is_none() && !all {
+                if filtered_reviews.is_empty() {
+                    println!("No matching reviews found.");
+                    return Ok(());
+                }
+                logger::print_reviews(&filtered_reviews, false);
+                print!(
+                    "\n{} ",
+                    "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                );
+                io::stdout().flush()?;
+                let mut input = String::new();
+                io::stdin().read_line(&mut input)?;
+                match parse_selection(input.trim(), filtered_reviews.len()) {
+                    Selection::Quit => return Ok(()),
+                    Selection::Indices(indices) => {
+                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
                     }
                 }
+            } else {
+                filtered_reviews
             };
 
             if prs.is_empty() {

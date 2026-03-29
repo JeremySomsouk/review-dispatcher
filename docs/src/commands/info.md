@@ -22,8 +22,10 @@ review-dispatcher info [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
-| `PR_NUMBER` | Target a specific PR by number | Interactive selection |
-| `--pr, -p` | Target a specific PR by number (global) | Interactive selection |
+| `PR_NUMBER` | Target a specific PR by number (shorthand for --pr) | Interactive selection |
+| `--pr, -p` | Target a specific PR by number | Interactive selection |
+| `--pr-numbers` | Target multiple PRs by number (comma-separated) | None |
+| `--all, -a` | Show info for all pending reviews (no interactive selection) | `false` |
 | `--priority, -P` | Show priority score (1-5 stars based on age and size) | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | None |
 | `--author` | Filter by author username (partial match, case-insensitive) | None |
@@ -38,6 +40,12 @@ review-dispatcher info --pr 4821
 
 # Show info with priority score
 review-dispatcher info --pr 4821 --priority
+
+# Show info for multiple PRs at once (fetched in parallel)
+review-dispatcher info --pr-numbers 4821,4822,4823
+
+# Show info for all pending reviews (no interactive selection)
+review-dispatcher info --all
 
 # Interactive mode (select from pending reviews)
 review-dispatcher info
@@ -55,7 +63,7 @@ review-dispatcher info --repo myorg --author sarah_dev
 review-dispatcher info --since-days 7
 
 # Combine filters
-review-dispatcher info --repo frontend --since-days 14
+review-dispatcher info --repo frontend --since-days 14 --priority
 
 # JSON output for integration
 review-dispatcher info --pr 4821 --json

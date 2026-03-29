@@ -235,7 +235,7 @@ pub enum Commands {
     },
     /// Show full PR information including description, reviewers, and metadata
     Info {
-        /// PR number to show info for
+        /// PR number to show info for (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// Output as JSON
@@ -253,6 +253,15 @@ pub enum Commands {
         /// Only show PRs created since this many days ago
         #[arg(long, short = 's')]
         since_days: Option<u32>,
+        /// Show info for all pending reviews (no interactive selection)
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// PR number(s) to show info for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Show info for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
     },
     /// Show the chronological timeline of events on a PR (reviews, comments, labels, CI, etc.)
     Timeline {
