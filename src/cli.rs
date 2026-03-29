@@ -654,6 +654,9 @@ pub enum Commands {
     },
     /// Show the ONE PR you should focus on right now — the most urgent by priority score
     Focus {
+        /// Preview which PR would be selected without opening it
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Open the focused PR in your browser instead of printing details
         #[arg(long, short = 'o')]
         open: bool,

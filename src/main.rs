@@ -8357,7 +8357,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Focus { open, json, priority, repo, author } => {
+        Commands::Focus { dry_run, open, json, priority, repo, author } => {
             use chrono::Utc;
 
             // Apply --repo and --author filters (consistent with other commands)
@@ -8483,6 +8483,11 @@ async fn main() -> anyhow::Result<()> {
                     if open {
                         open::that(&pr.pr_url)?;
                         println!("🖥️  Opening PR in browser...");
+                    }
+
+                    if dry_run {
+                        println!();
+                        println!("(dry-run - no action taken)");
                     }
                 }
             }

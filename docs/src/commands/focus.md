@@ -21,6 +21,7 @@ review-dispatcher focus [OPTIONS]
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `-n, --dry-run` | Preview which PR would be selected without opening it | `false` |
 | `-o, --open` | Open the focused PR in your browser | `false` |
 | `--json` | Output as JSON (includes full PR details) | `false` |
 | `-P, --priority` | Show priority score for the focused PR (1-5 stars) | `false` |
@@ -32,6 +33,9 @@ review-dispatcher focus [OPTIONS]
 ```bash
 # See your most urgent PR right now
 review-dispatcher focus
+
+# Preview which PR would be selected (without opening)
+review-dispatcher focus --dry-run
 
 # Open it directly in your browser
 review-dispatcher focus --open
