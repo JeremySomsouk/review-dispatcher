@@ -30,6 +30,7 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 | `-P, --priority` | Show priority score (1-5 stars) | `false` |
 | `--repo <PATTERN>` | Filter by repository (partial match, case-insensitive) | - |
 | `--author <PATTERN>` | Filter by author (partial match, case-insensitive) | - |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | - |
 | `--json` | Output as JSON for scripting | `false` |
 
 ## Examples
@@ -49,4 +50,6 @@ review-dispatcher review --pr-numbers 4821,4822,4823
 review-dispatcher review --pr-numbers 4821,4822 --priority
 review-dispatcher review --all --dry-run
 review-dispatcher review --pr 4821 --dry-run
+review-dispatcher review --all --since-days 7
+review-dispatcher review --all --repo api --since-days 14
 ```
