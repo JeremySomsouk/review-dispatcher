@@ -14,7 +14,7 @@ A lightweight, non-intrusive way to nudge authors — the equivalent of tapping 
 ## Synopsis
 
 ```bash
-review-dispatcher ping [OPTIONS]
+prctrl ping [OPTIONS]
 ```
 
 ## Options
@@ -120,45 +120,45 @@ Unlike comments, reactions:
 
 ```bash
 # Preview what would happen (default)
-review-dispatcher ping
+prctrl ping
 
 # Preview with dry-run flag (explicit preview mode)
-review-dispatcher ping --dry-run
-review-dispatcher ping -n
+prctrl ping --dry-run
+prctrl ping -n
 
 # Output as JSON (useful for scripting)
-review-dispatcher ping --all --json
+prctrl ping --all --json
 
 # Ping specific PRs (interactive selection)
-review-dispatcher ping 4821
-review-dispatcher ping 4821,4815,4809
+prctrl ping 4821
+prctrl ping 4821,4815,4809
 
 # Send 👀 (eyes) emoji — default
-review-dispatcher ping 4821 --send
+prctrl ping 4821 --send
 
 # Ping a specific PR directly with --pr flag
-review-dispatcher ping --pr 4821 --send
+prctrl ping --pr 4821 --send
 
 # Send 🚀 (rocket) for urgent follow-up
-review-dispatcher ping --emoji rocket --send
+prctrl ping --emoji rocket --send
 
 # Ping all pending reviews at once
-review-dispatcher ping --all --send
+prctrl ping --all --send
 
 # Use thumbs up 👍 instead
-review-dispatcher ping -e +1 4821 --send
+prctrl ping -e +1 4821 --send
 
 # Ping PRs from a specific repository
-review-dispatcher ping --repo my-service --all --send
+prctrl ping --repo my-service --all --send
 
 # Ping PRs from a specific author
-review-dispatcher ping --author alice --all --send
+prctrl ping --author alice --all --send
 
 # Ping PRs created in the last 3 days (newer PRs only)
-review-dispatcher ping --since-days 3 --all --send
+prctrl ping --since-days 3 --all --send
 
 # Combine filters for targeted pinging
-review-dispatcher ping --repo api --author bob --send
+prctrl ping --repo api --author bob --send
 ```
 
 ## Tips

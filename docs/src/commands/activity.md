@@ -13,7 +13,7 @@ Track your review throughput and see what you've been up to.
 ## Synopsis
 
 ```bash
-review-dispatcher activity [OPTIONS]
+prctrl activity [OPTIONS]
 ```
 
 ## Options
@@ -32,29 +32,29 @@ review-dispatcher activity [OPTIONS]
 
 ```bash
 # Last week's reviews
-review-dispatcher activity
+prctrl activity
 
 # Last 30 days
-review-dispatcher activity --days 30
+prctrl activity --days 30
 
 # Filter by repository
-review-dispatcher activity --repo myrepo
+prctrl activity --repo myrepo
 
 # Filter by author
-review-dispatcher activity --author johndoe
+prctrl activity --author johndoe
 
 # Combine filters
-review-dispatcher activity --days 14 --repo api --author alice
+prctrl activity --days 14 --repo api --author alice
 
 # Activity for specific PR
-review-dispatcher activity --pr 123
+prctrl activity --pr 123
 
 # Show priority scores for reviewed PRs
-review-dispatcher activity --priority
+prctrl activity --priority
 
 # JSON output for scripting
-review-dispatcher activity --json
+prctrl activity --json
 
 # Only show PRs reviewed in the last 7 days (even if --days is 30)
-review-dispatcher activity --days 30 --since-days 7
+prctrl activity --days 30 --since-days 7
 ```

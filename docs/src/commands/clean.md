@@ -12,10 +12,10 @@ Keep your reviews folder tidy by purging old output.
 ## Synopsis
 
 ```bash
-review-dispatcher clean
-review-dispatcher clean --dry-run
-review-dispatcher clean -n          # short form for dry-run
-review-dispatcher clean --quiet    # suppress output
+prctrl clean
+prctrl clean --dry-run
+prctrl clean -n          # short form for dry-run
+prctrl clean --quiet    # suppress output
 ```
 
 ## Options

@@ -14,7 +14,7 @@ When you've snoozed multiple PRs and want to review them in detail before waking
 ## Synopsis
 
 ```bash
-review-dispatcher snooze review
+prctrl snooze review
 ```
 
 ## Options
@@ -25,10 +25,10 @@ This command has no additional options — it always shows the full detailed vie
 
 ```bash
 # View all snoozed PRs with full details
-review-dispatcher snooze review
+prctrl snooze review
 
 # See which ones are coming close to expiry
-review-dispatcher snooze review
+prctrl snooze review
 ```
 
 ## Output

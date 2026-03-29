@@ -14,7 +14,7 @@ Nothing kills momentum faster than PRs that languish without review. `chase` hel
 ## Synopsis
 
 ```bash
-review-dispatcher chase [OPTIONS]
+prctrl chase [OPTIONS]
 ```
 
 ## Options
@@ -61,37 +61,37 @@ Your custom message can include these placeholders:
 
 ```bash
 # Preview chase comments for PRs older than 7 days (default behavior)
-review-dispatcher chase
+prctrl chase
 
 # Explicitly preview what would be sent
-review-dispatcher chase --dry-run
+prctrl chase --dry-run
 
 # Chase a specific PR (ignores --min-age, targets only that PR)
-review-dispatcher chase --pr 123
+prctrl chase --pr 123
 
 # Chase multiple specific PRs by number
-review-dispatcher chase --pr-numbers 123,456,789
+prctrl chase --pr-numbers 123,456,789
 
 # Chase PRs older than 14 days and post comments
-review-dispatcher chase --min-age 14 --send
+prctrl chase --min-age 14 --send
 
 # Chase only PRs created in the last 3 days (newer stale PRs)
-review-dispatcher chase --since-days 3
+prctrl chase --since-days 3
 
 # Chase PRs between 3-14 days old
-review-dispatcher chase --since-days 14 --min-age 3
+prctrl chase --since-days 14 --min-age 3
 
 # Chase with priority scores to identify most urgent PRs
-review-dispatcher chase --priority
+prctrl chase --priority
 
 # Use a custom message template
-review-dispatcher chase --message "Hey {author}, bumping this - it's been {days} days!"
+prctrl chase --message "Hey {author}, bumping this - it's been {days} days!"
 
 # Get JSON output for scripting
-review-dispatcher chase --json
+prctrl chase --json
 
 # Chase PRs silently (summary only, useful in scripts)
-review-dispatcher chase --send --quiet
+prctrl chase --send --quiet
 ```
 
 ## Output

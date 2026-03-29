@@ -15,7 +15,7 @@ The counterpart to `assign` — give up review responsibility when you've been a
 ## Synopsis
 
 ```bash
-review-dispatcher unassign [OPTIONS] [PR_NUMBER]
+prctrl unassign [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -38,28 +38,28 @@ review-dispatcher unassign [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Unassign from a specific PR
-review-dispatcher unassign 4821
+prctrl unassign 4821
 
 # Preview what would be unassigned (dry-run)
-review-dispatcher unassign --all --dry-run
+prctrl unassign --all --dry-run
 
 # Unassign from all pending reviews at once
-review-dispatcher unassign --all
+prctrl unassign --all
 
 # Unassign from multiple specific PRs
-review-dispatcher unassign --pr-numbers 4821,4822,4823
+prctrl unassign --pr-numbers 4821,4822,4823
 
 # Interactive selection from pending reviews
-review-dispatcher unassign
+prctrl unassign
 
 # Unassign with JSON output (for scripting)
-review-dispatcher unassign 4821 --json
+prctrl unassign 4821 --json
 
 # Unassign from all PRs created in the last 3 days
-review-dispatcher unassign --all --since-days 3
+prctrl unassign --all --since-days 3
 
 # Unassign with priority scores shown
-review-dispatcher unassign --priority
+prctrl unassign --priority
 ```
 
 ## Tips

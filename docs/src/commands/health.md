@@ -13,7 +13,7 @@ Avoid hitting rate limits by checking before large operations.
 ## Synopsis
 
 ```bash
-review-dispatcher health [OPTIONS]
+prctrl health [OPTIONS]
 ```
 
 ## Options
@@ -27,14 +27,14 @@ review-dispatcher health [OPTIONS]
 
 ```bash
 # Basic health check
-review-dispatcher health
+prctrl health
 
 # With actionable recommendations
-review-dispatcher health --suggest
-review-dispatcher health -s
+prctrl health --suggest
+prctrl health -s
 
 # JSON output for scripting
-review-dispatcher health --json
+prctrl health --json
 ```
 
 ## Output Details

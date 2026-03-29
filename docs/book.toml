@@ -1,5 +1,5 @@
 [book]
-title = "Review Dispatcher"
+title = "PRCtrl"
 authors = ["Jeremy Somsouk"]
 description = "CLI tool for GitHub PR review management"
 src = "src"
@@ -8,4 +8,4 @@ src = "src"
 default-theme = "mocha"
 preferred-dark-theme = "mocha"
 additional-css = ["./theme/catppuccin.css"]
-site-url = "https://jeremysomsouk.github.io/review-dispatcher/"
+site-url = "https://jeremysomsouk.github.io/prctrl/"

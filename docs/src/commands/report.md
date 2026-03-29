@@ -13,7 +13,7 @@ See your review activity over time — PRs reviewed, time spent, patterns.
 ## Synopsis
 
 ```bash
-review-dispatcher report [OPTIONS]
+prctrl report [OPTIONS]
 ```
 
 ## Options
@@ -33,17 +33,17 @@ review-dispatcher report [OPTIONS]
 ## Examples
 
 ```bash
-review-dispatcher report
-review-dispatcher report --days 30
-review-dispatcher report --repo api
-review-dispatcher report --author alice --priority
-review-dispatcher report --days 14 --repo backend --priority
-review-dispatcher report --since-days 3 --priority
-review-dispatcher report --pr 123
-review-dispatcher report --pr 123 --json
-review-dispatcher report --pr-numbers 123,456,789
-review-dispatcher report --all --priority
-review-dispatcher report --all --repo myorg --since-days 7
+prctrl report
+prctrl report --days 30
+prctrl report --repo api
+prctrl report --author alice --priority
+prctrl report --days 14 --repo backend --priority
+prctrl report --since-days 3 --priority
+prctrl report --pr 123
+prctrl report --pr 123 --json
+prctrl report --pr-numbers 123,456,789
+prctrl report --all --priority
+prctrl report --all --repo myorg --since-days 7
 ```
 
 ## Tips

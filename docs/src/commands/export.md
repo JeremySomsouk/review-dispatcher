@@ -15,7 +15,7 @@ Perfect for manager reports, team dashboards, or integrating with other tools.
 ## Synopsis
 
 ```bash
-review-dispatcher export [OPTIONS]
+prctrl export [OPTIONS]
 ```
 
 ## Options
@@ -53,46 +53,46 @@ review-dispatcher export [OPTIONS]
 
 ```bash
 # Export all pending reviews as CSV (prints to stdout)
-review-dispatcher export
+prctrl export
 
 # Export to a file
-review-dispatcher export --output pending-reviews.csv
+prctrl export --output pending-reviews.csv
 
 # Export as Markdown table (great for Notion/Slack)
-review-dispatcher export --format markdown --output report.md
+prctrl export --format markdown --output report.md
 
 # Export only specific columns
-review-dispatcher export --columns repo,title,author,age
+prctrl export --columns repo,title,author,age
 
 # Export with priority scores included
-review-dispatcher export --priority --output prioritized-reviews.csv
+prctrl export --priority --output prioritized-reviews.csv
 
 # Export as JSON for scripting or API integration
-review-dispatcher export --json --output reviews.json
+prctrl export --json --output reviews.json
 
 # Export as JSON with priority scores
-review-dispatcher export --json --priority --output reviews.json
+prctrl export --json --priority --output reviews.json
 
 # Export with fresh data (bypasses session cache)
-review-dispatcher export --all --output full-report.csv
+prctrl export --all --output full-report.csv
 
 # Export only PRs from a specific repository
-review-dispatcher export --repo backend --output backend-reviews.csv
+prctrl export --repo backend --output backend-reviews.csv
 
 # Export only PRs by a specific author
-review-dispatcher export --author alice --output alice-reviews.csv
+prctrl export --author alice --output alice-reviews.csv
 
 # Export only PRs created in the last 7 days
-review-dispatcher export --since-days 7 --output recent-reviews.csv
+prctrl export --since-days 7 --output recent-reviews.csv
 
 # Export a specific PR by number
-review-dispatcher export --pr 4821
+prctrl export --pr 4821
 
 # Export multiple specific PRs
-review-dispatcher export --pr-numbers 4821,3156,2890
+prctrl export --pr-numbers 4821,3156,2890
 
 # Combine filters with other options
-review-dispatcher export --repo frontend --author alice --format markdown --output report.md
+prctrl export --repo frontend --author alice --format markdown --output report.md
 ```
 
 ## Output Examples

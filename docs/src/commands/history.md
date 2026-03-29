@@ -2,7 +2,7 @@
 
 **Search and filter your review history from processed review files.**
 
-The `history` command lets you dig into your past review activity with powerful filtering — by repository, author, review state (approved/changes requested/commented), and time window. It reads from the review files created when you run `review-dispatcher list` or delegate reviews.
+The `history` command lets you dig into your past review activity with powerful filtering — by repository, author, review state (approved/changes requested/commented), and time window. It reads from the review files created when you run `prctrl list` or delegate reviews.
 
 ## When to Use
 
@@ -14,7 +14,7 @@ The `history` command lets you dig into your past review activity with powerful 
 ## Synopsis
 
 ```bash
-review-dispatcher history [OPTIONS]
+prctrl history [OPTIONS]
 ```
 
 ## Options
@@ -32,25 +32,25 @@ review-dispatcher history [OPTIONS]
 
 ```bash
 # View your last 30 days of review history
-review-dispatcher history
+prctrl history
 
 # Show only reviews for the frontend repo
-review-dispatcher history --repo frontend
+prctrl history --repo frontend
 
 # Show reviews where you requested changes
-review-dispatcher history --state CHANGES_REQUESTED
+prctrl history --state CHANGES_REQUESTED
 
 # Find all reviews of alice's PRs in the last 90 days
-review-dispatcher history --author alice --days 90
+prctrl history --author alice --days 90
 
 # Combine filters - reviews of bob's PRs in backend repo with changes requested
-review-dispatcher history --author bob --repo backend --state CHANGES_REQUESTED
+prctrl history --author bob --repo backend --state CHANGES_REQUESTED
 
 # Get JSON for scripting
-review-dispatcher history --json --days 7
+prctrl history --json --days 7
 
 # Limit to 10 most recent
-review-dispatcher history --limit 10
+prctrl history --limit 10
 ```
 
 ## Output
@@ -80,7 +80,7 @@ review-dispatcher history --limit 10
 ## Tips
 
 - Review history is built from `.md` files in your output directory (default: `./reviews`)
-- Run `review-dispatcher list` first to populate review files
+- Run `prctrl list` first to populate review files
 - Filter combinations are ANDed together (repo AND author AND state)
 - Use `--json` for integration with external tools or dashboards
 - The `--limit` flag helps when you just need the most recent N entries

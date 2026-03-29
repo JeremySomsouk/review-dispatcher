@@ -14,7 +14,7 @@ use crate::writer;
 
 const INSTRUCTION_FILE: &str = "instruction.md";
 
-pub const PID_FILE: &str = ".review-dispatcher-monitor.pid";
+pub const PID_FILE: &str = ".prctrl-monitor.pid";
 
 pub fn delegate_to_claude(review: &PendingReview, custom_instruction_path: Option<PathBuf>) -> Result<String> {
     // Use custom path if provided, otherwise use default search
@@ -142,7 +142,7 @@ pub fn open_in_browser(url: &str) -> Result<()> {
 /// Read custom instructions from instruction.md file
 /// Looks in multiple locations:
 /// 1. Current directory (./instruction.md)
-/// 2. Config directory (~/.review-dispatcher/instruction.md)
+/// 2. Config directory (~/.prctrl/instruction.md)
 /// 3. Environment variable (RD_INSTRUCTION_PATH)
 fn read_custom_instructions() -> (String, Option<String>) {
     // Check environment variable first
@@ -167,7 +167,7 @@ fn read_custom_instructions() -> (String, Option<String>) {
     
     // Check user config directory
     if let Some(home_dir) = dirs::home_dir() {
-        let config_path = home_dir.join(".review-dispatcher").join(INSTRUCTION_FILE);
+        let config_path = home_dir.join(".prctrl").join(INSTRUCTION_FILE);
         if config_path.exists() {
             if let Ok(content) = fs::read_to_string(&config_path) {
                 if let Some(path) = config_path.to_str() {
@@ -259,7 +259,7 @@ pub async fn monitor_new_prs(
 ) -> Result<()> {
     // Check if another monitor is already running
     if is_monitor_running() {
-        return Err(anyhow::anyhow!("A monitor process is already running. Use 'review-dispatcher monitor-stop' to stop it first."));
+        return Err(anyhow::anyhow!("A monitor process is already running. Use 'prctrl monitor-stop' to stop it first."));
     }
 
     // Write PID file

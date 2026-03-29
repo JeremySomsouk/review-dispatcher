@@ -14,7 +14,7 @@ No more switching to GitHub UI for simple approvals. Approve and add a comment i
 ## Synopsis
 
 ```bash
-review-dispatcher approve [OPTIONS]
+prctrl approve [OPTIONS]
 ```
 
 ## Options
@@ -37,40 +37,40 @@ review-dispatcher approve [OPTIONS]
 
 ```bash
 # Approve a specific PR with default message
-review-dispatcher approve --pr 4821
+prctrl approve --pr 4821
 
 # Approve with a custom comment
-review-dispatcher approve --pr 4821 -m "LGTM! Nice work on the tests."
+prctrl approve --pr 4821 -m "LGTM! Nice work on the tests."
 
 # Approve without comment
-review-dispatcher approve --pr 4821 -m ""
+prctrl approve --pr 4821 -m ""
 
 # Preview what would be approved (dry-run)
-review-dispatcher approve --pr 4821 -n
+prctrl approve --pr 4821 -n
 
 # Preview what would be approved for all pending
-review-dispatcher approve --all -n
+prctrl approve --all -n
 
 # Approve all pending reviews at once
-review-dispatcher approve --all
+prctrl approve --all
 
 # Approve all PRs from a specific author
-review-dispatcher approve --all --author johndoe
+prctrl approve --all --author johndoe
 
 # Approve all PRs from a specific repository
-review-dispatcher approve --all --repo myservice
+prctrl approve --all --repo myservice
 
 # Approve PRs from the last 3 days only
-review-dispatcher approve --all --since-days 3
+prctrl approve --all --since-days 3
 
 # Approve with priority scores shown
-review-dispatcher approve --all --priority
+prctrl approve --all --priority
 
 # Approve multiple specific PRs
-review-dispatcher approve --pr-numbers 4821,4822,4823
+prctrl approve --pr-numbers 4821,4822,4823
 
 # Approve with JSON output (for scripting)
-review-dispatcher approve --pr 4821 --json
+prctrl approve --pr 4821 --json
 ```
 
 ## Tips

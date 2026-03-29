@@ -13,7 +13,7 @@ See how your review patterns evolve. How fast are you reviewing? Is your backlog
 ## Synopsis
 
 ```bash
-review-dispatcher trends [OPTIONS]
+prctrl trends [OPTIONS]
 ```
 
 ## Options
@@ -33,37 +33,37 @@ review-dispatcher trends [OPTIONS]
 
 ```bash
 # Standard 30-day trend analysis
-review-dispatcher trends
+prctrl trends
 
 # Quick 7-day snapshot
-review-dispatcher trends --days 7
+prctrl trends --days 7
 
 # Focus on top 5 authors/repos
-review-dispatcher trends --limit 5
+prctrl trends --limit 5
 
 # Filter by repository
-review-dispatcher trends --repo frontend
+prctrl trends --repo frontend
 
 # Filter by author
-review-dispatcher trends --author alice
+prctrl trends --author alice
 
 # Combine filters
-review-dispatcher trends --repo backend --author bob
+prctrl trends --repo backend --author bob
 
 # Only show recent PRs (created in last 7 days)
-review-dispatcher trends --since-days 7
+prctrl trends --since-days 7
 
 # Combine filters with since-days
-review-dispatcher trends --repo frontend --since-days 14
+prctrl trends --repo frontend --since-days 14
 
 # JSON for dashboards/scripts
-review-dispatcher trends --json | jq '.avg_per_day'
+prctrl trends --json | jq '.avg_per_day'
 
 # Show top PRs by priority score
-review-dispatcher trends --priority
+prctrl trends --priority
 
 # Show trends for a specific PR
-review-dispatcher trends --pr 123
+prctrl trends --pr 123
 ```
 
 ## Output Example
@@ -109,6 +109,6 @@ The **week-over-week** comparison tells you if your review throughput is increas
 
 ## Tips
 
-- Requires review files from `delegate` command (run `review-dispatcher delegate` first to generate them)
+- Requires review files from `delegate` command (run `prctrl delegate` first to generate them)
 - Use `--days 7` for a tight weekly view, `--days 90` for quarterly context
 - Pipe to `jq` for integration with monitoring dashboards

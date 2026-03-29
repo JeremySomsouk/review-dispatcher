@@ -12,7 +12,7 @@ Sign up for review responsibility without clicking through the web UI.
 ## Synopsis
 
 ```bash
-review-dispatcher claim [OPTIONS] [PR_NUMBERS]
+prctrl claim [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
@@ -33,23 +33,23 @@ review-dispatcher claim [OPTIONS] [PR_NUMBERS]
 
 ```bash
 # Claim specific PRs by number
-review-dispatcher claim 4821,3156,2890
+prctrl claim 4821,3156,2890
 
 # Claim all pending reviews
-review-dispatcher claim --all
+prctrl claim --all
 
 # Preview what would be claimed (dry-run)
-review-dispatcher claim --all --dry-run
+prctrl claim --all --dry-run
 
 # Claim all PRs from a specific repo
-review-dispatcher claim --all --repo myservice
+prctrl claim --all --repo myservice
 
 # Claim all PRs from a specific author with priority scores
-review-dispatcher claim --all --author johndoe --priority
+prctrl claim --all --author johndoe --priority
 
 # Claim all PRs from the last 7 days only
-review-dispatcher claim --all --since-days 7
+prctrl claim --all --since-days 7
 
 # Claim with JSON output for scripting
-review-dispatcher claim --all --json
+prctrl claim --all --json
 ```

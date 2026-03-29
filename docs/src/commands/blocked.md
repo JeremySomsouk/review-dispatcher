@@ -13,7 +13,7 @@ Find PRs that can't be merged yet and see exactly what's blocking them.
 ## Synopsis
 
 ```bash
-review-dispatcher blocked [OPTIONS]
+prctrl blocked [OPTIONS]
 ```
 
 ## Options
@@ -33,31 +33,31 @@ review-dispatcher blocked [OPTIONS]
 
 ```bash
 # Show all blocked PRs
-review-dispatcher blocked
+prctrl blocked
 
 # Show only PRs with CI failures
-review-dispatcher blocked --ci-only
+prctrl blocked --ci-only
 
 # Show only PRs with merge conflicts
-review-dispatcher blocked --conflicts-only
+prctrl blocked --conflicts-only
 
 # Filter to specific repo
-review-dispatcher blocked --repo frontend
+prctrl blocked --repo frontend
 
 # Filter by author
-review-dispatcher blocked --author alice
+prctrl blocked --author alice
 
 # Show priority scores
-review-dispatcher blocked --priority
+prctrl blocked --priority
 
 # Combine filters
-review-dispatcher blocked --repo frontend --priority --ci-only
+prctrl blocked --repo frontend --priority --ci-only
 
 # Only show recently created PRs (last 7 days)
-review-dispatcher blocked --since-days 7
+prctrl blocked --since-days 7
 
 # JSON output for scripting
-review-dispatcher blocked --json
+prctrl blocked --json
 ```
 
 ## Output Details

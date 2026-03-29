@@ -12,7 +12,7 @@ Full code review in your terminal — no browser needed.
 ## Synopsis
 
 ```bash
-review-dispatcher review [OPTIONS] [PR_NUMBER]
+prctrl review [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -36,20 +36,20 @@ review-dispatcher review [OPTIONS] [PR_NUMBER]
 ## Examples
 
 ```bash
-review-dispatcher review 4821
-review-dispatcher review 4821 --context 5
-review-dispatcher review --priority 4821
-review-dispatcher review 4821 --json
-review-dispatcher review --pr 4821 --output diff.patch
-review-dispatcher review --all
-review-dispatcher review --all --priority
-review-dispatcher review --all --repo myservice
-review-dispatcher review --all --author johndoe
-review-dispatcher review --all --repo api --author alice
-review-dispatcher review --pr-numbers 4821,4822,4823
-review-dispatcher review --pr-numbers 4821,4822 --priority
-review-dispatcher review --all --dry-run
-review-dispatcher review --pr 4821 --dry-run
-review-dispatcher review --all --since-days 7
-review-dispatcher review --all --repo api --since-days 14
+prctrl review 4821
+prctrl review 4821 --context 5
+prctrl review --priority 4821
+prctrl review 4821 --json
+prctrl review --pr 4821 --output diff.patch
+prctrl review --all
+prctrl review --all --priority
+prctrl review --all --repo myservice
+prctrl review --all --author johndoe
+prctrl review --all --repo api --author alice
+prctrl review --pr-numbers 4821,4822,4823
+prctrl review --pr-numbers 4821,4822 --priority
+prctrl review --all --dry-run
+prctrl review --pr 4821 --dry-run
+prctrl review --all --since-days 7
+prctrl review --all --repo api --since-days 14
 ```

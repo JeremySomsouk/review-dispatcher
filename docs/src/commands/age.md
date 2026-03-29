@@ -22,7 +22,7 @@ Visual buckets help you spot neglected PRs at a glance.
 ## Synopsis
 
 ```bash
-review-dispatcher age [OPTIONS]
+prctrl age [OPTIONS]
 ```
 
 ## Options
@@ -41,19 +41,19 @@ review-dispatcher age [OPTIONS]
 
 ```bash
 # Basic age overview
-review-dispatcher age
+prctrl age
 
 # Grouped view by bucket
-review-dispatcher age --grouped
+prctrl age --grouped
 
 # Show priority scores
-review-dispatcher age --priority
+prctrl age --priority
 
 # Focus on older PRs
-review-dispatcher age --older-than 7
-review-dispatcher age --older-than 14 --grouped
+prctrl age --older-than 7
+prctrl age --older-than 14 --grouped
 
 # Filter by repo or author
-review-dispatcher age --repo myservice
-review-dispatcher age --author john
+prctrl age --repo myservice
+prctrl age --author john
 ```

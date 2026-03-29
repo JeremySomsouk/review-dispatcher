@@ -14,7 +14,7 @@ Unlike `report` (which shows what you've already reviewed), `digest` gives you a
 ## Synopsis
 
 ```bash
-review-dispatcher digest [OPTIONS]
+prctrl digest [OPTIONS]
 ```
 
 ## Options
@@ -33,34 +33,34 @@ review-dispatcher digest [OPTIONS]
 
 ```bash
 # Pretty terminal digest
-review-dispatcher digest
+prctrl digest
 
 # Shorter lookback (last 3 days)
-review-dispatcher digest --days 3
+prctrl digest --days 3
 
 # Raw Markdown for pasting into Slack
-review-dispatcher digest --raw
+prctrl digest --raw
 
 # Raw Markdown with custom window
-review-dispatcher digest --days 14 --raw
+prctrl digest --days 14 --raw
 
 # Filter by repository
-review-dispatcher digest --repo api
+prctrl digest --repo api
 
 # Filter by author
-review-dispatcher digest --author alice
+prctrl digest --author alice
 
 # Show priority scores and most urgent PR
-review-dispatcher digest --priority
+prctrl digest --priority
 
 # Combined: raw markdown filtered by repo with priority
-review-dispatcher digest --raw --repo backend --priority
+prctrl digest --raw --repo backend --priority
 
 # Only show PRs created in the last 3 days (recent PRs)
-review-dispatcher digest --since-days 3
+prctrl digest --since-days 3
 
 # Only show PRs older than 7 days (neglected PRs)
-review-dispatcher digest --older-than 7
+prctrl digest --older-than 7
 ```
 
 ## Output Examples
@@ -158,7 +158,7 @@ review-dispatcher digest --older-than 7
 ## Tips
 
 - Use `--raw` when posting to Slack, Teams, or email — the Markdown renders nicely in all three
-- Pipe to `pbcopy` to copy to clipboard: `review-dispatcher digest --raw | pbcopy`
+- Pipe to `pbcopy` to copy to clipboard: `prctrl digest --raw | pbcopy`
 - Use `--days 1` for a daily standup digest instead of weekly
 - Use `--priority` to identify the most urgent PR at a glance
 - Age buckets: 🆕 New 0-1d · 🌱 Fresh 2-3d · ⏳ Aging 4-7d · 🔥 Stale 8-14d · 💀 Overdue 15d+

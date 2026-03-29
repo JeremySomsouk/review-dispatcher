@@ -13,7 +13,7 @@ Let Claude Code analyze your PRs, summarize changes, identify risks, and recomme
 ## Synopsis
 
 ```bash
-review-dispatcher delegate [OPTIONS]
+prctrl delegate [OPTIONS]
 ```
 
 ## Options
@@ -35,49 +35,49 @@ review-dispatcher delegate [OPTIONS]
 
 ```bash
 # Interactive: select PR(s) to delegate
-review-dispatcher delegate
+prctrl delegate
 
 # Target a specific PR (global --pr flag)
-review-dispatcher delegate --pr 4821
+prctrl delegate --pr 4821
 
 # Preview what would be delegated (no actual delegation)
-review-dispatcher delegate --dry-run
+prctrl delegate --dry-run
 
 # Preview specific PR without delegating
-review-dispatcher delegate --pr 4821 --dry-run
+prctrl delegate --pr 4821 --dry-run
 
 # Preview delegation with priority scores to identify urgent PRs first
-review-dispatcher delegate --dry-run --priority
+prctrl delegate --dry-run --priority
 
 # Only delegate recent PRs (last 7 days)
-review-dispatcher delegate --since-days 7
+prctrl delegate --since-days 7
 
 # Only delegate PRs from a specific repo
-review-dispatcher delegate --repo frontend
+prctrl delegate --repo frontend
 
 # Only delegate PRs from a specific author
-review-dispatcher delegate --author alice
+prctrl delegate --author alice
 
 # Combine filters for targeted delegation
-review-dispatcher delegate --repo api --author bob --dry-run
+prctrl delegate --repo api --author bob --dry-run
 
 # JSON output for scripting
-review-dispatcher delegate --json
+prctrl delegate --json
 
 # Delegate all matching PRs without prompting (useful for scripts)
-review-dispatcher delegate --all
+prctrl delegate --all
 
 # Delegate all PRs from a specific repo without prompting
-review-dispatcher delegate --all --repo frontend
+prctrl delegate --all --repo frontend
 
 # Delegate specific PR and get JSON result
-review-dispatcher delegate --pr 4821 --json
+prctrl delegate --pr 4821 --json
 
 # Quiet mode - suppresses per-PR output for cleaner batch processing
-review-dispatcher delegate --all --quiet
+prctrl delegate --all --quiet
 
 # Delegate multiple PRs at once with --pr-numbers
-review-dispatcher delegate --pr-numbers 4821,4822,4823 --all
+prctrl delegate --pr-numbers 4821,4822,4823 --all
 ```
 
 ## Output

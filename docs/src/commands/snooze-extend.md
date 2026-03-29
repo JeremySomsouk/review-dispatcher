@@ -13,7 +13,7 @@ Pick up where you left off — push a PR's snooze further into the future withou
 ## Synopsis
 
 ```bash
-review-dispatcher snooze extend [OPTIONS] [PR_NUMBERS]
+prctrl snooze extend [OPTIONS] [PR_NUMBERS]
 ```
 
 ## Options
@@ -27,13 +27,13 @@ review-dispatcher snooze extend [OPTIONS] [PR_NUMBERS]
 
 ```bash
 # Extend a single PR by 3 days (default)
-review-dispatcher snooze extend 4821
+prctrl snooze extend 4821
 
 # Extend multiple PRs by 7 days
-review-dispatcher snooze extend 4821,4519 --days 7
+prctrl snooze extend 4821,4519 --days 7
 
 # Interactive: select from currently snoozed PRs
-review-dispatcher snooze extend
+prctrl snooze extend
 ```
 
 ## Output Example

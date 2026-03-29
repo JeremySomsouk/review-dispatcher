@@ -15,7 +15,7 @@ Stay on top of conversations without opening GitHub.
 ## Synopsis
 
 ```bash
-review-dispatcher mentions [OPTIONS]
+prctrl mentions [OPTIONS]
 ```
 
 ## Options
@@ -35,32 +35,32 @@ review-dispatcher mentions [OPTIONS]
 
 ```bash
 # Show all notifications
-review-dispatcher mentions
+prctrl mentions
 
 # Show only unread notifications
-review-dispatcher mentions --unread
+prctrl mentions --unread
 
 # Check notifications for a specific PR
-review-dispatcher mentions --pr 123
+prctrl mentions --pr 123
 
 # Combine with unread filter
-review-dispatcher mentions --pr 123 --unread
+prctrl mentions --pr 123 --unread
 
 # Only show notifications from the last 3 days
-review-dispatcher mentions --since-days 3
+prctrl mentions --since-days 3
 
 # Filter by repository and time window
-review-dispatcher mentions --repo myorg --since-days 7
+prctrl mentions --repo myorg --since-days 7
 
 # Filter by author username
-review-dispatcher mentions --author johndoe
+prctrl mentions --author johndoe
 
 # Show priority scores for urgent notifications
-review-dispatcher mentions --priority
+prctrl mentions --priority
 
 # Combine filters with priority
-review-dispatcher mentions --repo myorg --priority --since-days 3
+prctrl mentions --repo myorg --priority --since-days 3
 
 # JSON output for scripting
-review-dispatcher mentions --json
+prctrl mentions --json
 ```

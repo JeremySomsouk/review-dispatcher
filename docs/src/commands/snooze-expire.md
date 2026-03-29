@@ -13,7 +13,7 @@ Automatically clean up snoozed PRs whose snooze duration has elapsed. Expired en
 ## Synopsis
 
 ```bash
-review-dispatcher snooze expire
+prctrl snooze expire
 ```
 
 ## Options
@@ -24,7 +24,7 @@ This subcommand has no additional flags.
 
 ```bash
 # Clean up all expired snooze entries
-review-dispatcher snooze expire
+prctrl snooze expire
 
 # Expected output (when there are expired entries):
 # 🧹 Cleaned up 3 expired snooze entry(s):

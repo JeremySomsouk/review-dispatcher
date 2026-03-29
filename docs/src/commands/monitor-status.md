@@ -7,5 +7,5 @@ See whether background monitoring is active.
 ## Synopsis
 
 ```bash
-review-dispatcher monitor-status
+prctrl monitor-status
 ```

@@ -18,7 +18,7 @@ A merge-ready PR is one that has:
 ## Synopsis
 
 ```bash
-review-dispatcher ready [OPTIONS]
+prctrl ready [OPTIONS]
 ```
 
 ## Options
@@ -98,40 +98,40 @@ When `--priority` is enabled, each PR shows its priority score:
 
 ```bash
 # Interactive: show all pending PRs with readiness status
-review-dispatcher ready
+prctrl ready
 
 # Check specific PR by number
-review-dispatcher ready --pr 1234
+prctrl ready --pr 1234
 
 # Check multiple PRs at once
-review-dispatcher ready --pr-numbers 1234,5678,9012
+prctrl ready --pr-numbers 1234,5678,9012
 
 # Check all pending reviews (non-interactive)
-review-dispatcher ready --all
+prctrl ready --all
 
 # Filter to specific repo
-review-dispatcher ready --repo frontend
+prctrl ready --repo frontend
 
 # Filter by author
-review-dispatcher ready --author alice
+prctrl ready --author alice
 
 # Filter by repo and author combined
-review-dispatcher ready --repo backend --author bob
+prctrl ready --repo backend --author bob
 
 # Only show PRs from the last 7 days
-review-dispatcher ready --since-days 7
+prctrl ready --since-days 7
 
 # Only show PRs from today
-review-dispatcher ready --since-days 1
+prctrl ready --since-days 1
 
 # Show priority scores to identify most urgent ready PRs
-review-dispatcher ready --priority
+prctrl ready --priority
 
 # JSON output for scripting
-review-dispatcher ready --json
+prctrl ready --json
 
 # Combine with other commands
-review-dispatcher ready --repo backend | grep "✅"
+prctrl ready --repo backend | grep "✅"
 ```
 
 ## Tips

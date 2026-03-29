@@ -13,7 +13,7 @@ This is your starting point. Shows every PR where you're requested as a reviewer
 ## Synopsis
 
 ```bash
-review-dispatcher list [OPTIONS]
+prctrl list [OPTIONS]
 ```
 
 ## Options
@@ -30,25 +30,25 @@ review-dispatcher list [OPTIONS]
 
 ```bash
 # See everything waiting for you
-review-dispatcher list
+prctrl list
 
 # Find recent PRs only (last 7 days)
-review-dispatcher list --since-days 7
+prctrl list --since-days 7
 
 # With priority scores (oldest + largest = highest priority)
-review-dispatcher list --priority
+prctrl list --priority
 
 # Filter to one repo
-review-dispatcher list --repo frontend
+prctrl list --repo frontend
 
 # Filter by author
-review-dispatcher list --author alice
+prctrl list --author alice
 
 # Combine filters
-review-dispatcher list --repo api --author bob --priority
+prctrl list --repo api --author bob --priority
 
 # JSON output for scripts
-review-dispatcher list --json | jq '.[] | select(.author == "alice")'
+prctrl list --json | jq '.[] | select(.author == "alice")'
 ```
 
 ## Output Example

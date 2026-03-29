@@ -13,7 +13,7 @@ Avoid wasting time on PRs that can't be merged yet.
 ## Synopsis
 
 ```bash
-review-dispatcher conflicts [OPTIONS]
+prctrl conflicts [OPTIONS]
 ```
 
 ## Options
@@ -34,29 +34,29 @@ review-dispatcher conflicts [OPTIONS]
 
 ```bash
 # Check all pending PRs for conflicts
-review-dispatcher conflicts
+prctrl conflicts
 
 # Show only PRs with conflicts
-review-dispatcher conflicts --conflicts-only
+prctrl conflicts --conflicts-only
 
 # Check conflict status for specific PRs
-review-dispatcher conflicts --pr-numbers 123,456,789
+prctrl conflicts --pr-numbers 123,456,789
 
 # Check a specific PR
-review-dispatcher conflicts --pr 123
+prctrl conflicts --pr 123
 
 # Check conflict status for all pending reviews
-review-dispatcher conflicts --all
+prctrl conflicts --all
 
 # Check conflicts for a specific repo
-review-dispatcher conflicts --repo myservice
+prctrl conflicts --repo myservice
 
 # Check conflicts for PRs by a specific author
-review-dispatcher conflicts --author johndoe
+prctrl conflicts --author johndoe
 
 # Show priority scores alongside conflict status
-review-dispatcher conflicts --priority
+prctrl conflicts --priority
 
 # Check conflicts for PRs created in the last 3 days
-review-dispatcher conflicts --since-days 3
+prctrl conflicts --since-days 3
 ```

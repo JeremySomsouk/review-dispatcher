@@ -17,7 +17,7 @@ Estimate review effort before you start.
 ## Synopsis
 
 ```bash
-review-dispatcher size [OPTIONS]
+prctrl size [OPTIONS]
 ```
 
 ## Options
@@ -36,26 +36,26 @@ review-dispatcher size [OPTIONS]
 
 ```bash
 # Show all PRs by size
-review-dispatcher size
+prctrl size
 
 # Group by size bucket with headers
-review-dispatcher size --grouped
+prctrl size --grouped
 
 # Show only small and medium PRs
-review-dispatcher size --filter-size S,M
+prctrl size --filter-size S,M
 
 # Show XS PRs with priority scores
-review-dispatcher size --filter-size XS --priority
+prctrl size --filter-size XS --priority
 
 # Filter by repository
-review-dispatcher size --repo myservice
+prctrl size --repo myservice
 
 # Filter by author
-review-dispatcher size --author johndoe
+prctrl size --author johndoe
 
 # Show only recent PRs (last 7 days)
-review-dispatcher size --since-days 7
+prctrl size --since-days 7
 
 # JSON output for scripting
-review-dispatcher size --json
+prctrl size --json
 ```

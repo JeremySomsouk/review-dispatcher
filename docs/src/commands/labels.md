@@ -12,7 +12,7 @@ Quickly see what tags and categories are applied to your pending PRs.
 ## Synopsis
 
 ```bash
-review-dispatcher labels [OPTIONS] [PR_NUMBER]
+prctrl labels [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -34,31 +34,31 @@ review-dispatcher labels [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Show labels for a specific PR
-review-dispatcher labels 4821
+prctrl labels 4821
 
 # Show labels for specific PR (using --pr flag)
-review-dispatcher labels --pr 4821
+prctrl labels --pr 4821
 
 # Show labels for multiple PRs
-review-dispatcher labels --pr-numbers 4821,4822,4823
+prctrl labels --pr-numbers 4821,4822,4823
 
 # Filter labels by name containing "security"
-review-dispatcher labels -a -l security
+prctrl labels -a -l security
 
 # Filter by repository name
-review-dispatcher labels --repo api-service
+prctrl labels --repo api-service
 
 # Filter by author
-review-dispatcher labels --author alice
+prctrl labels --author alice
 
 # Show labels for all PRs from the last 7 days
-review-dispatcher labels -a --since-days 7
+prctrl labels -a --since-days 7
 
 # Combine filters
-review-dispatcher labels -a --repo api --author alice --since-days 14
+prctrl labels -a --repo api --author alice --since-days 14
 
 # Output as JSON for scripting
-review-dispatcher labels --pr 4821 --json
+prctrl labels --pr 4821 --json
 
 # Show priority scores alongside labels
-review-dispatcher labels -a --priority
+prctrl labels -a --priority

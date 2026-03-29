@@ -14,7 +14,7 @@ Analyzes how review requests are distributed across your team, identifying who i
 ## Synopsis
 
 ```bash
-review-dispatcher load [OPTIONS]
+prctrl load [OPTIONS]
 ```
 
 ## Options
@@ -36,28 +36,28 @@ review-dispatcher load [OPTIONS]
 
 ```bash
 # Show workload distribution with default threshold (3 PRs)
-review-dispatcher load
+prctrl load
 
 # Set custom overload threshold (5 PRs)
-review-dispatcher load --threshold 5
+prctrl load --threshold 5
 
 # Filter to a specific repository
-review-dispatcher load --repo myservice
+prctrl load --repo myservice
 
 # Filter to a specific author
-review-dispatcher load --author sarah_dev
+prctrl load --author sarah_dev
 
 # Only show recent PRs (last 7 days) to focus on fresh requests
-review-dispatcher load --since-days 7
+prctrl load --since-days 7
 
 # Combine filters
-review-dispatcher load --repo myservice --author sarah_dev --threshold 4
+prctrl load --repo myservice --author sarah_dev --threshold 4
 
 # Show priority breakdown to identify urgent PRs
-review-dispatcher load --priority
+prctrl load --priority
 
 # JSON output for automation/dashboards
-review-dispatcher load --json
+prctrl load --json
 ```
 
 ## Output
@@ -119,7 +119,7 @@ The command provides actionable recommendations:
 ## Tips
 
 - Use `--threshold 5` in larger teams to reduce noise
-- Combine with `review-dispatcher team-summary` for broader team view
+- Combine with `prctrl team-summary` for broader team view
 - Use `--json` output to build team dashboards
 - Run before sprint planning to balance review load
 - Use `--repo` to focus on specific repository workload distribution

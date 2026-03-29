@@ -7,5 +7,5 @@ Gracefully stop background monitoring.
 ## Synopsis
 
 ```bash
-review-dispatcher monitor-stop
+prctrl monitor-stop
 ```

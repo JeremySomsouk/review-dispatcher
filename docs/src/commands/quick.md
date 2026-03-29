@@ -12,7 +12,7 @@ Find low-effort reviews that make a big impact.
 ## Synopsis
 
 ```bash
-review-dispatcher quick [OPTIONS]
+prctrl quick [OPTIONS]
 ```
 
 ## Options
@@ -31,20 +31,20 @@ review-dispatcher quick [OPTIONS]
 
 ```bash
 # Show quick wins (default: ≤200 lines, non-draft)
-review-dispatcher quick
+prctrl quick
 
 # Show tiny PRs only (≤100 lines)
-review-dispatcher quick --max-lines 100
+prctrl quick --max-lines 100
 
 # Show quick wins from a specific repo
-review-dispatcher quick --repo myservice
+prctrl quick --repo myservice
 
 # Show quick wins with priority scores
-review-dispatcher quick --priority
+prctrl quick --priority
 
 # Only show recent quick wins (last 7 days)
-review-dispatcher quick --since-days 7
+prctrl quick --since-days 7
 
 # Combine filters
-review-dispatcher quick --repo api --author johndoe --priority --since-days 14
+prctrl quick --repo api --author johndoe --priority --since-days 14
 ```

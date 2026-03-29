@@ -6924,7 +6924,7 @@ async fn main() -> anyhow::Result<()> {
                             println!("[]");
                         } else {
                             println!("\n👁️  Not following any PRs.\n");
-                            println!("  Use `review-dispatcher follow add <PR_NUMBER>` to start following.");
+                            println!("  Use `prctrl follow add <PR_NUMBER>` to start following.");
                         }
                         return Ok(());
                     }
@@ -8063,7 +8063,7 @@ async fn main() -> anyhow::Result<()> {
             let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", report_output_dir.display());
+                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", report_output_dir.display());
                 return Ok(());
             }
 
@@ -8731,7 +8731,7 @@ async fn main() -> anyhow::Result<()> {
             let n = limit.unwrap_or(10) as usize;
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", report_output_dir.display());
+                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", report_output_dir.display());
                 return Ok(());
             }
 
@@ -8971,7 +8971,7 @@ async fn main() -> anyhow::Result<()> {
 
                 if review_count == 0 {
                     println!("  😴 No review data found in the last {} days.", days);
-                    println!("  Process some reviews first with `review-dispatcher delegate`.\n");
+                    println!("  Process some reviews first with `prctrl delegate`.\n");
                     return Ok(());
                 }
 
@@ -9081,7 +9081,7 @@ async fn main() -> anyhow::Result<()> {
             let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `review-dispatcher delegate` first.", report_output_dir.display());
+                println!("❌ No reviews directory found at {}. Run `prctrl delegate` first.", report_output_dir.display());
                 return Ok(());
             }
 
@@ -9247,7 +9247,7 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     println!("\n⚡ Review Velocity — last {} days\n{}", days, "─".repeat(45));
                     println!("  😴 No review data found in the last {} days.", days);
-                    println!("  Process some reviews first with `review-dispatcher delegate`.\n");
+                    println!("  Process some reviews first with `prctrl delegate`.\n");
                 }
                 return Ok(());
             }
@@ -10131,7 +10131,7 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", "─".repeat(50));
                         println!("  Total pending: {} PRs ({} matching filters)", reviews.len(), filtered.len());
                         if filtered.len() > show_count {
-                            println!("  Run `review-dispatcher focus --all` to see more, or `review-dispatcher top` for full list");
+                            println!("  Run `prctrl focus --all` to see more, or `prctrl top` for full list");
                         }
                         println!();
                     }
@@ -10790,9 +10790,9 @@ async fn main() -> anyhow::Result<()> {
                                 println!("  ✅ All rate limits look healthy. You're good to go!");
                                 println!();
                                 println!("  Commands to run freely:");
-                                println!("    • review-dispatcher list --all  (fetch all PRs)");
-                                println!("    • review-dispatcher team-summary");
-                                println!("    • review-dispatcher delegate --dry-run");
+                                println!("    • prctrl list --all  (fetch all PRs)");
+                                println!("    • prctrl team-summary");
+                                println!("    • prctrl delegate --dry-run");
                             } else if !critical_limits.is_empty() {
                                 let critical = critical_limits.join(", ");
                                 println!("  🔴 CRITICAL: {} limit(s) exhausted", critical);
@@ -10823,9 +10823,9 @@ async fn main() -> anyhow::Result<()> {
                                 println!("  Current budget: ~{} core API calls remaining", core_remaining);
                                 println!();
                                 println!("  Safe commands to run now:");
-                                println!("    • review-dispatcher summary");
-                                println!("    • review-dispatcher list (no --all)");
-                                println!("    • review-dispatcher stats");
+                                println!("    • prctrl summary");
+                                println!("    • prctrl list (no --all)");
+                                println!("    • prctrl stats");
                                 println!();
                                 println!("  Commands to avoid until reset:");
                                 println!("    • delegate --all (high API cost)");
@@ -10833,9 +10833,9 @@ async fn main() -> anyhow::Result<()> {
                                 println!("    • review (full diff with patches)");
                                 println!();
                                 println!("  Lower-cost alternatives:");
-                                println!("    • review-dispatcher search (title filter)");
-                                println!("    • review-dispatcher filter (client-side)");
-                                println!("    • review-dispatcher browse (URLs only)");
+                                println!("    • prctrl search (title filter)");
+                                println!("    • prctrl filter (client-side)");
+                                println!("    • prctrl browse (URLs only)");
 
                                 // Show safe remaining calls
                                 if let Some((_, remaining, limit)) = low_limits.iter().find(|(r, _, _)| *r == "core") {
@@ -11143,7 +11143,7 @@ async fn main() -> anyhow::Result<()> {
             let history_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !history_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `review-dispatcher list` first to save reviews.", history_output_dir.display());
+                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", history_output_dir.display());
                 return Ok(());
             }
 

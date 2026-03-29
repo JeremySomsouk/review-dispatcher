@@ -12,7 +12,7 @@ Quickly see which files were modified before diving into the diff.
 ## Synopsis
 
 ```bash
-review-dispatcher files [OPTIONS] [PR_NUMBER]
+prctrl files [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -33,29 +33,29 @@ review-dispatcher files [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Show files for a specific PR
-review-dispatcher files 4821
-review-dispatcher files --pr 4821
+prctrl files 4821
+prctrl files --pr 4821
 
 # Show files for multiple PRs
-review-dispatcher files --pr-numbers 4821,3156,2890
+prctrl files --pr-numbers 4821,3156,2890
 
 # Show files for all pending reviews
-review-dispatcher files --all
+prctrl files --all
 
 # Filter by repository
-review-dispatcher files --all --repo myservice
+prctrl files --all --repo myservice
 
 # Filter by author
-review-dispatcher files --all --author johndoe
+prctrl files --all --author johndoe
 
 # Combined filters
-review-dispatcher files --all --repo api --priority
+prctrl files --all --repo api --priority
 
 # Only show files for recent PRs (last 7 days)
-review-dispatcher files --all --since-days 7
+prctrl files --all --since-days 7
 
 # JSON output for scripting
-review-dispatcher files --pr 4821 --json
+prctrl files --pr 4821 --json
 ```
 
 ## JSON Output

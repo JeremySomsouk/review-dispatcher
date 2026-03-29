@@ -10,7 +10,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
         if auto_open {
             // Create a script that shows notification AND opens Chrome automatically
             let script = format!(
-                "display notification \"{}\" with title \"🦀 {}\" subtitle \"Review Dispatcher\" sound name \"Glass\"\ntell application \"Google Chrome\" to open location \"{}\"",
+                "display notification \"{}\" with title \"🦀 {}\" subtitle \"PRCtrl\" sound name \"Glass\"\ntell application \"Google Chrome\" to open location \"{}\"",
                 escaped_message, escaped_title, escaped_url
             );
             
@@ -23,7 +23,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
             // Show notification with URL in message (user can copy/paste)
             let notification_with_url = format!("{}\n\n🔗 {}", message, url);
             let apple_script = format!(
-                r#"display notification "{}" with title "🦀 {}" subtitle "Review Dispatcher" sound name "Glass""#,
+                r#"display notification "{}" with title "🦀 {}" subtitle "PRCtrl" sound name "Glass""#,
                 notification_with_url.replace('"', "\\\""),
                 escaped_title
             );
@@ -38,7 +38,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
     
     // Fallback to simple notification if no URL provided
     let apple_script = format!(
-        r#"display notification "{}" with title "🦀 {}" subtitle "Review Dispatcher" sound name "Glass""#,
+        r#"display notification "{}" with title "🦀 {}" subtitle "PRCtrl" sound name "Glass""#,
         escaped_message,
         escaped_title
     );

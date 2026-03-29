@@ -17,7 +17,7 @@ Filters (`--repo`, `--author`, `--since-days`) are applied **before** fetching C
 ## Synopsis
 
 ```bash
-review-dispatcher ci [OPTIONS]
+prctrl ci [OPTIONS]
 ```
 
 ## Options
@@ -39,17 +39,17 @@ review-dispatcher ci [OPTIONS]
 ## Examples
 
 ```bash
-review-dispatcher ci
-review-dispatcher ci --failing-only
-review-dispatcher ci --passing-only
-review-dispatcher ci -f -a
-review-dispatcher ci --repo myrepo
-review-dispatcher ci --author johndoe
-review-dispatcher ci --repo myrepo --failing-only
-review-dispatcher ci --pr 123
-review-dispatcher ci 123
-review-dispatcher ci --since-days 7
-review-dispatcher ci --since-days 3 --failing-only
-review-dispatcher ci --priority
-review-dispatcher ci -f --priority
+prctrl ci
+prctrl ci --failing-only
+prctrl ci --passing-only
+prctrl ci -f -a
+prctrl ci --repo myrepo
+prctrl ci --author johndoe
+prctrl ci --repo myrepo --failing-only
+prctrl ci --pr 123
+prctrl ci 123
+prctrl ci --since-days 7
+prctrl ci --since-days 3 --failing-only
+prctrl ci --priority
+prctrl ci -f --priority
 ```

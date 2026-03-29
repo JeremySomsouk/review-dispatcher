@@ -14,7 +14,7 @@ Powerful way to slice through your pending reviews and find exactly what you're 
 ## Synopsis
 
 ```bash
-review-dispatcher filter [OPTIONS]
+prctrl filter [OPTIONS]
 ```
 
 ## Options
@@ -42,52 +42,52 @@ Note: You can also use the global `--pr <NUMBER>` flag to target a specific PR.
 
 ```bash
 # Filter to specific PR (via positional arg)
-review-dispatcher filter 123
+prctrl filter 123
 
 # Filter to specific PR (via --pr flag)
-review-dispatcher filter --pr 123
+prctrl filter --pr 123
 
 # All frontend PRs
-review-dispatcher filter --repo frontend
+prctrl filter --repo frontend
 
 # Big PRs only (over 500 lines)
-review-dispatcher filter --min-size 500
+prctrl filter --min-size 500
 
 # Small, quick PRs (under 50 lines)
-review-dispatcher filter --max-size 50
+prctrl filter --max-size 50
 
 # Old PRs that need attention
-review-dispatcher filter --min-age 7 --priority
+prctrl filter --min-age 7 --priority
 
 # Combine filters: old, large, non-draft PRs from backend
-review-dispatcher filter --repo backend --min-age 3 --min-size 200 --no-drafts
+prctrl filter --repo backend --min-age 3 --min-size 200 --no-drafts
 
 # Find PRs by a specific author
-review-dispatcher filter --author alice
+prctrl filter --author alice
 
 # Recent PRs only (last 7 days)
-review-dispatcher filter --since-days 7
+prctrl filter --since-days 7
 
 # Combine filters: recent, large, non-draft PRs from backend
-review-dispatcher filter --repo backend --since-days 7 --min-size 200 --no-drafts
+prctrl filter --repo backend --since-days 7 --min-size 200 --no-drafts
 
 # Batch lookup multiple PRs (parallel fetch)
-review-dispatcher filter --pr-numbers 123,456,789
+prctrl filter --pr-numbers 123,456,789
 
 # Batch lookup with priority scores
-review-dispatcher filter --pr-numbers 123,456,789 --priority
+prctrl filter --pr-numbers 123,456,789 --priority
 
 # JSON for scripting
-review-dispatcher filter --repo api --min-size 100 --json | jq '.[].pr_number'
+prctrl filter --repo api --min-size 100 --json | jq '.[].pr_number'
 
 # Batch lookup and get JSON for scripting
-review-dispatcher filter --pr-numbers 123,456,789 --json | jq '.[].url'
+prctrl filter --pr-numbers 123,456,789 --json | jq '.[].url'
 
 # Show all large PRs without interactive selection
-review-dispatcher filter --min-size 500 --all
+prctrl filter --min-size 500 --all
 
 # Find old PRs from a specific author and show all at once
-review-dispatcher filter --author alice --min-age 7 --all --priority
+prctrl filter --author alice --min-age 7 --all --priority
 ```
 
 ## Tips

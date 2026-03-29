@@ -14,7 +14,7 @@ When you're overwhelmed by pending reviews, `focus` cuts through the noise and t
 ## Synopsis
 
 ```bash
-review-dispatcher focus [OPTIONS]
+prctrl focus [OPTIONS]
 ```
 
 ## Options
@@ -35,31 +35,31 @@ review-dispatcher focus [OPTIONS]
 
 ```bash
 # See your most urgent PR right now
-review-dispatcher focus
+prctrl focus
 
 # Preview which PR would be selected (without opening)
-review-dispatcher focus --dry-run
+prctrl focus --dry-run
 
 # See your top 3 most urgent PRs
-review-dispatcher focus --all --limit 3
+prctrl focus --all --limit 3
 
 # Open it directly in your browser
-review-dispatcher focus --open
+prctrl focus --open
 
 # Get full details as JSON for scripting
-review-dispatcher focus --json
+prctrl focus --json
 
 # See all high-priority PRs from a specific repository
-review-dispatcher focus --all --repo myservice
+prctrl focus --all --repo myservice
 
 # Focus on PRs from a specific author
-review-dispatcher focus --author johndoe
+prctrl focus --author johndoe
 
 # Show priority scores with stars
-review-dispatcher focus --priority
+prctrl focus --priority
 
 # Focus only on recently created PRs (last 7 days)
-review-dispatcher focus --since-days 7
+prctrl focus --since-days 7
 ```
 
 ## Priority Calculation
@@ -87,7 +87,7 @@ When run with `--open`, it opens the PR directly in your default browser.
 
 ## Snooze Behavior
 
-Snoozed PRs are automatically excluded from focus results (consistent with `list`, `delegate`, `top`, `search`, etc.). Use `review-dispatcher snooze add` to temporarily hide PRs from consideration.
+Snoozed PRs are automatically excluded from focus results (consistent with `list`, `delegate`, `top`, `search`, etc.). Use `prctrl snooze add` to temporarily hide PRs from consideration.
 
 ## Tips
 

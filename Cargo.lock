@@ -1405,6 +1405,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "prctrl"
+version = "0.9.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "colored",
+ "ctrlc",
+ "dirs",
+ "dotenvy",
+ "futures",
+ "octocrab",
+ "open",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "primeorder"
 version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1479,25 +1498,6 @@ dependencies = [
  "getrandom",
  "libredox",
  "thiserror 1.0.69",
-]
-
-[[package]]
-name = "review-dispatcher"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "colored",
- "ctrlc",
- "dirs",
- "dotenvy",
- "futures",
- "octocrab",
- "open",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]

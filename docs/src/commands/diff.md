@@ -5,7 +5,7 @@ Show detailed diff/stats for one or more PRs directly in the terminal.
 ## Synopsis
 
 ```bash
-review-dispatcher diff [OPTIONS]
+prctrl diff [OPTIONS]
 ```
 
 ## Options
@@ -27,42 +27,42 @@ review-dispatcher diff [OPTIONS]
 
 ```bash
 # Show diff for a specific PR (positional)
-review-dispatcher diff 4821
+prctrl diff 4821
 
 # Show diff for a specific PR (shorthand)
-review-dispatcher diff --pr 4821
-review-dispatcher diff -p 4821
+prctrl diff --pr 4821
+prctrl diff -p 4821
 
 # Show diffs for multiple PRs at once
-review-dispatcher diff --pr-numbers 4821,4822,4823
+prctrl diff --pr-numbers 4821,4822,4823
 
 # Interactive mode (select from pending reviews)
-review-dispatcher diff
+prctrl diff
 
 # Show diff/stats for ALL pending reviews at once
-review-dispatcher diff --all
+prctrl diff --all
 
 # Preview which PRs would be diffed (without displaying)
-review-dispatcher diff --all --dry-run
-review-dispatcher diff --all -n
+prctrl diff --all --dry-run
+prctrl diff --all -n
 
 # Show diffs for all PRs in a specific repo
-review-dispatcher diff --all --repo frontend
+prctrl diff --all --repo frontend
 
 # Filter to specific author before selecting
-review-dispatcher diff --author sarah_dev
+prctrl diff --author sarah_dev
 
 # Show only recent PRs (last 7 days)
-review-dispatcher diff --all --since-days 7
+prctrl diff --all --since-days 7
 
 # Combine filters
-review-dispatcher diff --all --repo frontend --since-days 14
+prctrl diff --all --repo frontend --since-days 14
 
 # JSON output for scripting
-review-dispatcher diff --pr 4821 --json
+prctrl diff --pr 4821 --json
 
 # Show priority scores
-review-dispatcher diff --pr 4821 --priority
+prctrl diff --pr 4821 --priority
 ```
 
 ## Output

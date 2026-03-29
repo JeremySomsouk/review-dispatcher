@@ -15,7 +15,7 @@ The `info` command displays comprehensive details about a PR that go beyond what
 ## Synopsis
 
 ```bash
-review-dispatcher info [OPTIONS]
+prctrl info [OPTIONS]
 ```
 
 ## Options
@@ -36,37 +36,37 @@ review-dispatcher info [OPTIONS]
 
 ```bash
 # Show info for a specific PR
-review-dispatcher info --pr 4821
+prctrl info --pr 4821
 
 # Show info with priority score
-review-dispatcher info --pr 4821 --priority
+prctrl info --pr 4821 --priority
 
 # Show info for multiple PRs at once (fetched in parallel)
-review-dispatcher info --pr-numbers 4821,4822,4823
+prctrl info --pr-numbers 4821,4822,4823
 
 # Show info for all pending reviews (no interactive selection)
-review-dispatcher info --all
+prctrl info --all
 
 # Interactive mode (select from pending reviews)
-review-dispatcher info
+prctrl info
 
 # Filter by repository
-review-dispatcher info --repo frontend
+prctrl info --repo frontend
 
 # Filter by author
-review-dispatcher info --author sarah_dev
+prctrl info --author sarah_dev
 
 # Filter by both repo and author
-review-dispatcher info --repo myorg --author sarah_dev
+prctrl info --repo myorg --author sarah_dev
 
 # Show info for recent PRs (last 7 days)
-review-dispatcher info --since-days 7
+prctrl info --since-days 7
 
 # Combine filters
-review-dispatcher info --repo frontend --since-days 14 --priority
+prctrl info --repo frontend --since-days 14 --priority
 
 # JSON output for integration
-review-dispatcher info --pr 4821 --json
+prctrl info --pr 4821 --json
 ```
 
 ## Output

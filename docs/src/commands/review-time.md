@@ -14,7 +14,7 @@ Review time estimation helps you plan your review sessions and prioritize effici
 ## Synopsis
 
 ```bash
-review-dispatcher review-time [OPTIONS]
+prctrl review-time [OPTIONS]
 ```
 
 ## Options
@@ -61,39 +61,39 @@ The estimation algorithm considers:
 
 ```bash
 # Interactive: select PRs from pending list
-review-dispatcher review-time
+prctrl review-time
 
 # Target specific PR directly (consistent with other commands)
-review-dispatcher review-time --pr 4821
-review-dispatcher review-time -p 4821
+prctrl review-time --pr 4821
+prctrl review-time -p 4821
 
 # Estimate for specific PRs via positional arg
-review-dispatcher review-time 4821
-review-dispatcher review-time 4821,4815,4809
+prctrl review-time 4821
+prctrl review-time 4821,4815,4809
 
 # Estimate all pending reviews
-review-dispatcher review-time --all
+prctrl review-time --all
 
 # Group by time category for session planning
-review-dispatcher review-time --all --grouped
+prctrl review-time --all --grouped
 
 # Show priority scores with estimates
-review-dispatcher review-time --all --priority
+prctrl review-time --all --priority
 
 # Filter by repository
-review-dispatcher review-time --all --repo my-repo
+prctrl review-time --all --repo my-repo
 
 # Filter by author
-review-dispatcher review-time --all --author alice
+prctrl review-time --all --author alice
 
 # Combine filters
-review-dispatcher review-time --all --repo api --author alice --priority
+prctrl review-time --all --repo api --author alice --priority
 
 # Filter by age
-review-dispatcher review-time --all --since-days 7
+prctrl review-time --all --since-days 7
 
 # Get JSON output for scripting
-review-dispatcher review-time --all --json
+prctrl review-time --all --json
 ```
 
 ## Output

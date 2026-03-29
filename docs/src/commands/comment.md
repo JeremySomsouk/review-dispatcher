@@ -14,7 +14,7 @@ Share feedback, ask questions, or leave notes — all without leaving your termi
 ## Synopsis
 
 ```bash
-review-dispatcher comment [OPTIONS] [PR_NUMBER]
+prctrl comment [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -38,22 +38,22 @@ review-dispatcher comment [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Comment on a specific PR
-review-dispatcher comment 4821 --text "Looks good, just a few nits"
+prctrl comment 4821 --text "Looks good, just a few nits"
 
 # Preview what would be commented (dry-run)
-review-dispatcher comment --all --text "Please address feedback" --dry-run
+prctrl comment --all --text "Please address feedback" --dry-run
 
 # Comment on all pending reviews at once
-review-dispatcher comment --all --text "Please address feedback before merging"
+prctrl comment --all --text "Please address feedback before merging"
 
 # Comment on multiple specific PRs
-review-dispatcher comment --pr-numbers 4821,4822 --text "LGTM!"
+prctrl comment --pr-numbers 4821,4822 --text "LGTM!"
 
 # Comment on recent PRs only (last 7 days)
-review-dispatcher comment --all --since-days 7 --text "Great work!"
+prctrl comment --all --since-days 7 --text "Great work!"
 
 # Comment with priority scores shown (to pick which PRs to comment on)
-review-dispatcher comment --priority --text "Please review"
+prctrl comment --priority --text "Please review"
 ```
 
 ## Tips

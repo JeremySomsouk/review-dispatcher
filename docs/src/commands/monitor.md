@@ -13,7 +13,7 @@ Perfect for developers who want to know immediately when their attention is need
 ## Synopsis
 
 ```bash
-review-dispatcher monitor [OPTIONS]
+prctrl monitor [OPTIONS]
 ```
 
 ## Options
@@ -32,25 +32,25 @@ review-dispatcher monitor [OPTIONS]
 
 ```bash
 # Start monitoring with defaults (checks every 5 minutes, no notifications)
-review-dispatcher monitor
+prctrl monitor
 
 # Check more frequently (every minute)
-review-dispatcher monitor --interval 60
+prctrl monitor --interval 60
 
 # Enable notifications (no auto-open)
-review-dispatcher monitor --notify
+prctrl monitor --notify
 
 # Enable notifications AND auto-open in Chrome
-review-dispatcher monitor --notify --auto-open
+prctrl monitor --notify --auto-open
 
 # Notifications only, no auto-open (good for meetings)
-review-dispatcher monitor --notify --no-auto-open
+prctrl monitor --notify --no-auto-open
 
 # Interactive mode - choose what to do for each new PR
-review-dispatcher monitor --notify --interactive
+prctrl monitor --notify --interactive
 
 # Run in background (add & to detach)
-review-dispatcher monitor &
+prctrl monitor &
 ```
 
 ## Interactive Mode Actions
@@ -72,13 +72,13 @@ When `--interactive` is enabled, each new PR shows:
 
 ```bash
 # Start and detach
-review-dispatcher monitor &
+prctrl monitor &
 
 # Check if running
-review-dispatcher monitor-status
+prctrl monitor-status
 
 # Stop monitoring
-review-dispatcher monitor-stop
+prctrl monitor-stop
 ```
 
 ## Tips

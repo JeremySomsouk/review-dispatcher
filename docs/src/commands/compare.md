@@ -13,7 +13,7 @@ When you have multiple PRs competing for attention, `compare` gives you a head-t
 ## Synopsis
 
 ```bash
-review-dispatcher compare <PR1> <PR2> [OPTIONS]
+prctrl compare <PR1> <PR2> [OPTIONS]
 ```
 
 ## Options
@@ -37,19 +37,19 @@ PRs can be specified in two ways:
 
 ```bash
 # Compare two PRs in the same repo
-review-dispatcher compare 123 456
+prctrl compare 123 456
 
 # Compare PRs across different repos
-review-dispatcher compare frontend#4821 backend#1024
+prctrl compare frontend#4821 backend#1024
 
 # Detailed comparison with language breakdown
-review-dispatcher compare 123 456 --detailed
+prctrl compare 123 456 --detailed
 
 # Show priority scores with stars
-review-dispatcher compare 123 456 --priority
+prctrl compare 123 456 --priority
 
 # JSON output for automation
-review-dispatcher compare 123 456 --json
+prctrl compare 123 456 --json
 ```
 
 ## Output
@@ -92,7 +92,7 @@ review-dispatcher compare 123 456 --json
 
 ## Tips
 
-- Use `review-dispatcher top` to find your highest-priority PRs first
+- Use `prctrl top` to find your highest-priority PRs first
 - Combine with `browse` to open compared PRs directly
 - For complex decisions, use `--detailed` to see language breakdown
 - Use `--priority` to quickly see urgency scores as visual stars

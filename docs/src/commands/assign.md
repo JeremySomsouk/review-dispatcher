@@ -14,7 +14,7 @@ Skip the web UI — claim review responsibility directly from the terminal.
 ## Synopsis
 
 ```bash
-review-dispatcher assign [OPTIONS] [PR_NUMBER]
+prctrl assign [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -37,28 +37,28 @@ review-dispatcher assign [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Assign to a specific PR
-review-dispatcher assign 4821
+prctrl assign 4821
 
 # Preview what would be assigned (dry-run)
-review-dispatcher assign --all --dry-run
+prctrl assign --all --dry-run
 
 # Assign using global --pr flag
-review-dispatcher --pr 4821 assign
+prctrl --pr 4821 assign
 
 # Assign to all pending reviews at once
-review-dispatcher assign --all
+prctrl assign --all
 
 # Assign to multiple specific PRs
-review-dispatcher assign --pr-numbers 4821,4822,4823
+prctrl assign --pr-numbers 4821,4822,4823
 
 # Assign with JSON output (for scripting)
-review-dispatcher assign 4821 --json
+prctrl assign 4821 --json
 
 # Assign to all PRs created in the last 3 days
-review-dispatcher assign --all --since-days 3
+prctrl assign --all --since-days 3
 
 # Assign with priority scores shown (to pick highest priority PRs)
-review-dispatcher assign --priority
+prctrl assign --priority
 ```
 
 ## JSON Output

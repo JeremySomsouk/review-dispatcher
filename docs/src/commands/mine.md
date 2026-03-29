@@ -12,7 +12,7 @@ Track your own pull requests from the command line.
 ## Synopsis
 
 ```bash
-review-dispatcher mine [flags]
+prctrl mine [flags]
 ```
 
 ## Flags
@@ -43,35 +43,35 @@ Snoozed PRs are automatically hidden from `mine` results (consistent with `list`
 
 ```bash
 # List your open PRs
-review-dispatcher mine
+prctrl mine
 
 # Show all PRs at once (non-interactive)
-review-dispatcher mine --all
+prctrl mine --all
 
 # Show your PRs with priority scores
-review-dispatcher mine --priority
+prctrl mine --priority
 
 # Get JSON output for scripting
-review-dispatcher mine --json
+prctrl mine --json
 
 # Only show PRs from the last 7 days
-review-dispatcher mine --since-days 7
+prctrl mine --since-days 7
 
 # Filter by repository
-review-dispatcher mine --repo my-repo
+prctrl mine --repo my-repo
 
 # Filter by author
-review-dispatcher mine --author johndoe
+prctrl mine --author johndoe
 
 # Target a specific PR (bypasses snooze filter)
-review-dispatcher mine --pr 123
+prctrl mine --pr 123
 
 # Target multiple specific PRs
-review-dispatcher mine --pr-numbers 123,456,789
+prctrl mine --pr-numbers 123,456,789
 
 # Combine filters
-review-dispatcher mine --since-days 14 --repo api --priority
+prctrl mine --since-days 14 --repo api --priority
 
 # Combine with global flags
-review-dispatcher mine --include-drafts --priority
+prctrl mine --include-drafts --priority
 ```

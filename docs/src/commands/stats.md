@@ -12,7 +12,7 @@ Gives you a high-level overview of your review queue at a glance.
 ## Synopsis
 
 ```bash
-review-dispatcher stats [OPTIONS]
+prctrl stats [OPTIONS]
 ```
 
 ## Options
@@ -36,35 +36,35 @@ review-dispatcher stats [OPTIONS]
 
 ```bash
 # See all review statistics
-review-dispatcher stats
+prctrl stats
 
 # Stats as JSON for scripting
-review-dispatcher stats --json
+prctrl stats --json
 
 # Stats for a specific repo only
-review-dispatcher stats --repo frontend
+prctrl stats --repo frontend
 
 # Stats filtered by author
-review-dispatcher stats --author alice
+prctrl stats --author alice
 
 # Stats for a specific PR
-review-dispatcher stats 4821
-review-dispatcher stats --pr 4821
+prctrl stats 4821
+prctrl stats --pr 4821
 
 # Stats with priority breakdown (includes most urgent PR highlight)
-review-dispatcher stats --priority
+prctrl stats --priority
 
 # Stats for PRs created in the last 7 days only
-review-dispatcher stats --since-days 7
+prctrl stats --since-days 7
 
 # Stats for all matching PRs without interactive selection
-review-dispatcher stats --all
+prctrl stats --all
 
 # Preview which PRs would be included in stats
-review-dispatcher stats --dry-run
+prctrl stats --dry-run
 
 # Combine --all with filters
-review-dispatcher stats --all --repo frontend --priority
+prctrl stats --all --repo frontend --priority
 ```
 
 ## Output

@@ -12,7 +12,7 @@ Perfect for after vacation or when returning to a busy sprint.
 ## Synopsis
 
 ```bash
-review-dispatcher catchup [OPTIONS]
+prctrl catchup [OPTIONS]
 ```
 
 ## Options
@@ -33,33 +33,33 @@ review-dispatcher catchup [OPTIONS]
 
 ```bash
 # Show PRs older than 3 days
-review-dispatcher catchup
+prctrl catchup
 
 # Focus on week-old+ PRs
-review-dispatcher catchup --min-age 7
+prctrl catchup --min-age 7
 
 # Show priority scores for each PR
-review-dispatcher catchup --priority
+prctrl catchup --priority
 
 # Show only PRs created in the last 14 days but older than 3 days
-review-dispatcher catchup --since-days 14 --min-age 3
+prctrl catchup --since-days 14 --min-age 3
 
 # Combine with limit for more results
-review-dispatcher catchup --min-age 7 --limit 20
+prctrl catchup --min-age 7 --limit 20
 
 # Filter by repository
-review-dispatcher catchup --repo myservice
+prctrl catchup --repo myservice
 
 # Filter by author
-review-dispatcher catchup --author johndoe
+prctrl catchup --author johndoe
 
 # Show ALL neglected PRs without truncation
-review-dispatcher catchup --all
+prctrl catchup --all
 
 # Combine filters for targeted catchup
-review-dispatcher catchup --min-age 7 --repo api --author johndoe --priority
+prctrl catchup --min-age 7 --repo api --author johndoe --priority
 
 # Target a specific PR (bypasses --min-age filter)
-review-dispatcher catchup --pr 123
-review-dispatcher catchup 123
+prctrl catchup --pr 123
+prctrl catchup 123
 ```

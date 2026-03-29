@@ -1,20 +1,20 @@
-# Review Dispatcher
+# PRCtrl
 
 **Stop drowning in PR notifications. Let AI triage your reviews.**
 
-Review Dispatcher is your terminal-native PR companion. It watches your GitHub PRs, notifies you when action is needed, and helps you review smarter with AI-powered triage.
+PRCtrl is your terminal-native PR companion. It watches your GitHub PRs, notifies you when action is needed, and helps you review smarter with AI-powered triage.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  🔔 PR #4821: feat: add CSV export                        │
-│  Review Dispatcher                                         │
+│  PRCtrl                                         │
 │  👤 alice • +120 lines • opened 2 days ago                 │
 │                                                             │
 │  ✅ Chrome opens automatically → PR ready for review       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Why Review Dispatcher?
+## Why PRCtrl?
 
 - **No more tab switching** — Everything in your terminal
 - **AI-powered triage** — Let Claude analyze PRs for you
@@ -24,7 +24,7 @@ Review Dispatcher is your terminal-native PR companion. It watches your GitHub P
 ## Installation
 
 ```bash
-cargo install --git https://github.com/JeremySomsouk/review-dispatcher
+cargo install --git https://github.com/JeremySomsouk/prctrl
 ```
 
 ## Quick Start
@@ -35,20 +35,20 @@ cp .env.example .env
 nano .env  # Add your GITHUB_TOKEN, GITHUB_ORG, etc.
 
 # 2. See what needs your attention
-review-dispatcher list
+prctrl list
 
 # 3. Let AI triage the important ones
-review-dispatcher delegate
+prctrl delegate
 
 # 4. Monitor in background (get notified of new PRs)
-review-dispatcher monitor &
+prctrl monitor &
 ```
 
 ## Your First Review Workflow
 
 ```bash
 # See all PRs waiting for you
-review-dispatcher list
+prctrl list
 
 # Output:
 # 🔍 3 pending review(s)
@@ -57,13 +57,13 @@ review-dispatcher list
 #   [3] chore: update deps         #891 (deps)       👤 carol +890 - 1 day
 
 # Want to focus on important stuff only?
-review-dispatcher quick --max-lines 200
+prctrl quick --max-lines 200
 
 # Search for a specific PR?
-review-dispatcher search "security"
+prctrl search "security"
 
 # Let Claude decide what's important?
-review-dispatcher delegate
+prctrl delegate
 ```
 
 ## Common Workflows
@@ -71,7 +71,7 @@ review-dispatcher delegate
 ### Morning Check (5 seconds)
 
 ```bash
-review-dispatcher summary
+prctrl summary
 # Output: "📊 12 PRs pending • Oldest: 5 days • 3 urgent • 2 quick wins"
 ```
 
@@ -79,34 +79,34 @@ review-dispatcher summary
 
 ```bash
 # Grab the essentials
-review-dispatcher top --limit 5
+prctrl top --limit 5
 
 # Check if any have failing CI
-review-dispatcher ci --failed-only
+prctrl ci --failed-only
 ```
 
 ### Deep Work Session
 
 ```bash
 # Start monitoring (you'll be notified of new PRs)
-review-dispatcher monitor --interval 300 &
+prctrl monitor --interval 300 &
 
 # When you get a notification...
-review-dispatcher review --pr 4821  # Read the diff without leaving terminal
-review-dispatcher diff --pr 4821     # See stats
+prctrl review --pr 4821  # Read the diff without leaving terminal
+prctrl diff --pr 4821     # See stats
 
 # Approve directly from CLI
-review-dispatcher approve --pr 4821 -m "LGTM! Good tests."
+prctrl approve --pr 4821 -m "LGTM! Good tests."
 ```
 
 ### End of Week
 
 ```bash
 # Generate a report of what you reviewed
-review-dispatcher report --days 7
+prctrl report --days 7
 
 # See your activity
-review-dispatcher activity --days 7
+prctrl activity --days 7
 ```
 
 ## Configuration

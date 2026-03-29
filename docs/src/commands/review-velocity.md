@@ -14,7 +14,7 @@ See how fast (or slow) your team is at reviewing PRs. `review-velocity` calculat
 ## Synopsis
 
 ```bash
-review-dispatcher review-velocity [OPTIONS]
+prctrl review-velocity [OPTIONS]
 ```
 
 ## Options
@@ -34,40 +34,40 @@ review-dispatcher review-velocity [OPTIONS]
 
 ```bash
 # Standard 30-day velocity analysis
-review-dispatcher review-velocity
+prctrl review-velocity
 
 # Quick 7-day snapshot
-review-dispatcher review-velocity --days 7
+prctrl review-velocity --days 7
 
 # With bottleneck analysis (see slowest repos/authors)
-review-dispatcher review-velocity --bottlenecks
+prctrl review-velocity --bottlenecks
 
 # With priority breakdown (correlate priority scores with review speed)
-review-dispatcher review-velocity --priority
+prctrl review-velocity --priority
 
 # Combine all analysis options
-review-dispatcher review-velocity --bottlenecks --priority
+prctrl review-velocity --bottlenecks --priority
 
 # Filter by specific repository
-review-dispatcher review-velocity --repo backend
+prctrl review-velocity --repo backend
 
 # Filter by specific author
-review-dispatcher review-velocity --author alice
+prctrl review-velocity --author alice
 
 # Combine filters with bottleneck analysis
-review-dispatcher review-velocity --repo api --bottlenecks
+prctrl review-velocity --repo api --bottlenecks
 
 # Only PRs created in the last 14 days (regardless of when reviewed)
-review-dispatcher review-velocity --since-days 14
+prctrl review-velocity --since-days 14
 
 # Show velocity for a specific PR
-review-dispatcher review-velocity --pr 123
+prctrl review-velocity --pr 123
 
 # Combine --since-days with other filters
-review-dispatcher review-velocity --since-days 7 --repo backend --bottlenecks
+prctrl review-velocity --since-days 7 --repo backend --bottlenecks
 
 # JSON for dashboards
-review-dispatcher review-velocity --json | jq '.avg_hours_to_review'
+prctrl review-velocity --json | jq '.avg_hours_to_review'
 ```
 
 ## Output Example

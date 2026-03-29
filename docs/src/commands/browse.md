@@ -14,7 +14,7 @@ Jump straight to GitHub without switching windows or copying URLs.
 ## Synopsis
 
 ```bash
-review-dispatcher browse [OPTIONS] [PR_NUMBER]
+prctrl browse [OPTIONS] [PR_NUMBER]
 ```
 
 ## Options
@@ -39,48 +39,48 @@ review-dispatcher browse [OPTIONS] [PR_NUMBER]
 
 ```bash
 # Open a specific PR in browser
-review-dispatcher browse 4821
-review-dispatcher browse --pr 4821
+prctrl browse 4821
+prctrl browse --pr 4821
 
 # Open multiple PRs in browser
-review-dispatcher browse --pr-numbers 4821,3156,2890
+prctrl browse --pr-numbers 4821,3156,2890
 
 # Open multiple PRs from a specific repository (filters applied after fetch)
-review-dispatcher browse --pr-numbers 4821,3156,2890 --repo myservice
+prctrl browse --pr-numbers 4821,3156,2890 --repo myservice
 
 # Open all pending reviews at once
-review-dispatcher browse --all
+prctrl browse --all
 
 # Open all pending reviews from a specific repository
-review-dispatcher browse --all --repo myservice
+prctrl browse --all --repo myservice
 
 # Open all pending reviews from a specific author
-review-dispatcher browse --all --author johndoe
+prctrl browse --all --author johndoe
 
 # Open all pending reviews from a repository by an author
-review-dispatcher browse --all --repo myservice --author johndoe
+prctrl browse --all --repo myservice --author johndoe
 
 # Open recent PRs (last 7 days) from a repository
-review-dispatcher browse --all --repo myservice --since-days 7
+prctrl browse --all --repo myservice --since-days 7
 
 # Open old PRs needing attention (more than 7 days old)
-review-dispatcher browse --all --since-days 30
+prctrl browse --all --since-days 30
 
 # Preview which PRs would be opened (dry-run)
-review-dispatcher browse --dry-run
+prctrl browse --dry-run
 
 # Preview opening specific PRs
-review-dispatcher browse --pr-numbers 4821,3156 --dry-run
+prctrl browse --pr-numbers 4821,3156 --dry-run
 
 # Output URLs as JSON (useful for scripting)
-review-dispatcher browse --pr 4821 --json
+prctrl browse --pr 4821 --json
 
 # Quiet mode - open PRs with minimal output
-review-dispatcher browse --all --quiet
+prctrl browse --all --quiet
 
 # Show priority scores when browsing (helps decide which PRs to open first)
-review-dispatcher browse --all --priority
+prctrl browse --all --priority
 
 # Show priority scores in JSON output for scripting
-review-dispatcher browse --all --json --priority
+prctrl browse --all --json --priority
 ```

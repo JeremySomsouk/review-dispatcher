@@ -12,7 +12,7 @@ See the review load across your team.
 ## Synopsis
 
 ```bash
-review-dispatcher team-summary [OPTIONS]
+prctrl team-summary [OPTIONS]
 ```
 
 ## Options
@@ -35,26 +35,26 @@ review-dispatcher team-summary [OPTIONS]
 
 ```bash
 # Human-readable output
-review-dispatcher team-summary
+prctrl team-summary
 
 # JSON output for scripting
-review-dispatcher team-summary --json
+prctrl team-summary --json
 
 # Team summary for a specific repo
-review-dispatcher team-summary --repo frontend
+prctrl team-summary --repo frontend
 
 # Team summary filtered by author
-review-dispatcher team-summary --author alice
+prctrl team-summary --author alice
 
 # Team summary with priority breakdown
-review-dispatcher team-summary --priority
+prctrl team-summary --priority
 
 # Team summary for a specific PR
-review-dispatcher team-summary 4821
-review-dispatcher team-summary --pr 4821
+prctrl team-summary 4821
+prctrl team-summary --pr 4821
 
 # Team summary for PRs created in the last 7 days only
-review-dispatcher team-summary --since-days 7
+prctrl team-summary --since-days 7
 ```
 
 ## Sample JSON Output

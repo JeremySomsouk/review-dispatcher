@@ -12,7 +12,7 @@ The fastest way to get an at-a-glance view of your review queue.
 ## Synopsis
 
 ```bash
-review-dispatcher summary [OPTIONS]
+prctrl summary [OPTIONS]
 ```
 
 ## Options
@@ -28,12 +28,12 @@ review-dispatcher summary [OPTIONS]
 ## Examples
 
 ```bash
-review-dispatcher summary
-review-dispatcher summary --json
-review-dispatcher summary --repo myrepo
-review-dispatcher summary --author johndoe
-review-dispatcher summary --since-days 7
-review-dispatcher summary --priority
+prctrl summary
+prctrl summary --json
+prctrl summary --repo myrepo
+prctrl summary --author johndoe
+prctrl summary --since-days 7
+prctrl summary --priority
 ```
 
 ## Output Example

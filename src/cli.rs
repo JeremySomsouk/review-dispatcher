@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "review-dispatcher")]
+#[command(name = "prctrl")]
 pub struct Cli {
     /// Folder where review files will be written (default: ./reviews)
     #[arg(long, short, global = true)]

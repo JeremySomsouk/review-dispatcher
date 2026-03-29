@@ -14,7 +14,7 @@ When you're overwhelmed by pending reviews, `attention` cuts through the noise b
 ## Synopsis
 
 ```bash
-review-dispatcher attention [OPTIONS]
+prctrl attention [OPTIONS]
 ```
 
 ## Options
@@ -54,34 +54,34 @@ The attention score (1-10) combines four factors:
 
 ```bash
 # See your most attention-demanding PRs
-review-dispatcher attention
+prctrl attention
 
 # Show only critical PRs (score >= 8)
-review-dispatcher attention --threshold 8
+prctrl attention --threshold 8
 
 # Show detailed breakdown of why each PR scored high
-review-dispatcher attention --detailed
+prctrl attention --detailed
 
 # Show top 5 most urgent
-review-dispatcher attention --limit 5
+prctrl attention --limit 5
 
 # Show with priority scores (1-5 stars)
-review-dispatcher attention --priority
+prctrl attention --priority
 
 # Filter by repository
-review-dispatcher attention --repo myorg/frontend
+prctrl attention --repo myorg/frontend
 
 # Filter by author
-review-dispatcher attention --author alice
+prctrl attention --author alice
 
 # Only show PRs from the last 7 days
-review-dispatcher attention --since-days 7
+prctrl attention --since-days 7
 
 # Combine filters
-review-dispatcher attention --repo myorg --author alice --priority
+prctrl attention --repo myorg --author alice --priority
 
 # Get JSON for scripting or dashboards
-review-dispatcher attention --json
+prctrl attention --json
 ```
 
 ## Output
@@ -118,7 +118,7 @@ review-dispatcher attention --json
 - Use `--json` for integration with external tools or Slack notifications
 - Pair with `focus --open` to immediately start reviewing the most urgent PR
 - Snoozed PRs are automatically excluded from results (consistent with `list`, `delegate`, etc.)
-- Use `review-dispatcher snooze add` to temporarily hide PRs from results
+- Use `prctrl snooze add` to temporarily hide PRs from results
 
 ## Related Commands
 

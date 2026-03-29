@@ -12,7 +12,7 @@ The PRs that need your attention most.
 ## Synopsis
 
 ```bash
-review-dispatcher top [OPTIONS]
+prctrl top [OPTIONS]
 ```
 
 ## Options
@@ -30,37 +30,37 @@ review-dispatcher top [OPTIONS]
 
 ```bash
 # Show top 10 priority PRs
-review-dispatcher top
+prctrl top
 
 # Show top 5 priority PRs
-review-dispatcher top --limit 5
+prctrl top --limit 5
 
 # Show only critical PRs (score >= 4)
-review-dispatcher top --min-score 4
+prctrl top --min-score 4
 
 # Show top PRs from a specific repo
-review-dispatcher top --repo my-service
+prctrl top --repo my-service
 
 # Show top PRs from a specific author
-review-dispatcher top --author johndoe
+prctrl top --author johndoe
 
 # Combine filters
-review-dispatcher top --repo my-service --author johndoe --min-score 4
+prctrl top --repo my-service --author johndoe --min-score 4
 
 # Show priority stars alongside scores
-review-dispatcher top --priority
+prctrl top --priority
 
 # Show top PRs from the last 7 days only
-review-dispatcher top --since-days 7
+prctrl top --since-days 7
 
 # Show top PRs from the last 14 days in a specific repo
-review-dispatcher top --since-days 14 --repo my-service
+prctrl top --since-days 14 --repo my-service
 ```
 
 ## Notes
 
 - Snoozed PRs are automatically excluded from results (consistent with `list`, `delegate`, `search`, etc.)
-- Use `review-dispatcher snooze add` to temporarily hide PRs from results
+- Use `prctrl snooze add` to temporarily hide PRs from results
 
 ## Related Commands
 

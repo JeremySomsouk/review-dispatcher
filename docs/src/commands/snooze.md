@@ -12,7 +12,7 @@ Snooze PRs you're not ready to review yet.
 ## Synopsis
 
 ```bash
-review-dispatcher snooze [OPTIONS] [PR_NUMBER] [PR_NUMBERS]
+prctrl snooze [OPTIONS] [PR_NUMBER] [PR_NUMBERS]
 ```
 
 ## Options
@@ -36,10 +36,10 @@ review-dispatcher snooze [OPTIONS] [PR_NUMBER] [PR_NUMBERS]
 List all currently snoozed PRs.
 
 ```bash
-review-dispatcher snooze list
-review-dispatcher snooze list --repo myrepo
-review-dispatcher snooze list --author johndoe
-review-dispatcher snooze list --repo myrepo --author johndoe
+prctrl snooze list
+prctrl snooze list --repo myrepo
+prctrl snooze list --author johndoe
+prctrl snooze list --repo myrepo --author johndoe
 ```
 
 ### review
@@ -47,8 +47,8 @@ review-dispatcher snooze list --repo myrepo --author johndoe
 Show detailed view of snoozed PRs with full metadata.
 
 ```bash
-review-dispatcher snooze review
-review-dispatcher snooze review --repo myrepo
+prctrl snooze review
+prctrl snooze review --repo myrepo
 ```
 
 ### add
@@ -56,10 +56,10 @@ review-dispatcher snooze review --repo myrepo
 Add PR(s) to the snooze list. When using interactive selection (no PR specified), `--repo` and `--author` filters are applied to narrow down the list of pending reviews shown.
 
 ```bash
-review-dispatcher snooze add 4821
-review-dispatcher snooze 4821 --days 7
-review-dispatcher snooze add 4821,4822,4823
-review-dispatcher snooze add --repo myservice --author johndoe
+prctrl snooze add 4821
+prctrl snooze 4821 --days 7
+prctrl snooze add 4821,4822,4823
+prctrl snooze add --repo myservice --author johndoe
 ```
 
 ### remove
@@ -67,9 +67,9 @@ review-dispatcher snooze add --repo myservice --author johndoe
 Remove PR(s) from the snooze list (wake them up).
 
 ```bash
-review-dispatcher snooze remove 4821
-review-dispatcher snooze remove --pr 4821
-review-dispatcher snooze remove 4821,4822,4823
+prctrl snooze remove 4821
+prctrl snooze remove --pr 4821
+prctrl snooze remove 4821,4822,4823
 ```
 
 ### clear
@@ -77,7 +77,7 @@ review-dispatcher snooze remove 4821,4822,4823
 Clear all snoozed PRs.
 
 ```bash
-review-dispatcher snooze clear
+prctrl snooze clear
 ```
 
 ### expire
@@ -85,7 +85,7 @@ review-dispatcher snooze clear
 Remove expired snooze entries.
 
 ```bash
-review-dispatcher snooze expire
+prctrl snooze expire
 ```
 
 ### extend
@@ -93,38 +93,38 @@ review-dispatcher snooze expire
 Extend snooze duration for already-snoozed PRs.
 
 ```bash
-review-dispatcher snooze extend 4821 --days 7
-review-dispatcher snooze extend --pr 4821 --days 7
-review-dispatcher snooze extend 4821,4822,4823 --days 5
+prctrl snooze extend 4821 --days 7
+prctrl snooze extend --pr 4821 --days 7
+prctrl snooze extend 4821,4822,4823 --days 5
 ```
 
 ## Examples
 
 ```bash
 # Snooze a single PR for 3 days (using positional argument)
-review-dispatcher snooze 4821
+prctrl snooze 4821
 
 # Snooze a single PR using --pr flag
-review-dispatcher snooze add --pr 4821
+prctrl snooze add --pr 4821
 
 # Snooze for 7 days
-review-dispatcher snooze 4821 --days 7
+prctrl snooze 4821 --days 7
 
 # Snooze all PRs from the last 2 weeks (interactive selection)
-review-dispatcher snooze add --since-days 14
+prctrl snooze add --since-days 14
 
 # List snoozed PRs as JSON (for scripting)
-review-dispatcher snooze list --json
+prctrl snooze list --json
 
 # List snoozed PRs with priority scores
-review-dispatcher snooze list --priority
+prctrl snooze list --priority
 
 # List snoozed PRs filtered by repository
-review-dispatcher snooze list --repo myrepo
+prctrl snooze list --repo myrepo
 
 # List snoozed PRs filtered by author
-review-dispatcher snooze list --author johndoe
+prctrl snooze list --author johndoe
 
 # Show detailed view filtered by repo
-review-dispatcher snooze review --repo myrepo
+prctrl snooze review --repo myrepo
 ```

@@ -15,7 +15,7 @@ The `timeline` command displays a chronological history of all events on a PR â€
 ## Synopsis
 
 ```bash
-review-dispatcher timeline [OPTIONS]
+prctrl timeline [OPTIONS]
 ```
 
 ## Options
@@ -37,40 +37,40 @@ review-dispatcher timeline [OPTIONS]
 
 ```bash
 # Show timeline for a specific PR
-review-dispatcher timeline --pr 4821
+prctrl timeline --pr 4821
 
 # Show timelines for multiple PRs at once (fetched in parallel)
-review-dispatcher timeline --pr-numbers 4821,4822,4823
+prctrl timeline --pr-numbers 4821,4822,4823
 
 # Show timeline for all pending reviews (no interactive selection)
-review-dispatcher timeline --all
+prctrl timeline --all
 
 # Preview which PRs would be shown (dry run)
-review-dispatcher timeline --all --dry-run
+prctrl timeline --all --dry-run
 
 # Interactive mode (select from pending reviews)
-review-dispatcher timeline
+prctrl timeline
 
 # JSON output for integration
-review-dispatcher timeline --pr 4821 --json
+prctrl timeline --pr 4821 --json
 
 # Filter to a specific repo
-review-dispatcher timeline --repo frontend
+prctrl timeline --repo frontend
 
 # Filter to a specific author
-review-dispatcher timeline --author sarah_dev
+prctrl timeline --author sarah_dev
 
 # Combine filters
-review-dispatcher timeline --repo myorg --author reviewer1
+prctrl timeline --repo myorg --author reviewer1
 
 # Show with priority scores to identify urgent PRs
-review-dispatcher timeline --priority
+prctrl timeline --priority
 
 # Show timelines for recent PRs only (last 7 days)
-review-dispatcher timeline --since-days 7
+prctrl timeline --since-days 7
 
 # Combine filters
-review-dispatcher timeline --repo myorg --author reviewer1 --since-days 14
+prctrl timeline --repo myorg --author reviewer1 --since-days 14
 ```
 
 ## Output

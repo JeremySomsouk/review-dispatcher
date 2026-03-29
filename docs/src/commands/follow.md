@@ -14,7 +14,7 @@ When you're tracking PRs you've delegated, reviewed, or are otherwise interested
 ## Synopsis
 
 ```bash
-review-dispatcher follow <ACTION> [OPTIONS]
+prctrl follow <ACTION> [OPTIONS]
 ```
 
 ## Actions
@@ -52,67 +52,67 @@ PRs can be specified in two ways:
 
 ```bash
 # Add a PR to your follow list
-review-dispatcher follow add 123
+prctrl follow add 123
 
 # Follow a PR using --pr flag (consistent with other commands)
-review-dispatcher follow add --pr 123
+prctrl follow add --pr 123
 
 # Follow a PR using --pr-numbers flag
-review-dispatcher follow add --pr-numbers 123
+prctrl follow add --pr-numbers 123
 
 # Follow multiple PRs
-review-dispatcher follow add 123,456,789
+prctrl follow add 123,456,789
 
 # Follow PRs across different repos
-review-dispatcher follow add frontend#4821,backend#1024
+prctrl follow add frontend#4821,backend#1024
 
 # Add: Show only PRs from a specific repo in interactive picker
-review-dispatcher follow add --repo frontend
+prctrl follow add --repo frontend
 
 # Add: Show only PRs from a specific author in interactive picker
-review-dispatcher follow add --author alice
+prctrl follow add --author alice
 
 # Add: Filter by both repo and author
-review-dispatcher follow add --repo frontend --author alice
+prctrl follow add --repo frontend --author alice
 
 # Add: Follow only recent PRs (created in last 7 days)
-review-dispatcher follow add --since-days 7
+prctrl follow add --since-days 7
 
 # List all followed PRs
-review-dispatcher follow list
+prctrl follow list
 
 # List followed PRs with priority indicators
-review-dispatcher follow list --priority
+prctrl follow list --priority
 
 # List followed PRs as JSON (for scripting)
-review-dispatcher follow list --json
+prctrl follow list --json
 
 # List followed PRs for a specific repo
-review-dispatcher follow list --repo frontend
+prctrl follow list --repo frontend
 
 # List followed PRs by a specific author
-review-dispatcher follow list --author alice
+prctrl follow list --author alice
 
 # List followed PRs filtering by both repo and author
-review-dispatcher follow list --repo frontend --author alice
+prctrl follow list --repo frontend --author alice
 
 # Remove a PR from following
-review-dispatcher follow remove 123
+prctrl follow remove 123
 
 # Remove all followed PRs by a specific author
-review-dispatcher follow remove --author alice
+prctrl follow remove --author alice
 
 # Clear all followed PRs
-review-dispatcher follow clear
+prctrl follow clear
 
 # Check for status changes
-review-dispatcher follow status
+prctrl follow status
 
 # Check for status changes for a specific repo
-review-dispatcher follow status --repo backend
+prctrl follow status --repo backend
 
 # Check for changes and output as JSON
-review-dispatcher follow status --json
+prctrl follow status --json
 ```
 
 ## Tracked Changes

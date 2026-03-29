@@ -1,5 +1,5 @@
 [package]
-name = "review-dispatcher"
+name = "prctrl"
 version = "0.9.0"
 edition = "2021"
 

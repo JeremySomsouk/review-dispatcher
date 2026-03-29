@@ -12,7 +12,7 @@ Find specific PRs without scrolling through the full list.
 ## Synopsis
 
 ```bash
-review-dispatcher search [OPTIONS] [PR_NUMBER] <KEYWORD>
+prctrl search [OPTIONS] [PR_NUMBER] <KEYWORD>
 ```
 
 ## Options
@@ -34,33 +34,33 @@ review-dispatcher search [OPTIONS] [PR_NUMBER] <KEYWORD>
 
 ```bash
 # Basic search (sorted by priority by default)
-review-dispatcher search auth
+prctrl search auth
 
 # Search within a specific repo
-review-dispatcher search auth --repo myservice
+prctrl search auth --repo myservice
 
 # Search for recent PRs only (last 7 days)
-review-dispatcher search auth --since-days 7
+prctrl search auth --since-days 7
 
 # Search for a PR by a specific author
-review-dispatcher search feature --author johndoe
+prctrl search feature --author johndoe
 
 # Sort by age (oldest first) instead of priority
-review-dispatcher search fix --sort-by age
+prctrl search fix --sort-by age
 
 # Sort by size (largest first)
-review-dispatcher search refactor --sort-by size
+prctrl search refactor --sort-by size
 
 # Sort alphabetically by title
-review-dispatcher search update --sort-by title
+prctrl search update --sort-by title
 
 # Combine filters with priority display
-review-dispatcher search fix --repo api --author alice --priority
+prctrl search fix --repo api --author alice --priority
 
 # Target a specific PR (positional or --pr flag)
-review-dispatcher search anything 1234
-review-dispatcher search anything --pr 1234
+prctrl search anything 1234
+prctrl search anything --pr 1234
 
 # JSON output for scripting
-review-dispatcher search auth --json
+prctrl search auth --json
 ```

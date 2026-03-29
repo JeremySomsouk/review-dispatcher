@@ -1,8 +1,8 @@
-# 🦀 Review Dispatcher
+# 🦀 PRCtrl
 
 > **Stop drowning in PR notifications. Let AI triage your reviews.**
 
-Review Dispatcher is a terminal-native tool that monitors GitHub PRs, sends you smart macOS notifications, and delegates review triage to Claude — so you can focus on what matters.
+PRCtrl is a terminal-native tool that monitors GitHub PRs, sends you smart macOS notifications, and delegates review triage to Claude — so you can focus on what matters.
 
 ![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)
 ![macOS](https://img.shields.io/badge/macOS-native-blue.svg)
@@ -13,7 +13,7 @@ Review Dispatcher is a terminal-native tool that monitors GitHub PRs, sends you 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  🔔 PR #4821: feat: add CSV export                        │
-│  Review Dispatcher                                         │
+│  PRCtrl                                         │
 │  👤 alice • +120 lines • opened 2 days ago                 │
 │                                                             │
 │  ✅ Chrome opens automatically → PR ready for review       │
@@ -26,20 +26,20 @@ Review Dispatcher is a terminal-native tool that monitors GitHub PRs, sends you 
 
 ```bash
 # Install
-cargo install --git https://github.com/JeremySomsouk/review-dispatcher
+cargo install --git https://github.com/JeremySomsouk/prctrl
 
 # Configure
 cp .env.example .env
 # Edit .env with your GitHub token and org
 
 # Monitor for new PRs
-review-dispatcher monitor
+prctrl monitor
 
 # List pending reviews
-review-dispatcher list
+prctrl list
 
 # Let Claude triage everything
-review-dispatcher delegate
+prctrl delegate
 ```
 
 **That's it.** No web UI. No Slack. No browser tabs.
@@ -50,7 +50,7 @@ review-dispatcher delegate
 - Native macOS notifications with **🦀 crab emoji** branding
 - Auto-opens PR in Chrome — click-free workflow
 - Configurable polling interval (default: 5 minutes)
-- `review-dispatcher monitor --notify` for background monitoring
+- `prctrl monitor --notify` for background monitoring
 
 ### 🤖 AI Triage with Claude
 ```
@@ -85,7 +85,7 @@ Delegate to Claude Code for instant PR summaries and review recommendations.
 
 ```bash
 # 1. See what's waiting
-review-dispatcher list
+prctrl list
 
 # Output:
 # 🔍 3 pending review(s)
@@ -94,10 +94,10 @@ review-dispatcher list
 #   [3] chore: bump deps     #891 (excluded)
 
 # 2. Let AI triage the important ones
-review-dispatcher delegate
+prctrl delegate
 
 # 3. Monitor in background while you work
-review-dispatcher monitor &
+prctrl monitor &
 ```
 
 ## ⚙️ Configuration
@@ -120,17 +120,17 @@ Create an `instruction.md` file to customize Claude's review criteria:
 # Project-specific (./instruction.md)
 cp instruction.md.example instruction.md
 
-# Or global (~/.review-dispatcher/instruction.md)
-mkdir -p ~/.review-dispatcher
-cp instruction.md.example ~/.review-dispatcher/instruction.md
+# Or global (~/.prctrl/instruction.md)
+mkdir -p ~/.prctrl
+cp instruction.md.example ~/.prctrl/instruction.md
 ```
 
 ## 🛠️ Installation
 
 ### From Source
 ```bash
-git clone git@github.com:JeremySomsouk/review-dispatcher.git
-cd review-dispatcher
+git clone git@github.com:JeremySomsouk/prctrl.git
+cd prctrl
 cargo install --path .
 ```
 
@@ -144,20 +144,20 @@ cargo install --path .
 
 | Command | Description |
 |---------|-------------|
-| `review-dispatcher list` | List all pending reviews |
-| `review-dispatcher mine` | List your own open PRs |
-| `review-dispatcher delegate` | Triage with Claude |
-| `review-dispatcher delegate 4821` | Triage specific PR |
-| `review-dispatcher monitor` | Background monitoring + notifications |
-| `review-dispatcher monitor --interactive` | Interactive quick actions |
-| `review-dispatcher clean` | Remove past review files |
+| `prctrl list` | List all pending reviews |
+| `prctrl mine` | List your own open PRs |
+| `prctrl delegate` | Triage with Claude |
+| `prctrl delegate 4821` | Triage specific PR |
+| `prctrl monitor` | Background monitoring + notifications |
+| `prctrl monitor --interactive` | Interactive quick actions |
+| `prctrl clean` | Remove past review files |
 
 ### Shell Aliases
 
 ```bash
-alias reviews="review-dispatcher list"
-alias triage="review-dispatcher delegate"
-alias monitor="review-dispatcher monitor"
+alias reviews="prctrl list"
+alias triage="prctrl delegate"
+alias monitor="prctrl monitor"
 ```
 
 ## 🔮 Roadmap
