@@ -169,7 +169,11 @@ pub enum Commands {
         json: bool,
     },
     /// Remove all past review files from the output directory
-    Clean,
+    Clean {
+        /// Preview what would be deleted without actually deleting
+        #[arg(long, short = 'n')]
+        dry_run: bool,
+    },
     /// Monitor for new PRs and send macOS notifications
     Monitor {
         /// Polling interval in seconds (default: 300)

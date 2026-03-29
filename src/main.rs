@@ -1086,19 +1086,30 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Clean => {
+        Commands::Clean { dry_run } => {
             if let Some(ref dir) = output_dir {
                 if dir.exists() {
-                    let count = std::fs::read_dir(dir)?
+                    let files: Vec<_> = std::fs::read_dir(dir)?
                         .filter_map(|e| e.ok())
                         .filter(|e| e.path().is_file())
-                        .count();
-                    std::fs::remove_dir_all(dir)?;
-                    println!(
-                        "🧹 Removed {} file(s) from {}",
-                        count,
-                        dir.display().to_string().cyan()
-                    );
+                        .collect();
+                    let count = files.len();
+
+                    if dry_run {
+                        println!("\n🔍 Dry-run mode — the following would be deleted:\n");
+                        for f in &files {
+                            println!("  🗑️  {}", f.path().display().to_string().red());
+                        }
+                        println!("\n  Total: {} file(s)\n", count);
+                        println!("  (dry-run — no files were deleted)");
+                    } else {
+                        std::fs::remove_dir_all(dir)?;
+                        println!(
+                            "🧹 Removed {} file(s) from {}",
+                            count,
+                            dir.display().to_string().cyan()
+                        );
+                    }
                 } else {
                     println!("Nothing to clean — {} does not exist.", dir.display());
                 }
