@@ -6007,7 +6007,7 @@ async fn main() -> anyhow::Result<()> {
                     };
 
                     // Apply --author filter (partial match, case-insensitive)
-                    let mut followed: Vec<_> = match author {
+                    let followed: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
                             followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
@@ -7930,7 +7930,7 @@ async fn main() -> anyhow::Result<()> {
                     sorted_by_priority.sort_by(|a, b| b.priority_score.cmp(&a.priority_score));
 
                     println!("  ⭐ Top PRs by Priority");
-                    for (i, review) in sorted_by_priority.iter().take(10).enumerate() {
+                    for review in sorted_by_priority.iter().take(10) {
                         let stars = priority_stars(review.priority_score);
                         let title = if review.pr_title.len() > 45 {
                             format!("{}...", &review.pr_title[..42])
