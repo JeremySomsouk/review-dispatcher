@@ -11266,7 +11266,7 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Blocked { repo, author, ci_only, conflicts_only, priority, limit, json } => {
+        Commands::Blocked { repo, author, since_days, ci_only, conflicts_only, priority, limit, json } => {
             let limit = limit.unwrap_or(20);
 
             #[derive(Clone, serde::Serialize)]
@@ -11288,9 +11288,15 @@ async fn main() -> anyhow::Result<()> {
                 priority_score: Option<u8>,
             }
 
-            // Filter reviews by repo and author if specified
+            // Filter reviews by repo, author, and --since-days if specified
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
+
+                // Apply --since-days filter first (consistent with other commands)
+                if let Some(days) = since_days {
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                    result.retain(|r| r.created_at >= cutoff);
+                }
 
                 // Apply --repo filter (partial match, case-insensitive)
                 if let Some(ref repo_filter) = repo {

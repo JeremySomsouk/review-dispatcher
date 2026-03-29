@@ -22,6 +22,7 @@ review-dispatcher blocked [OPTIONS]
 |------|-------------|---------|
 | `-r, --repo <NAME>` | Filter to specific repository (partial match, case-insensitive) | All repos |
 | `--author <NAME>` | Filter by author username (partial match, case-insensitive) | All authors |
+| `-s, --since-days <DAYS>` | Only show PRs created since this many days ago | All PRs |
 | `-c, --ci-only` | Only show PRs with failing CI | `false` |
 | `-m, --conflicts-only` | Only show PRs with merge conflicts | `false` |
 | `-P, --priority` | Show priority scores (1-5 stars based on age and size) | `false` |
@@ -51,6 +52,9 @@ review-dispatcher blocked --priority
 
 # Combine filters
 review-dispatcher blocked --repo frontend --priority --ci-only
+
+# Only show recently created PRs (last 7 days)
+review-dispatcher blocked --since-days 7
 
 # JSON output for scripting
 review-dispatcher blocked --json
