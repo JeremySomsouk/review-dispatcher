@@ -265,12 +265,24 @@ pub enum Commands {
     },
     /// Show the chronological timeline of events on a PR (reviews, comments, labels, CI, etc.)
     Timeline {
-        /// PR number to show timeline for
+        /// PR number to show timeline for (shorthand for --pr)
         #[arg(value_name = "PR_NUMBER")]
         pr_number: Option<u64>,
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Show timeline for specific PR (shorthand for --pr)
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+        /// PR number(s) to show timeline for (comma-separated)
+        #[arg(long)]
+        pr_numbers: Option<String>,
+        /// Show timeline for all pending reviews
+        #[arg(long, short = 'a')]
+        all: bool,
+        /// Preview which PRs would be shown without actually displaying the timeline
+        #[arg(long, short = 'n')]
+        dry_run: bool,
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,

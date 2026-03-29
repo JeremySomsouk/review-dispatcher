@@ -24,6 +24,9 @@ review-dispatcher timeline [OPTIONS]
 |------|-------------|---------|
 | `PR_NUMBER` | Target a specific PR by number | Interactive selection |
 | `--pr, -p` | Target a specific PR by number (global) | Interactive selection |
+| `--pr-numbers` | Show timeline for multiple PRs (comma-separated) | Single PR |
+| `--all, -a` | Show timeline for all pending reviews (no interactive selection) | `false` |
+| `--dry-run, -n` | Preview which PRs would be shown without displaying timelines | `false` |
 | `--json` | Output as JSON for scripting | `false` |
 | `--repo` | Filter by repository name (partial match, case-insensitive) | All repos |
 | `--author` | Filter by author username (partial match, case-insensitive) | All authors |
@@ -35,6 +38,15 @@ review-dispatcher timeline [OPTIONS]
 ```bash
 # Show timeline for a specific PR
 review-dispatcher timeline --pr 4821
+
+# Show timelines for multiple PRs at once (fetched in parallel)
+review-dispatcher timeline --pr-numbers 4821,4822,4823
+
+# Show timeline for all pending reviews (no interactive selection)
+review-dispatcher timeline --all
+
+# Preview which PRs would be shown (dry run)
+review-dispatcher timeline --all --dry-run
 
 # Interactive mode (select from pending reviews)
 review-dispatcher timeline
@@ -59,6 +71,7 @@ review-dispatcher timeline --since-days 7
 
 # Combine filters
 review-dispatcher timeline --repo myorg --author reviewer1 --since-days 14
+```
 
 ## Output
 
