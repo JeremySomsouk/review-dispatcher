@@ -600,7 +600,7 @@ pub enum Commands {
         /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         repo: Option<String>,
-        /// Filter by author/repo pattern (partial match, case-insensitive)
+        /// Filter by repository name (partial match, case-insensitive)
         #[arg(long)]
         author: Option<String>,
         /// Show priority scores for each notification (1-5 stars based on age and repo count)
