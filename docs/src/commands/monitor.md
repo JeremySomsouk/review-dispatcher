@@ -21,7 +21,7 @@ review-dispatcher monitor [OPTIONS]
 | Flag | Description | Default |
 |------|-------------|---------|
 | `-i, --interval <SECONDS>` | How often to check GitHub | `300` (5 min) |
-| `-n, --notify` | Send macOS notifications | `true` |
+| `--notify` | Send macOS notifications | `true` |
 | `--auto-open` | Auto-open PR in Chrome when notified | `true` |
 | `--no-auto-open` | Notifications only, no browser | - |
 | `--interactive` | Prompt for action on each new PR | `false` |

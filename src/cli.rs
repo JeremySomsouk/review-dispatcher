@@ -182,6 +182,9 @@ pub enum Commands {
         /// Preview what would be deleted without actually deleting
         #[arg(long, short = 'n')]
         dry_run: bool,
+        /// Suppress all output except errors
+        #[arg(long, short = 'q')]
+        quiet: bool,
     },
     /// Monitor for new PRs and send macOS notifications
     Monitor {
@@ -189,7 +192,7 @@ pub enum Commands {
         #[arg(long, short, default_value_t = 300)]
         interval: u64,
         /// Send macOS notifications for new PRs
-        #[arg(long, short, default_value_t = true)]
+        #[arg(long, default_value_t = true)]
         notify: bool,
         /// Automatically open PRs in Chrome when notifications appear
         #[arg(long, default_value_t = true)]

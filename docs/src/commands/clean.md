@@ -14,13 +14,16 @@ Keep your reviews folder tidy by purging old output.
 ```bash
 review-dispatcher clean
 review-dispatcher clean --dry-run
-review-dispatcher clean -n   # short form
+review-dispatcher clean -n          # short form for dry-run
+review-dispatcher clean --quiet    # suppress output
 ```
 
 ## Options
 
-`-n, --dry-run`
-: Preview what would be deleted without actually deleting files
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-n, --dry-run` | Preview what would be deleted without actually deleting | `false` |
+| `-q, --quiet` | Suppress all output except errors | `false` |
 
 ## Tips
 
