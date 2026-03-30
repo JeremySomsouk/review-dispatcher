@@ -51,8 +51,8 @@ pub async fn fetch_pr_by_number(
                     pr_author: author,
                     pr_url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
                     created_at: pr.created_at.unwrap_or_default(),
-                    additions: pr.additions.unwrap_or(0) as u64,
-                    deletions: pr.deletions.unwrap_or(0) as u64,
+                    additions: pr.additions.unwrap_or(0),
+                    deletions: pr.deletions.unwrap_or(0),
                     draft: pr.draft.unwrap_or(false),
                     branch: pr.head.label.clone().unwrap_or_default(),
                 });
@@ -206,8 +206,8 @@ pub async fn fetch_pending_reviews(
                     pr_author: candidate.author,
                     pr_url: candidate.url,
                     created_at: candidate.created_at,
-                    additions: detail.additions.unwrap_or(0) as u64,
-                    deletions: detail.deletions.unwrap_or(0) as u64,
+                    additions: detail.additions.unwrap_or(0),
+                    deletions: detail.deletions.unwrap_or(0),
                     draft: candidate.draft,
                     branch: candidate.branch,
                 });
@@ -333,8 +333,8 @@ pub async fn fetch_my_open_prs(
                     pr_author: candidate.author,
                     pr_url: candidate.url,
                     created_at: candidate.created_at,
-                    additions: detail.additions.unwrap_or(0) as u64,
-                    deletions: detail.deletions.unwrap_or(0) as u64,
+                    additions: detail.additions.unwrap_or(0),
+                    deletions: detail.deletions.unwrap_or(0),
                     draft: candidate.draft,
                     branch: candidate.branch,
                 });
