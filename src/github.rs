@@ -64,6 +64,7 @@ pub async fn fetch_pr_by_number(
     Ok(results)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn fetch_pending_reviews(
     token: &str,
     org: &str,
@@ -505,7 +506,7 @@ pub async fn fetch_pr_diff(
                 _ => "unknown",
             };
             // Extract language from filename extension
-            let language = f.filename.split('.').last().map(|ext| {
+            let language = f.filename.split('.').next_back().map(|ext| {
                 match ext {
                     "ts" | "tsx" => "typescript",
                     "js" | "jsx" | "mjs" | "cjs" => "javascript",
@@ -586,7 +587,7 @@ pub async fn fetch_my_review_activity(
             .unwrap();
         let org = org.to_string();
         let repo = repo.clone();
-        let since = since;
+         // since already bound
 
         async move {
             let prs = client
@@ -615,6 +616,7 @@ pub async fn fetch_my_review_activity(
         }
     });
 
+    #[allow(clippy::type_complexity)]
     let repo_results: Vec<(String, String, Vec<(String, u64, String, String)>)> = join_all(pr_futures).await;
 
     // Phase 2: Fetch timelines for all candidate PRs in parallel
@@ -983,7 +985,7 @@ pub async fn fetch_mentions(
 
         // Parse repo parts for the API call
         let repo_parts: Vec<&str> = org_repo.split('/').collect();
-        let _org = repo_parts.get(0).unwrap_or(&"");
+        let _org = repo_parts.first().unwrap_or(&"");
         let _repo = repo_parts.get(1).unwrap_or(&"");
 
         mentions.push(Mention {
@@ -1016,7 +1018,7 @@ pub async fn fetch_mentions(
         async move {
             // Parse repo parts
             let parts: Vec<&str> = repo.split('/').collect();
-            let org = parts.get(0).unwrap_or(&"");
+            let org = parts.first().unwrap_or(&"");
             let repo_name = parts.get(1).unwrap_or(&"");
             // For PullRequest notifications, fetch the PR to get author
             client.pulls(org.to_string(), repo_name.to_string()).get(pr_number).await

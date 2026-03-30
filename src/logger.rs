@@ -34,8 +34,7 @@ pub fn calculate_priority_score(review: &PendingReview) -> u8 {
     let combined: f64 = (age_score * 0.6 + size_score * 0.4) / 7.0 * 5.0;
     
     // Map to 1-5 scale
-    let score = (combined.clamp(1.0, 5.0) as u8).max(1).min(5);
-    score
+    (combined.clamp(1.0, 5.0) as u8).clamp(1, 5)
 }
 
 /// Show priority stars (e.g., "⭐⭐⭐")
@@ -73,8 +72,7 @@ pub fn calculate_priority_score_for_stats(size: u64, age_days: u32) -> u8 {
     let combined: f64 = (age_score * 0.6 + size_score * 0.4) / 7.0 * 5.0;
 
     // Map to 1-5 scale
-    let score = (combined.clamp(1.0, 5.0) as u8).max(1).min(5);
-    score
+    (combined.clamp(1.0, 5.0) as u8).clamp(1, 5)
 }
 
 pub fn print_reviews(reviews: &[PendingReview], show_priority: bool) {

@@ -241,6 +241,7 @@ pub fn kill_existing_monitor() -> Result<bool> {
     Ok(false)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn monitor_new_prs(
     token: &str,
     org: &str,

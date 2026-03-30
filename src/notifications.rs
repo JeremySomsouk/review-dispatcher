@@ -18,7 +18,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
                 .arg("-e")
                 .arg(script)
                 .status()
-                .map_or(false, |status| status.success());
+                .is_ok_and(|status| status.success());
         } else {
             // Show notification with URL in message (user can copy/paste)
             let notification_with_url = format!("{}\n\n🔗 {}", message, url);
@@ -32,7 +32,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
                 .arg("-e")
                 .arg(apple_script)
                 .status()
-                .map_or(false, |status| status.success());
+                .is_ok_and(|status| status.success());
         }
     }
     
@@ -47,7 +47,7 @@ pub fn send_mac_notification(title: &str, message: &str, pr_url: Option<&str>, a
         .arg("-e")
         .arg(apple_script)
         .status()
-        .map_or(false, |status| status.success())
+        .is_ok_and(|status| status.success())
 }
 
 #[cfg(test)]

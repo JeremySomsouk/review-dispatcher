@@ -70,15 +70,13 @@ async fn main() -> anyhow::Result<()> {
                 run_config_show()?;
                 return Ok(());
             }
-            cli::ConfigAction::Update { token, username, org, repos, teams, crew, fetch_crew, .. } => {
+            cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
                 run_config_update(
                     token.as_deref(),
                     username.as_deref(),
                     org.as_deref(),
                     repos.as_deref(),
                     teams.as_deref(),
-                    crew.as_deref(),
-                    *fetch_crew,
                 )?;
                 return Ok(());
             }
@@ -939,7 +937,7 @@ async fn main() -> anyhow::Result<()> {
                         // Group by score for breakdown
                         let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                         for (review, score) in &scored {
-                            score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                            score_groups.entry(*score).or_default().push(review);
                         }
 
                         println!("\n  Priority breakdown:");
@@ -1073,7 +1071,7 @@ async fn main() -> anyhow::Result<()> {
                     // Group by score
                     let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                     for (review, score) in &scored {
-                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                        score_groups.entry(*score).or_default().push(review);
                     }
 
                     for score in (1..=5).rev() {
@@ -1185,7 +1183,7 @@ async fn main() -> anyhow::Result<()> {
 
             let mut by_author: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
             for r in &filtered {
-                by_author.entry(r.pr_author.clone()).or_insert_with(Vec::new).push(r);
+                by_author.entry(r.pr_author.clone()).or_default().push(r);
             }
 
             let now = chrono::Utc::now();
@@ -1344,7 +1342,7 @@ async fn main() -> anyhow::Result<()> {
                     // Group by score
                     let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                     for (review, score) in &scored {
-                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                        score_groups.entry(*score).or_default().push(review);
                     }
 
                     for score in (1..=5).rev() {
@@ -2152,7 +2150,7 @@ async fn main() -> anyhow::Result<()> {
                                 continue;
                             }
                         };
-                        display_timeline(&review, &timeline, json, priority, total_prs, i)?;
+                        display_timeline(review, &timeline, json, priority, total_prs, i)?;
                     }
                     return Ok(());
                 }
@@ -2214,7 +2212,7 @@ async fn main() -> anyhow::Result<()> {
                         continue;
                     }
                 };
-                display_timeline(&review, &timeline, json, priority, total_prs, i)?;
+                display_timeline(review, &timeline, json, priority, total_prs, i)?;
             }
         }
 
@@ -3712,10 +3710,8 @@ async fn main() -> anyhow::Result<()> {
                     )
                 });
                 let mut all_prs = Vec::new();
-                for result in join_all(fetch_futures).await {
-                    if let Ok(prs) = result {
-                        all_prs.extend(prs);
-                    }
+                for prs in join_all(fetch_futures).await.into_iter().flatten() {
+                    all_prs.extend(prs);
                 }
                 all_prs
             } else {
@@ -4009,7 +4005,7 @@ async fn main() -> anyhow::Result<()> {
                     let score = match sort_field {
                         "age" => {
                             // Older PRs first (higher score = older = higher urgency)
-                            (now - r.created_at).num_days() as i64
+                            (now - r.created_at).num_days()
                         }
                         "size" => {
                             // Larger PRs first
@@ -4210,8 +4206,8 @@ async fn main() -> anyhow::Result<()> {
             };
 
             if filtered.is_empty() {
-                if target_pr.is_some() {
-                    println!("\n⚠️  PR #{} not found or doesn't match filters.\n", target_pr.unwrap());
+                if let Some(pr_num) = target_pr {
+                    println!("\n⚠️  PR #{} not found or doesn't match filters.\n", pr_num);
                 } else {
                     println!("\n🔍 No reviews match the specified filters.\n");
                 }
@@ -4458,7 +4454,7 @@ async fn main() -> anyhow::Result<()> {
                                 println!(
                                     "  {}  {}",
                                     colorize_label(&label.name, &label.color),
-                                    label.description.as_ref().map(|d| d.as_str()).unwrap_or("").dimmed()
+                                    label.description.as_deref().unwrap_or("").dimmed()
                                 );
                             }
                         }
@@ -4755,11 +4751,9 @@ async fn main() -> anyhow::Result<()> {
                                     }
                                 }
                             } else {
-                                unified_diff.push_str(&format!(
-                                    "  (binary or no preview available)\n"
-                                ));
+                                unified_diff.push_str("  (binary or no preview available)\n");
                             }
-                            unified_diff.push_str("\n");
+                            unified_diff.push('\n');
                         }
 
                         if let Some(ref path) = output_file {
@@ -5731,7 +5725,7 @@ async fn main() -> anyhow::Result<()> {
                             r.pr_author.cyan(),
                             r.additions,
                             r.deletions,
-                            format!("{}{}", draft_str, priority_str),
+                            format_args!("{}{}", draft_str, priority_str),
                             r.repo.dimmed(),
                             r.pr_url.blue().underline()
                         );
@@ -5801,7 +5795,7 @@ async fn main() -> anyhow::Result<()> {
                         r.pr_author.cyan(),
                         r.additions,
                         r.deletions,
-                        format!("{}{}", draft_str, priority_str),
+                        format_args!("{}{}", draft_str, priority_str),
                         r.repo.dimmed(),
                         r.pr_url.blue().underline()
                     );
@@ -6082,7 +6076,7 @@ async fn main() -> anyhow::Result<()> {
                     // Priority breakdown
                     let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                     for (review, score) in &scored {
-                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                        score_groups.entry(*score).or_default().push(review);
                     }
 
                     println!("  ⭐ Priority Breakdown:");
@@ -6615,7 +6609,7 @@ async fn main() -> anyhow::Result<()> {
 
                     // Handle direct PR targeting first (consistent with Add/Remove)
                     if let Some(num) = target_pr {
-                        let _to_extend = vec![num];
+                        let _to_extend = [num];
                         let mut extended_count = 0;
                         let mut not_found_count = 0;
 
@@ -7523,7 +7517,14 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run: _, send, message, repo, author, priority, json, quiet } => {
+        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run, send, message, repo, author, priority, json, quiet } => {
+
+            // Warn user this is a dry run by default
+            if !send {
+                println!("\n🔍 DRY RUN MODE - Use --send to actually post comments\n");
+            } else {
+                println!("\n⚠️  Will post chase comments to GitHub!\n");
+            }
             use chrono::{Duration, Utc};
 
             let min_age_days = min_age as i64;
@@ -7664,7 +7665,7 @@ async fn main() -> anyhow::Result<()> {
 
                 println!("  📬 {} {} (#{}) - {}{}", 
                     entry.pr_title.bold(),
-                    format!("by {}", entry.author.cyan()),
+                    entry.author.cyan().to_string().as_str(),
                     entry.pr_number,
                     age_label,
                     priority_display
@@ -7725,8 +7726,12 @@ async fn main() -> anyhow::Result<()> {
                     println!("Sent: {}, Failed: {}", sent, failed);
                 }
             } else {
-                // Preview mode (dry_run or default - explicitly indicate dry-run)
-                println!("  ⚠️  DRY RUN: No comments posted. Use --send to post comments to GitHub.\n");
+                // Preview mode (dry_run or default - preview already shown above)
+                if dry_run {
+                    println!("  (dry-run)\n");
+                } else {
+                    println!("  💡 Use --dry-run to preview or --send to post comments to GitHub\n");
+                }
             }
         }
 
@@ -7795,10 +7800,8 @@ async fn main() -> anyhow::Result<()> {
                     )
                 });
                 let mut all_prs = Vec::new();
-                for result in join_all(fetch_futures).await {
-                    if let Ok(prs) = result {
-                        all_prs.extend(prs);
-                    }
+                for prs in join_all(fetch_futures).await.into_iter().flatten() {
+                    all_prs.extend(prs);
                 }
                 all_prs
             } else {
@@ -8301,7 +8304,7 @@ async fn main() -> anyhow::Result<()> {
 
             let pending_total = filtered_reviews.len();
             let pending_old = filtered_reviews.iter().filter(|r| {
-                let age_days = (Utc::now() - r.created_at).num_days() as i64;
+                let age_days = (Utc::now() - r.created_at).num_days();
                 age_days >= days as i64
             }).count();
 
@@ -8390,7 +8393,7 @@ async fn main() -> anyhow::Result<()> {
                     // Group by score
                     let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                     for (review, score) in &scored {
-                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                        score_groups.entry(*score).or_default().push(review);
                     }
 
                     for score in (1..=5).rev() {
@@ -8512,7 +8515,7 @@ async fn main() -> anyhow::Result<()> {
                             let mut by_day: HashMap<String, Vec<_>> = HashMap::new();
                             for activity in &activities {
                                 let day = activity.reviewed_at.format("%Y-%m-%d").to_string();
-                                by_day.entry(day).or_insert_with(Vec::new).push(activity);
+                                by_day.entry(day).or_default().push(activity);
                             }
 
                             // Show by-day breakdown
@@ -8568,7 +8571,7 @@ async fn main() -> anyhow::Result<()> {
                                         activity.pr_number,
                                         title.dimmed(),
                                         priority_display,
-                                        format!(" ({})", activity.repo.dimmed())
+                                        format_args!(" ({})", activity.repo.dimmed())
                                     );
                                 }
                                 if items.len() > 5 {
@@ -8659,8 +8662,8 @@ async fn main() -> anyhow::Result<()> {
                         if json {
                             println!("{}", serde_json::to_string_pretty(&serde_json::json!([]))?);
                         } else {
-                            if pr.is_some() {
-                                println!("  😴 No notifications found for PR #{}." , pr.unwrap());
+                            if let Some(pr_num) = pr {
+                                println!("  😴 No notifications found for PR #{}." , pr_num);
                             } else {
                                 println!("  😴 No notifications found.");
                             }
@@ -8774,7 +8777,7 @@ async fn main() -> anyhow::Result<()> {
             use std::collections::{HashMap, BTreeMap};
 
             let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
-            let n = limit.unwrap_or(10) as usize;
+            let n = limit.unwrap_or(10);
 
             if !report_output_dir.exists() {
                 println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", report_output_dir.display());
@@ -8828,7 +8831,7 @@ async fn main() -> anyhow::Result<()> {
                                             if reviewed_at_tz >= cutoff {
                                                 let pr_number = path.file_stem()
                                                     .and_then(|s| s.to_str())
-                                                    .and_then(|s| s.split('_').last())
+                                                    .and_then(|s| s.split('_').next_back())
                                                     .and_then(|s| s.parse().ok())
                                                     .unwrap_or(0);
 
@@ -9080,7 +9083,7 @@ async fn main() -> anyhow::Result<()> {
                 if !top_repos.is_empty() {
                     println!("  📁 Top Repositories");
                     for (repo, count) in top_repos.iter().take(n) {
-                        let short_name = repo.split('/').last().unwrap_or(repo);
+                        let short_name = repo.split('/').next_back().unwrap_or(repo);
                         println!("     {}  {}", short_name, count.to_string().dimmed());
                     }
                     println!();
@@ -9104,7 +9107,7 @@ async fn main() -> anyhow::Result<()> {
                             stars,
                             review.pr_number,
                             title.dimmed(),
-                            review.repo.split('/').last().unwrap_or(&review.repo).dimmed()
+                            review.repo.split('/').next_back().unwrap_or(&review.repo).dimmed()
                         );
                     }
                     println!();
@@ -9192,7 +9195,7 @@ async fn main() -> anyhow::Result<()> {
 
                                                 let pr_number = path.file_stem()
                                                     .and_then(|s| s.to_str())
-                                                    .and_then(|s| s.split('_').last())
+                                                    .and_then(|s| s.split('_').next_back())
                                                     .and_then(|s| s.parse().ok())
                                                     .unwrap_or(0);
 
@@ -9236,8 +9239,8 @@ async fn main() -> anyhow::Result<()> {
                                                     }
                                                 }
 
-                                                by_author.entry(pr_author.clone()).or_insert_with(Vec::new).push(hours);
-                                                by_repo.entry(pr_repo.clone()).or_insert_with(Vec::new).push(hours);
+                                                by_author.entry(pr_author.clone()).or_default().push(hours);
+                                                by_repo.entry(pr_repo.clone()).or_default().push(hours);
 
                                                 // Calculate priority score for this PR
                                                 let mock_review = github::PendingReview {
@@ -9302,7 +9305,7 @@ async fn main() -> anyhow::Result<()> {
 
             let total_prs = velocity_data.len();
             let avg_hours = all_hours.iter().sum::<f64>() / all_hours.len() as f64;
-            let median_hours = if all_hours.len() % 2 == 0 {
+            let median_hours = if all_hours.len().is_multiple_of(2) {
                 (all_hours[all_hours.len() / 2 - 1] + all_hours[all_hours.len() / 2]) / 2.0
             } else {
                 all_hours[all_hours.len() / 2]
@@ -9359,7 +9362,7 @@ async fn main() -> anyhow::Result<()> {
                 let mut by_priority_map: std::collections::BTreeMap<u8, (f64, usize)> = std::collections::BTreeMap::new();
                 let mut by_priority_hours: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
                 for v in &velocity_data {
-                    by_priority_hours.entry(v.priority_score).or_insert_with(Vec::new).push(v.hours_to_review);
+                    by_priority_hours.entry(v.priority_score).or_default().push(v.hours_to_review);
                 }
                 for (score, hours_list) in &by_priority_hours {
                     let avg = hours_list.iter().sum::<f64>() / hours_list.len() as f64;
@@ -9427,7 +9430,7 @@ async fn main() -> anyhow::Result<()> {
                     // Show priority breakdown for reviewed PRs
                     let mut by_priority: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
                     for v in &velocity_data {
-                        by_priority.entry(v.priority_score).or_insert_with(Vec::new).push(v.hours_to_review);
+                        by_priority.entry(v.priority_score).or_default().push(v.hours_to_review);
                     }
 
                     println!("\n  ⭐ Priority vs Review Time");
@@ -9472,7 +9475,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("\n  🐢 Bottleneck Analysis — by Repository");
                     println!("     (slowest average review time)");
                     for (repo, avg, _median, count) in repo_stats.iter().rev().take(5) {
-                        let short_name = repo.split('/').last().unwrap_or(repo);
+                        let short_name = repo.split('/').next_back().unwrap_or(repo);
                         let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
                         let bar: String = "█".repeat(bar_len.max(1));
                         println!("     {} {}  {:.1}h avg  ({} PRs)",
@@ -9701,7 +9704,7 @@ async fn main() -> anyhow::Result<()> {
                 // Compact repo breakdown
                 if !by_repo.is_empty() {
                     let mut repo_parts: Vec<String> = by_repo.iter()
-                        .map(|(repo, count)| format!("{}:{}", repo.split('/').last().unwrap_or(repo), count))
+                        .map(|(repo, count)| format!("{}:{}", repo.split('/').next_back().unwrap_or(repo), count))
                         .collect();
                     repo_parts.sort();
                     println!("   📁 {}", repo_parts.join(" • "));
@@ -9722,7 +9725,7 @@ async fn main() -> anyhow::Result<()> {
                     // Group by score
                     let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
                     for (review, score) in &scored {
-                        score_groups.entry(*score).or_insert_with(Vec::new).push(review);
+                        score_groups.entry(*score).or_default().push(review);
                     }
 
                     for score in (1..=5).rev() {
@@ -9754,7 +9757,7 @@ async fn main() -> anyhow::Result<()> {
                         println!("    👤 {}  •  📦 {} lines  •  {}  •  {}",
                             most_urgent.pr_author.cyan(),
                             total,
-                            format!("{} old", (chrono::Utc::now() - most_urgent.created_at).num_days()),
+                            format_args!("{} old", (chrono::Utc::now() - most_urgent.created_at).num_days()),
                             most_urgent.repo.dimmed()
                         );
                         println!("    🔗 {}", most_urgent.pr_url.blue().underline());
@@ -9890,7 +9893,7 @@ async fn main() -> anyhow::Result<()> {
                     else if age_days > 7.0 { 1 }
                     else { 0 };
                 
-                let total = (age_score + size_score + draft_score + staleness_bonus).min(10) as u8;
+                let total = (age_score + size_score + draft_score + staleness_bonus).min(10);
                 
                 (total, AttentionFactors { age_score, size_score, draft_score, staleness_bonus })
             }
@@ -10150,8 +10153,8 @@ async fn main() -> anyhow::Result<()> {
                     }))?);
                 } else {
                     println!("🎯 No matching PRs found.");
-                    if target_pr.is_some() {
-                        println!("   PR #{} not found in pending reviews.", target_pr.unwrap());
+                    if let Some(pr_num) = target_pr {
+                        println!("   PR #{} not found in pending reviews.", pr_num);
                     } else {
                         println!("   No PR matches your filters (--repo, --author).");
                     }
@@ -10243,7 +10246,7 @@ async fn main() -> anyhow::Result<()> {
                     println!("  #{}  {}{}", pr.pr_number, pr.pr_title.bold(), draft_label);
                     println!();
                     println!("  📁 {}  👤 {}  ⏱️ {}  📊 {}/{}",
-                        pr.repo.split('/').last().unwrap_or(&pr.repo).dimmed(),
+                        pr.repo.split('/').next_back().unwrap_or(&pr.repo).dimmed(),
                         pr.pr_author.cyan(),
                         age_label,
                         pr.additions.to_string().green(),
@@ -10866,7 +10869,7 @@ async fn main() -> anyhow::Result<()> {
                             println!();
                             println!("  📊 Command API Costs (approximate GitHub API calls):");
                             println!();
-                            println!("  {:25} {:>6}   {}", "Command", "Calls", "Notes");
+                            println!("  {:25} {:>6}   Notes", "Command", "Calls");
                             println!("  {}", "─".repeat(60));
                             
                             struct CmdCost<'a> { name: &'a str, calls: u32, notes: &'a str }
@@ -11153,7 +11156,7 @@ async fn main() -> anyhow::Result<()> {
                 // Header
                 output_content.push_str("| ");
                 for col in &cols {
-                    output_content.push_str(&match *col {
+                    output_content.push_str(match *col {
                         "repo" => "Repo",
                         "number" => "#",
                         "title" => "Title",
@@ -11163,7 +11166,7 @@ async fn main() -> anyhow::Result<()> {
                         "draft" => "Draft",
                         "url" => "URL",
                         "priority" => "Priority",
-                        _ => *col,
+                        _ => col,
                     });
                     output_content.push_str(" | ");
                 }
@@ -11378,7 +11381,7 @@ async fn main() -> anyhow::Result<()> {
                 // Group by state
                 let mut by_state: HashMap<String, Vec<_>> = HashMap::new();
                 for entry in &all_entries {
-                    by_state.entry(entry.state.clone()).or_insert_with(Vec::new).push(entry);
+                    by_state.entry(entry.state.clone()).or_default().push(entry);
                 }
 
                 for (state_name, entries) in &by_state {
@@ -11506,7 +11509,7 @@ async fn main() -> anyhow::Result<()> {
             let mut by_repo: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
             for r in &filtered_reviews {
                 by_repo.entry(r.repo.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(r);
             }
 
@@ -11593,6 +11596,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             });
 
+            #[allow(clippy::type_complexity)]
             let detail_results: Vec<Result<(bool, String, bool, Option<bool>), anyhow::Error>> = join_all(futures).await;
 
             let mut ready_prs = Vec::new();
@@ -11823,10 +11827,8 @@ async fn main() -> anyhow::Result<()> {
 
             // Build a map of idx -> ci_status for fast lookup
             let mut ci_map: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
-            for ci_result in ci_results {
-                if let Ok((idx, state)) = ci_result {
-                    ci_map.insert(idx, state);
-                }
+            for ci_result in ci_results.into_iter().flatten() {
+                ci_map.insert(ci_result.0, ci_result.1);
             }
 
             // Build blocked_prs from parallel results
@@ -12235,15 +12237,15 @@ async fn main() -> anyhow::Result<()> {
             async fn fetch_pr_details(client: &octocrab::Octocrab, org: &str, repo: &str, pr_number: u64) -> anyhow::Result<ComparedPr> {
                 let pr = client.pulls(org, repo).get(pr_number).await?;
                 let age_days = (chrono::Utc::now() - pr.created_at.unwrap_or_else(chrono::Utc::now)).num_days();
-                let additions = pr.additions.unwrap_or(0) as u64;
-                let deletions = pr.deletions.unwrap_or(0) as u64;
+                let additions = pr.additions.unwrap_or(0);
+                let deletions = pr.deletions.unwrap_or(0);
                 let total_lines = additions + deletions;
 
                 // Calculate priority score (1-5 stars)
                 let priority_score = {
                     let age_score = if age_days <= 1 { 1 } else if age_days <= 3 { 2 } else if age_days <= 7 { 3 } else if age_days <= 14 { 4 } else { 5 };
                     let size_score = if total_lines <= 50 { 1 } else if total_lines <= 200 { 2 } else if total_lines <= 500 { 3 } else if total_lines <= 1000 { 4 } else { 5 };
-                    ((age_score + size_score) / 2).min(5).max(1) as u8
+                    ((age_score + size_score) / 2).clamp(1, 5) as u8
                 };
 
                 // Fetch files to get language breakdown
@@ -12413,15 +12415,13 @@ async fn main() -> anyhow::Result<()> {
                 cli::ConfigAction::Show => {
                     run_config_show()?;
                 }
-                cli::ConfigAction::Update { token, username, org, repos, teams, crew, fetch_crew, .. } => {
+                cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
                     run_config_update(
                         token.as_deref(),
                         username.as_deref(),
                         org.as_deref(),
                         repos.as_deref(),
                         teams.as_deref(),
-                        crew.as_deref(),
-                        fetch_crew,
                     )?;
                 }
             }
@@ -12783,39 +12783,9 @@ fn get_config_path() -> std::path::PathBuf {
         .join("config.toml")
 }
 
-/// Fetch team members from GitHub teams and return their usernames
-async fn fetch_team_members(token: &str, org: &str, team_slugs: &[String]) -> anyhow::Result<Vec<String>> {
-    let client = octocrab::Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
-
-    let mut members = Vec::new();
-
-    for team_slug in team_slugs {
-        println!("  🔄 Fetching members for team '{}'...", team_slug.yellow());
-
-        // Use the teams API to get team members
-        // The members() method returns a builder that we need to send() to execute
-        let result = client.teams(org).members(team_slug).send().await;
-        match result {
-            Ok(page) => {
-                for user in page {
-                    println!("     + @{}", user.login.cyan());
-                    members.push(user.login);
-                }
-            }
-            Err(e) => {
-                eprintln!("  ⚠️  Warning: Failed to fetch members from team '{}': {}", team_slug, e);
-            }
-        }
-    }
-
-    Ok(members)
-}
-
 fn run_config_init(force: bool) -> anyhow::Result<()> {
     use std::io::{self, Write};
-
+    
     let config_path = get_config_path();
 
     if config_path.exists() && !force {
@@ -12860,36 +12830,6 @@ fn run_config_init(force: bool) -> anyhow::Result<()> {
     io::stdin().read_line(&mut github_teams)?;
     github_teams = github_teams.trim().to_string();
 
-    // Parse team slugs and fetch members dynamically
-    let crew_members: Vec<String> = if github_teams.is_empty() {
-        Vec::new()
-    } else {
-        let team_slugs: Vec<String> = github_teams
-            .split(',')
-            .map(|s| s.trim().to_lowercase())
-            .collect();
-
-        println!("\n🔄 Fetching team members from GitHub...\n");
-
-        // Create a tokio runtime to run the async fetch
-        let rt = tokio::runtime::Runtime::new()?;
-        match rt.block_on(fetch_team_members(&github_token, &github_org, &team_slugs)) {
-            Ok(members) => {
-                if members.is_empty() {
-                    println!("\n⚠️  No team members found. You can manually add crew members later.");
-                } else {
-                    println!("\n✅ Found {} team member(s)\n", members.len());
-                }
-                members
-            }
-            Err(e) => {
-                eprintln!("\n⚠️  Warning: Failed to fetch team members: {}", e);
-                eprintln!("   You can manually add crew members to the config file later.\n");
-                Vec::new()
-            }
-        }
-    };
-
     let config_content = format!(r#"# PRCtrl Configuration
 # Generated by `prctrl config init`
 
@@ -12899,7 +12839,6 @@ username = "{github_username}"
 org = "{github_org}"
 repos = [{repos}]
 teams = [{teams}]
-crew_members = [{crew}]
 
 [notifications]
 enabled = true
@@ -12914,8 +12853,7 @@ exclude_prefix = ["chore(deps)"]
             "[]".to_string()
         } else {
             github_teams.split(',').map(|s| format!("\"{}\"", s.trim().to_lowercase())).collect::<Vec<_>>().join(", ")
-        },
-        crew = crew_members.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", ")
+        }
     );
 
     if let Some(parent) = config_path.parent() {
@@ -12954,8 +12892,6 @@ fn run_config_update(
     org: Option<&str>,
     repos: Option<&str>,
     teams: Option<&str>,
-    crew: Option<&str>,
-    fetch_crew: bool,
 ) -> anyhow::Result<()> {
     let config_path = get_config_path();
 
@@ -13012,73 +12948,6 @@ fn run_config_update(
         config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
             github.insert("teams".to_string(), teams_array);
-        }
-    }
-
-    // Handle --fetch-crew: fetch members from GitHub teams
-    if fetch_crew {
-        let github_token = config.get("github")
-            .and_then(|g| g.as_table())
-            .and_then(|t| t.get("token"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        let github_org = config.get("github")
-            .and_then(|g| g.as_table())
-            .and_then(|t| t.get("org"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
-        let github_teams = config.get("github")
-            .and_then(|g| g.as_table())
-            .and_then(|t| t.get("teams"))
-            .and_then(|t| t.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-
-        if let (Some(token), Some(org)) = (github_token, github_org) {
-            if !github_teams.is_empty() {
-                println!("\n🔄 Fetching crew members from GitHub teams...\n");
-
-                let rt = tokio::runtime::Runtime::new()?;
-                match rt.block_on(fetch_team_members(&token, &org, &github_teams)) {
-                    Ok(members) => {
-                        let crew_array: toml::Value = members
-                            .iter()
-                            .map(|s| toml::Value::String(s.clone()))
-                            .collect::<Vec<_>>()
-                            .into();
-                        config.entry("github").or_insert_with(|| toml::Value::Table(toml::Table::new()));
-                        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
-                            github.insert("crew_members".to_string(), crew_array);
-                        }
-                        println!("\n✅ Crew members updated: {} member(s)\n", members.len());
-                    }
-                    Err(e) => {
-                        eprintln!("\n⚠️  Warning: Failed to fetch crew members: {}\n", e);
-                    }
-                }
-            } else {
-                println!("\n⚠️  No teams configured. Set --teams first, then use --fetch-crew.\n");
-            }
-        } else {
-            println!("\n⚠️  Missing GitHub token or org in config. Run `prctrl config init` first.\n");
-        }
-    }
-
-    // Handle --crew: manually set crew members
-    if let Some(crew) = crew {
-        let crew_array: toml::Value = crew.split(',')
-            .map(|s| toml::Value::String(s.trim().to_string()))
-            .collect::<Vec<_>>()
-            .into();
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
-        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
-            github.insert("crew_members".to_string(), crew_array);
         }
     }
 
