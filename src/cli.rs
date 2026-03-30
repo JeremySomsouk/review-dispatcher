@@ -1529,7 +1529,7 @@ pub enum ConfigAction {
         #[arg(long)]
         teams: Option<String>,
         /// Comma-separated list of crew member usernames
-        #[arg(long)]
+        #[arg(long, name = "crew-members")]
         crew: Option<String>,
         /// Fetch crew members dynamically from GitHub teams (requires --teams to be set)
         #[arg(long)]
