@@ -8535,7 +8535,7 @@ async fn main() -> anyhow::Result<()> {
                                 if commented > 0 { print!("    💬 {} commented", commented); }
                                 println!();
 
-                                for (_i, activity) in items.iter().take(5).enumerate() {
+                                for activity in items.iter().take(5) {
                                     let state_icon = if activity.state.contains("APPROVED") {
                                         "✅".to_string()
                                     } else if activity.state.contains("CHANGES_REQUESTED") {
@@ -12247,7 +12247,7 @@ async fn main() -> anyhow::Result<()> {
                 let files_count = files.len();
                 let mut languages: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
                 for f in &files {
-                    let lang = f.filename.split('.').last()
+                    let lang = f.filename.split('.').next_back()
                         .map(|ext| match ext {
                             "ts" | "tsx" => "TypeScript",
                             "js" | "jsx" | "mjs" => "JavaScript",
