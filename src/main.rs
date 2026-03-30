@@ -12376,6 +12376,17 @@ async fn main() -> anyhow::Result<()> {
                 println!();
             }
         }
+
+        Commands::Config { .. } => {
+            println!("❌ Config management is not yet implemented");
+            println!("   Please set environment variables manually or create a .env file:");
+            println!("   - RD_GITHUB_TOKEN: GitHub personal access token");
+            println!("   - RD_GITHUB_USERNAME: Your GitHub username");
+            println!("   - RD_GITHUB_ORG: GitHub organization");
+            println!("   - RD_GITHUB_REPOS: Comma-separated list of repos (owner/repo)");
+            println!("   - RD_GITHUB_TEAMS: Comma-separated list of team slugs");
+            println!("   - RD_CREW_MEMBERS: Comma-separated list of crew member usernames");
+        }
     }
 
     // Open terminal tab last, after all files are written
