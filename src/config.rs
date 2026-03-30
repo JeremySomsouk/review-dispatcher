@@ -133,9 +133,20 @@ impl Config {
             vec![]
         };
 
-        let anthropic_api_key = std::env::var("PRCTRL_ANTHROPIC_API_KEY")
-            .ok()
-            .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok());
+        let anthropic_api_key = if let Ok(v) = std::env::var("PRCTRL_ANTHROPIC_API_KEY") {
+            Some(v)
+        } else if let Ok(v) = std::env::var("ANTHROPIC_API_KEY") {
+            Some(v)
+        } else if let Some(ref t) = toml {
+            t
+                .get("github")
+                .and_then(|s| s.as_table())
+                .and_then(|t| t.get("anthropic_api_key"))
+                .and_then(|v| v.as_str())
+                .map(String::from)
+        } else {
+            None
+        };
 
         Ok(Self {
             github_token,
