@@ -11,7 +11,7 @@ use clap::Parser;
 use cli::{Cli, Commands};
 use colored::*;
 use futures::future::join_all;
-use open;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{self, Write};
@@ -2063,18 +2063,18 @@ async fn main() -> anyhow::Result<()> {
                             continue;
                         }
                     };
-                    display_timeline(&review, &timeline, json, priority, total_prs, i)?;
+                    display_timeline(review, &timeline, json, priority, total_prs, i)?;
                 }
                 return Ok(());
             }
 
             // When --pr is specified, bypass filters and fetch directly
-            let prs = if target_pr.is_some() {
+            let prs = if let Some(pr_num) = target_pr {
                 github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
-                    target_pr.unwrap(),
+                    pr_num,
                 )
                 .await?
             } else {
