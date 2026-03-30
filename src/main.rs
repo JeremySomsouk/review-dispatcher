@@ -49,9 +49,33 @@ fn read_snoozed_prs(snooze_file: &PathBuf) -> Vec<(String, u64)> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cfg = config::Config::from_env()?;
     let cli = Cli::parse();
 
+    // Handle config commands without requiring env vars
+    if let Commands::Config { action } = &cli.command {
+        match action {
+            cli::ConfigAction::Init { force } => {
+                run_config_init(*force)?;
+                return Ok(());
+            }
+            cli::ConfigAction::Show => {
+                run_config_show()?;
+                return Ok(());
+            }
+            cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
+                run_config_update(
+                    token.as_deref(),
+                    username.as_deref(),
+                    org.as_deref(),
+                    repos.as_deref(),
+                    teams.as_deref(),
+                )?;
+                return Ok(());
+            }
+        }
+    }
+
+    let cfg = config::Config::from_env()?;
     let include_mine = cli.include_mine || cli.crew;
     let include_drafts = cli.include_drafts || cli.crew;
     let crew_members = if cli.crew { &cfg.crew_members } else { &vec![] };
@@ -12377,15 +12401,24 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Config { .. } => {
-            println!("❌ Config management is not yet implemented");
-            println!("   Please set environment variables manually or create a .env file:");
-            println!("   - RD_GITHUB_TOKEN: GitHub personal access token");
-            println!("   - RD_GITHUB_USERNAME: Your GitHub username");
-            println!("   - RD_GITHUB_ORG: GitHub organization");
-            println!("   - RD_GITHUB_REPOS: Comma-separated list of repos (owner/repo)");
-            println!("   - RD_GITHUB_TEAMS: Comma-separated list of team slugs");
-            println!("   - RD_CREW_MEMBERS: Comma-separated list of crew member usernames");
+        Commands::Config { action } => {
+            match action {
+                cli::ConfigAction::Init { force } => {
+                    run_config_init(force)?;
+                }
+                cli::ConfigAction::Show => {
+                    run_config_show()?;
+                }
+                cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
+                    run_config_update(
+                        token.as_deref(),
+                        username.as_deref(),
+                        org.as_deref(),
+                        repos.as_deref(),
+                        teams.as_deref(),
+                    )?;
+                }
+            }
         }
     }
 
@@ -12731,4 +12764,190 @@ fn parse_selection(input: &str, total: usize) -> Selection {
     }
 
     Selection::Indices(indices.into_iter().collect())
+}
+
+// =============================================================================
+// Config Management Functions
+// =============================================================================
+
+fn get_config_path() -> std::path::PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("prctrl")
+        .join("config.toml")
+}
+
+fn run_config_init(force: bool) -> anyhow::Result<()> {
+    use std::io::{self, Write};
+    
+    let config_path = get_config_path();
+
+    if config_path.exists() && !force {
+        println!("\n⚠️  Config already exists at {:?}", config_path);
+        println!("   Use --force to overwrite");
+        return Ok(());
+    }
+
+    println!("\n🚀 PRCtrl Configuration Setup\n");
+    println!("This will create a config file at:");
+    println!("  {:?}\n", config_path);
+    println!("Let's get some info:\n");
+
+    let mut github_token = String::new();
+    let mut github_username = String::new();
+    let mut github_org = String::new();
+    let mut github_repos = String::new();
+    let mut github_teams = String::new();
+
+    print!("📦 GitHub Personal Access Token (ghp_xxx): ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut github_token)?;
+    github_token = github_token.trim().to_string();
+
+    print!("👤 GitHub Username: ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut github_username)?;
+    github_username = github_username.trim().to_string();
+
+    print!("🏢 GitHub Organization: ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut github_org)?;
+    github_org = github_org.trim().to_string();
+
+    print!("📚 Repos to monitor (comma-separated): ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut github_repos)?;
+    github_repos = github_repos.trim().to_string();
+
+    print!("👥 GitHub Teams (optional, comma-separated): ");
+    io::stdout().flush()?;
+    io::stdin().read_line(&mut github_teams)?;
+    github_teams = github_teams.trim().to_string();
+
+    let config_content = format!(r#"# PRCtrl Configuration
+# Generated by `prctrl config init`
+
+[github]
+token = "{github_token}"
+username = "{github_username}"
+org = "{github_org}"
+repos = [{repos}]
+teams = [{teams}]
+
+[notifications]
+enabled = true
+interval = 300
+
+[defaults]
+include_drafts = false
+exclude_prefix = ["chore(deps)"]
+"#,
+        repos = github_repos.split(',').map(|s| format!("\"{}\"", s.trim())).collect::<Vec<_>>().join(", "),
+        teams = if github_teams.is_empty() {
+            "[]".to_string()
+        } else {
+            github_teams.split(',').map(|s| format!("\"{}\"", s.trim().to_lowercase())).collect::<Vec<_>>().join(", ")
+        }
+    );
+
+    if let Some(parent) = config_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(&config_path, config_content)?;
+
+    println!("\n✅ Config saved to {:?}", config_path);
+    println!("\nNext steps:");
+    println!("  1. Run `prctrl list` to test your config");
+    println!("  2. Or set environment variables - see README");
+    println!();
+
+    Ok(())
+}
+
+fn run_config_show() -> anyhow::Result<()> {
+    let config_path = get_config_path();
+
+    if !config_path.exists() {
+        println!("\n⚠️  No config file found at {:?}", config_path);
+        println!("   Run `prctrl config init` to create one\n");
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&config_path)?;
+    println!("\n📄 Current Configuration\n");
+    println!("{}", content);
+
+    Ok(())
+}
+
+fn run_config_update(
+    token: Option<&str>,
+    username: Option<&str>,
+    org: Option<&str>,
+    repos: Option<&str>,
+    teams: Option<&str>,
+) -> anyhow::Result<()> {
+    let config_path = get_config_path();
+
+    if !config_path.exists() {
+        println!("\n⚠️  No config file found.");
+        println!("   Run `prctrl config init` first.\n");
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&config_path)?;
+    let mut config: toml::Table = toml::from_str(&content)
+        .unwrap_or_else(|_| {
+            println!("⚠️  Could not parse existing config. Creating new structure.");
+            toml::Table::new()
+        });
+
+    if let Some(token) = token {
+        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
+            github.insert("token".to_string(), toml::Value::String(token.to_string()));
+        }
+    }
+
+    if let Some(username) = username {
+        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
+            github.insert("username".to_string(), toml::Value::String(username.to_string()));
+        }
+    }
+
+    if let Some(org) = org {
+        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
+            github.insert("org".to_string(), toml::Value::String(org.to_string()));
+        }
+    }
+
+    if let Some(repos) = repos {
+        let repos_array: toml::Value = repos.split(',')
+            .map(|s| toml::Value::String(s.trim().to_string()))
+            .collect::<Vec<_>>()
+            .into();
+        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
+            github.insert("repos".to_string(), repos_array);
+        }
+    }
+
+    if let Some(teams) = teams {
+        let teams_array: toml::Value = teams.split(',')
+            .map(|s| toml::Value::String(s.trim().to_lowercase()))
+            .collect::<Vec<_>>()
+            .into();
+        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
+            github.insert("teams".to_string(), teams_array);
+        }
+    }
+
+    std::fs::write(&config_path, toml::to_string_pretty(&config)?)?;
+
+    println!("\n✅ Config updated at {:?}\n", config_path);
+
+    Ok(())
 }

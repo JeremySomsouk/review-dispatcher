@@ -99,7 +99,6 @@ pub enum Commands {
         pr_numbers: Option<String>,
     },
     /// List your own open PRs (draft or not)
-    #[command(alias = "mine")]
     Mine {
         /// Output as JSON
         #[arg(long)]
@@ -683,7 +682,6 @@ pub enum Commands {
         json: bool,
     },
     /// Show CI/CD pipeline status for pending PRs (GitHub Actions, etc.)
-    #[command(alias = "ci")]
     Ci {
         /// Only show PRs with failing checks
         #[arg(long, short = 'f')]
@@ -888,7 +886,6 @@ pub enum Commands {
         json: bool,
     },
     /// Show the ONE PR you should focus on right now — the most urgent by priority score
-    #[command(alias = "focus")]
     Focus {
         /// Preview which PR would be selected without opening it
         #[arg(long, short = 'n')]
@@ -1496,6 +1493,47 @@ pub enum Commands {
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
         priority: bool,
+    },
+    /// Manage PRCtrl configuration settings
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigAction {
+    /// Create a new configuration file interactively
+    Init {
+        /// Overwrite existing configuration without prompting
+        #[arg(long, short = 'f')]
+        force: bool,
+    },
+    /// Display the current configuration file contents
+    Show,
+    /// Update specific configuration fields without full re-initialization
+    Update {
+        /// GitHub personal access token
+        #[arg(long)]
+        token: Option<String>,
+        /// GitHub username
+        #[arg(long)]
+        username: Option<String>,
+        /// GitHub organization
+        #[arg(long)]
+        org: Option<String>,
+        /// Comma-separated list of repositories (owner/repo format)
+        #[arg(long)]
+        repos: Option<String>,
+        /// Comma-separated list of GitHub team slugs
+        #[arg(long)]
+        teams: Option<String>,
+        /// Comma-separated list of crew member usernames
+        #[arg(long)]
+        crew: Option<String>,
+        /// Anthropic API key
+        #[arg(long)]
+        api_key: Option<String>,
     },
 }
 
