@@ -7723,12 +7723,8 @@ async fn main() -> anyhow::Result<()> {
                     println!("Sent: {}, Failed: {}", sent, failed);
                 }
             } else {
-                // Preview mode (dry_run or default - preview already shown above)
-                if dry_run {
-                    println!("  (dry-run)\n");
-                } else {
-                    println!("  💡 Use --dry-run to preview or --send to post comments to GitHub\n");
-                }
+                // Preview mode (dry_run or default - explicitly indicate dry-run)
+                println!("  ⚠️  DRY RUN: No comments posted. Use --send to post comments to GitHub.\n");
             }
         }
 
