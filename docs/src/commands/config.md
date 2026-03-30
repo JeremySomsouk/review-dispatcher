@@ -106,9 +106,9 @@ $ prctrl config init
 📝 Creating new configuration file...
    Path: /home/user/.prctrl/config.toml
 
-GitHub Token (RD_GITHUB_TOKEN or GITHUB_TOKEN): ghp_xxxxxxxxxxxx
-GitHub Username (RD_GITHUB_USERNAME or GITHUB_USERNAME): myusername
-GitHub Organization (RD_GITHUB_ORG or GITHUB_ORG): my-org
+GitHub Token (PRCTRL_GITHUB_TOKEN or GITHUB_TOKEN): ghp_xxxxxxxxxxxx
+GitHub Username (PRCTRL_GITHUB_USERNAME or GITHUB_USERNAME): myusername
+GitHub Organization (PRCTRL_GITHUB_ORG or GITHUB_ORG): my-org
 GitHub Repositories (comma-separated, e.g. owner/repo1,owner/repo2) (optional): owner/repo1,owner/repo2
 GitHub Teams (comma-separated slugs, optional): my-team,other-team
 Crew Members (comma-separated usernames, optional): alice,bob
@@ -148,7 +148,7 @@ $ prctrl config update --org new-org --teams new-team
 ## Notes
 
 - The configuration file is stored in TOML format
-- Environment variables (`RD_*` or `GITHUB_*`) take precedence over config file values
+- Environment variables (`PRCTRL_*` or `GITHUB_*`) take precedence over config file values
 - Use `prctrl config init --force` to regenerate the entire config file
 
 ## Reviews Location

@@ -90,12 +90,12 @@ Instead of a config file, you can use environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `RD_GITHUB_TOKEN` | GitHub personal access token |
-| `RD_GITHUB_USERNAME` | Your GitHub username |
-| `RD_GITHUB_ORG` | GitHub organization name |
-| `RD_GITHUB_REPOS` | Repos to monitor (comma-separated) |
-| `RD_GITHUB_TEAMS` | Teams to filter (optional) |
-| `RD_ANTHROPIC_API_KEY` | For Claude integration (optional) |
+| `PRCTRL_GITHUB_TOKEN` | GitHub personal access token |
+| `PRCTRL_GITHUB_USERNAME` | Your GitHub username |
+| `PRCTRL_GITHUB_ORG` | GitHub organization name |
+| `PRCTRL_GITHUB_REPOS` | Repos to monitor (comma-separated) |
+| `PRCTRL_GITHUB_TEAMS` | Teams to filter (optional) |
+| `PRCTRL_ANTHROPIC_API_KEY` | For Claude integration (optional) |
 
 ## CLI Reference
 
