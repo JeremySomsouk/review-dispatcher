@@ -113,10 +113,25 @@ impl Config {
         };
 
         // Optional: crew
-        let crew_members = std::env::var("PRCTRL_CREW_MEMBERS")
-            .or_else(|_| std::env::var("CREW_MEMBERS"))
-            .map(|s| s.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
-            .unwrap_or_default();
+        let crew_members = if let Ok(v) = std::env::var("PRCTRL_CREW_MEMBERS") {
+            v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        } else if let Ok(v) = std::env::var("CREW_MEMBERS") {
+            v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        } else if let Some(ref t) = toml {
+            t
+                .get("github")
+                .and_then(|s| s.as_table())
+                .and_then(|t| t.get("crew_members"))
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
 
         let anthropic_api_key = std::env::var("PRCTRL_ANTHROPIC_API_KEY")
             .ok()
