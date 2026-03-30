@@ -177,10 +177,13 @@ async fn main() -> anyhow::Result<()> {
                     for review in &filtered {
                         writer::write_review(dir, review, None)?;
                     }
+                    let index_name = index_path.file_name()
+                        .map(|n| n.to_string_lossy())
+                        .unwrap_or_else(|| "INDEX.md".into());
                     println!(
                         "\n📁 Written to {}  (index: {})",
                         dir.display().to_string().cyan(),
-                        index_path.file_name().unwrap().to_string_lossy().dimmed()
+                        index_name.dimmed()
                     );
                 }
             }
@@ -359,10 +362,13 @@ async fn main() -> anyhow::Result<()> {
                 for review in &filtered {
                     writer::write_review(dir, review, None)?;
                 }
+                let index_name = index_path.file_name()
+                    .map(|n| n.to_string_lossy())
+                    .unwrap_or_else(|| "INDEX.md".into());
                 println!(
                     "\n📁 Written to {}  (index: {})",
                     dir.display().to_string().cyan(),
-                    index_path.file_name().unwrap().to_string_lossy().dimmed()
+                    index_name.dimmed()
                 );
             }
         }
