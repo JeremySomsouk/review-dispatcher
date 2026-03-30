@@ -31,8 +31,7 @@ cargo install --git https://github.com/JeremySomsouk/prctrl
 
 ```bash
 # 1. Configure your GitHub credentials
-cp .env.example .env
-nano .env  # Add your GITHUB_TOKEN, GITHUB_ORG, etc.
+prctrl config init
 
 # 2. See what needs your attention
 prctrl list
@@ -111,20 +110,38 @@ prctrl activity --days 7
 
 ## Configuration
 
-### Environment Variables
+### Interactive Setup
 
-Create a `.env` file based on `.env.example`:
+```bash
+prctrl config init
+```
+
+This creates a configuration file at `~/.prctrl/config.toml`:
+
+```toml
+[github]
+token = "ghp_xxxxxxxxxxxxxxxxxxxx"
+username = "john_doe"
+org = "my-company"
+repos = ["frontend", "backend"]
+teams = ["platform", "backend"]  # optional
+```
+
+### Environment Variables (Alternative)
+
+Instead of a config file, you can use environment variables:
 
 ```bash
 # Required
-GITHUB_TOKEN=ghp_xxxxxxxxxxxx    # GitHub Personal Access Token
-GITHUB_ORG=my-company            # Your GitHub organization
-GITHUB_REPOS=frontend,backend    # Repos to monitor (comma-separated)
-GITHUB_USERNAME=john_doe         # Your GitHub username
+PRCTRL_GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+PRCTRL_GITHUB_USERNAME=john_doe
+PRCTRL_GITHUB_ORG=my-company
+PRCTRL_GITHUB_REPOS=frontend,backend
 
 # Optional
-GITHUB_TEAMS=platform,backend    # Filter by teams
-CREW_MEMBERS=alice,bob,carol      # For team lead perspective
+PRCTRL_GITHUB_TEAMS=platform,backend
+PRCTRL_CREW_MEMBERS=alice,bob,carol
+PRCTRL_ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
 ```
 
 ### Getting a GitHub Token
@@ -132,7 +149,7 @@ CREW_MEMBERS=alice,bob,carol      # For team lead perspective
 1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens
 2. Generate New Token (Classic)
 3. Select scopes: `repo`, `read:user`, `notifications`
-4. Copy the token to your `.env`
+4. Add the token to your config or environment
 
 ## All Commands
 
