@@ -7,6 +7,7 @@ PRCtrl helps engineering teams manage PR reviews efficiently. Monitor incoming P
 ![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)
 ![macOS](https://img.shields.io/badge/macOS-native-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
+[![Docs](https://img.shields.io/badge/Documentation-Online-blue.svg)](https://jeremysomsouk.github.io/prctrl/)
 
 ## What It Does
 
@@ -84,6 +85,15 @@ teams = ["platform", "backend"]  # optional
 3. Select scopes: `repo`, `read:user`, `notifications`
 4. Copy the token and add it to your config
 
+**Optional: Configure Crew Members**
+
+The `crew` feature filters PRs to show only those from your team members:
+
+```toml
+[github]
+# ... required fields above ...
+crew_members = ["alice", "bob", "carol"]
+
 **Alternative: Environment Variables**
 
 Instead of a config file, you can use environment variables:
@@ -141,11 +151,11 @@ prctrl delegate 4821
 
 ## Documentation
 
-Full documentation at **https://www.somsouk.fr/prctrl**
+- [Full Documentation](https://jeremysomsouk.github.io/prctrl/) — User guide and command reference
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to contribute to PRCtrl
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) — Common issues and solutions
 
-## Contributing
-
-Issues and PRs welcome. Please read the docs in `docs/` before contributing.
+Issues and PRs welcome!
 
 ## License
 
