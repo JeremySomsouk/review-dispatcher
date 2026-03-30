@@ -4,6 +4,8 @@
 
 PRCtrl helps engineering teams manage PR reviews efficiently. Monitor incoming PRs, get smart notifications, and integrate with AI for instant triage — all from the command line.
 
+[![crates.io](https://img.shields.io/crates/v/prctrl.svg)](https://crates.io/crates/prctrl)
+[![crates.io](https://img.shields.io/crates/d/prctrl.svg)](https://crates.io/crates/prctrl)
 ![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)
 ![macOS](https://img.shields.io/badge/macOS-native-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
