@@ -2840,7 +2840,7 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, quiet, repo, author, priority } => {
-            let target_pr = cli.pr.or(pr_number.clone());
+            let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
             let filtered_reviews: Vec<_> = {
