@@ -17,6 +17,36 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
+/// Reads snoozed PRs from .snoozed.json and returns Vec<(repo, pr_number)> for PRs still in snooze period.
+fn read_snoozed_prs(snooze_file: &PathBuf) -> Vec<(String, u64)> {
+    if !snooze_file.exists() {
+        return Vec::new();
+    }
+    let content = match std::fs::read_to_string(snooze_file) {
+        Ok(c) => c,
+        Err(_) => return Vec::new(),
+    };
+    let entries = match serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+        Ok(e) => e,
+        Err(_) => return Vec::new(),
+    };
+    let now = chrono::Utc::now();
+    entries
+        .into_iter()
+        .filter_map(|e| {
+            let repo = e.get("repo")?.as_str()?.to_string();
+            let pr_number = e.get("pr_number")?.as_u64()?;
+            let until_str = e.get("snoozed_until")?.as_str()?;
+            let until = chrono::DateTime::parse_from_rfc3339(until_str).ok()?;
+            if until.with_timezone(&chrono::Utc) > now {
+                Some((repo, pr_number))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cfg = config::Config::from_env()?;
@@ -125,33 +155,7 @@ async fn main() -> anyhow::Result<()> {
                     .unwrap_or_else(|| PathBuf::from("./reviews"))
                     .join(".snoozed.json");
 
-                let now = chrono::Utc::now();
-                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
-                            entries
-                                .into_iter()
-                                .filter_map(|e| {
-                                    let repo = e.get("repo")?.as_str()?.to_string();
-                                    let pr_number = e.get("pr_number")?.as_u64()?;
-                                    let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
-                                        if until.with_timezone(&chrono::Utc) > now {
-                                            return Some((repo, pr_number));
-                                        }
-                                    }
-                                    None
-                                })
-                                .collect()
-                        } else {
-                            Vec::new()
-                        }
-                    } else {
-                        Vec::new()
-                    }
-                } else {
-                    Vec::new()
-                };
+                let snoozed_prs = read_snoozed_prs(&snooze_file);
 
                 let _snoozed_count = snoozed_prs.len();
                 filtered
@@ -261,33 +265,7 @@ async fn main() -> anyhow::Result<()> {
                     .unwrap_or_else(|| PathBuf::from("./reviews"))
                     .join(".snoozed.json");
 
-                let now = chrono::Utc::now();
-                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
-                            entries
-                                .into_iter()
-                                .filter_map(|e| {
-                                    let repo = e.get("repo")?.as_str()?.to_string();
-                                    let pr_number = e.get("pr_number")?.as_u64()?;
-                                    let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
-                                        if until.with_timezone(&chrono::Utc) > now {
-                                            return Some((repo, pr_number));
-                                        }
-                                    }
-                                    None
-                                })
-                                .collect()
-                        } else {
-                            Vec::new()
-                        }
-                    } else {
-                        Vec::new()
-                    }
-                } else {
-                    Vec::new()
-                };
+                let snoozed_prs = read_snoozed_prs(&snooze_file);
 
                 filtered
                     .into_iter()
