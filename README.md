@@ -58,13 +58,37 @@ cargo install --path .
 
 ## Configuration
 
+Run the interactive setup to configure PRCtrl:
+
 ```bash
-# Create .env file in project root or ~/.prctrl/.env
-cp .env.example .env
-# Edit with your GitHub token and settings
+prctrl config init
 ```
 
-**Required environment variables:**
+This creates a config file at `~/.prctrl/config.toml` with your GitHub settings.
+
+**Example configuration:**
+
+```toml
+# ~/.prctrl/config.toml
+
+[github]
+token = "ghp_xxxxxxxxxxxxxxxxxxxx"
+username = "john_doe"
+org = "my-company"
+repos = ["frontend", "backend", "mobile"]
+teams = ["platform", "backend"]  # optional
+```
+
+**Getting a GitHub Token:**
+
+1. Go to GitHub → Settings → Developer Settings → Personal Access Tokens
+2. Generate New Token (Classic)
+3. Select scopes: `repo`, `read:user`, `notifications`
+4. Copy the token and add it to your config
+
+**Alternative: Environment Variables**
+
+Instead of a config file, you can use environment variables:
 
 | Variable | Description |
 |----------|-------------|
