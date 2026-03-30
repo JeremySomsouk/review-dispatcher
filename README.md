@@ -46,9 +46,7 @@ prctrl monitor
 
 ### From Source
 ```bash
-git clone https://github.com/JeremySomsouk/prctrl.git
-cd prctrl
-cargo install --path .
+cargo install --git https://github.com/JeremySomsouk/prctrl
 ```
 
 ### Requirements
