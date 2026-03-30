@@ -150,3 +150,13 @@ $ prctrl config update --org new-org --teams new-team
 - The configuration file is stored in TOML format
 - Environment variables (`RD_*` or `GITHUB_*`) take precedence over config file values
 - Use `prctrl config init --force` to regenerate the entire config file
+
+## Reviews Location
+
+When you run `prctrl list` or other commands, review files are stored in:
+
+```
+~/.prctrl/reviews/
+```
+
+This keeps your reviews organized with your config.

@@ -1,5 +1,13 @@
 mod cli;
 mod config;
+
+fn get_reviews_dir() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("prctrl")
+        .join("reviews")
+}
+
 mod dispatcher;
 mod github;
 mod logger;
@@ -94,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
     .await?;
 
     // Resolve output dir (default: ./reviews/)
-    let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(PathBuf::from("./reviews")));
+    let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(get_reviews_dir()));
 
     match cli.command {
         Commands::List { json, since_days, priority, repo, author, pr, pr_numbers } => {
@@ -8954,14 +8962,12 @@ async fn main() -> anyhow::Result<()> {
             // ── Top authors ──
             let mut top_authors: Vec<(String, u32)> = by_author
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect();
             top_authors.sort_by(|a, b| b.1.cmp(&a.1));
 
             // ── Top repos ──
             let mut top_repos: Vec<(String, u32)> = by_repo
                 .into_iter()
-                .map(|(k, v)| (k, v))
                 .collect();
             top_repos.sort_by(|a, b| b.1.cmp(&a.1));
 
