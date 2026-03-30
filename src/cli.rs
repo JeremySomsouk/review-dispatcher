@@ -1531,6 +1531,9 @@ pub enum ConfigAction {
         /// Comma-separated list of crew member usernames
         #[arg(long)]
         crew: Option<String>,
+        /// Fetch crew members dynamically from GitHub teams (requires --teams to be set)
+        #[arg(long)]
+        fetch_crew: bool,
         /// Anthropic API key
         #[arg(long)]
         api_key: Option<String>,
