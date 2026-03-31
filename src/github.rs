@@ -1365,3 +1365,31 @@ pub async fn add_pr_reaction(
 
     Ok(())
 }
+
+// Check if a user has commented on a specific PR
+pub async fn has_user_commented(
+    token: &str,
+    org: &str,
+    repo: &str,
+    pr_number: u64,
+    username: &str,
+) -> Result<bool> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let comments = client.issues(org, repo)
+        .list_comments(pr_number)
+        .per_page(100)
+        .send()
+        .await?;
+
+    for comment in comments {
+        let user_login = comment.user.login;
+        if user_login.to_lowercase() == username.to_lowercase() {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}

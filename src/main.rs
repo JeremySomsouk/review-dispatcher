@@ -7595,6 +7595,33 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Filter out PRs where the user has already commented
+            let username = cfg.github_username.clone();
+            let token = cfg.github_token.clone();
+            let org = cfg.github_org.clone();
+
+            let mut prs_to_chase = Vec::new();
+            for pr in stale_prs {
+                let already_commented = github::has_user_commented(&token, &org, &pr.repo, pr.pr_number, &username).await;
+                match already_commented {
+                    Ok(true) => {
+                        println!("\n⏭️  Skipping #{} - you already commented", pr.pr_number);
+                    }
+                    Ok(false) => {
+                        prs_to_chase.push(pr);
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Could not check comments for #{}: {}", pr.pr_number, e);
+                        prs_to_chase.push(pr); // Include anyway on error
+                    }
+                }
+            }
+
+            if prs_to_chase.is_empty() {
+                println!("\n🎉 No PRs to chase (all already commented or errors)!\n");
+                return Ok(());
+            }
+
             // Default chase message template
             let default_message = "👋 Hi @{author}! Just checking in on this PR — it's been waiting for review for {days} days. Could you please address any pending feedback or let us know if it's ready for another look? Thanks!";
             
@@ -7613,7 +7640,7 @@ async fn main() -> anyhow::Result<()> {
                 pub priority_score: u8,
             }
 
-            let chase_entries: Vec<ChaseEntry> = stale_prs
+            let chase_entries: Vec<ChaseEntry> = prs_to_chase
                 .iter()
                 .map(|r| {
                     let days_waiting = (now - r.created_at).num_days();

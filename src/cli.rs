@@ -17,7 +17,7 @@ pub struct Cli {
     pub open_terminal: bool,
 
     /// Include PRs you authored
-    #[arg(long, short = 'm', global = true)]
+    #[arg(long, global = true)]
     pub include_mine: bool,
 
     /// Include draft PRs
