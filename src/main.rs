@@ -105,7 +105,45 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(get_reviews_dir()));
 
     match cli.command {
-        Commands::List { json, since_days, priority, repo, author, pr, pr_numbers } => {
+        Commands::List { json, since_days, priority, repo, author, pr, pr_numbers, commented } => {
+
+
+            // Handle --commented flag: fetch PRs where user has commented
+            if commented {
+                let username = cfg.github_username.clone();
+                let token = cfg.github_token.clone();
+                let org = cfg.github_org.clone();
+
+                match github::fetch_prs_user_commented_on(&token, &org, &cfg.github_repos, &username).await {
+                    Ok(commented_prs) => {
+                        if commented_prs.is_empty() {
+                            println!("\n💬 No PRs found where you have commented.\n");
+                        } else {
+                            println!("\n💬 PRs you have commented on ({} total):\n", commented_prs.len());
+                            // Apply filters
+                            let filtered: Vec<_> = commented_prs.into_iter()
+                                .filter(|r| repo.as_ref().map(|p| r.repo.to_lowercase().contains(&p.to_lowercase())).unwrap_or(true))
+                                .filter(|r| author.as_ref().map(|p| r.pr_author.to_lowercase().contains(&p.to_lowercase())).unwrap_or(true))
+                                .filter(|r| since_days.map(|d| {
+                                    let cutoff = chrono::Utc::now() - chrono::Duration::days(d as i64);
+                                    r.created_at >= cutoff
+                                }).unwrap_or(true))
+                                .collect();
+
+                            for pr in filtered {
+                                let age = (chrono::Utc::now() - pr.created_at).num_days();
+                                println!("  #{} {} by {} ({}d)", pr.pr_number, pr.pr_title.bold(), pr.pr_author.cyan(), age);
+                            }
+                            println!();
+                        }
+                    }
+                    Err(e) => {
+                        println!("\n❌ Failed to fetch commented PRs: {}\n", e);
+                    }
+                }
+                return Ok(());
+            }
+
             // Priority: global --pr flag > local --pr > local --pr_numbers
             let target_pr = cli.pr.or(pr);
 
@@ -139,7 +177,25 @@ async fn main() -> anyhow::Result<()> {
                 )
                 .await?
             } else {
-                reviews.clone()
+                // Combine: PRs where user is requested + PRs where user commented
+                let mut all_prs = reviews.clone();
+                
+                // Fetch PRs where user has commented
+                match github::fetch_prs_user_commented_on(&cfg.github_token, &cfg.github_org, &cfg.github_repos, &cfg.github_username).await {
+                    Ok(mut commented_prs) => {
+                        // Add commented PRs that aren't already in the list
+                        for cpr in commented_prs.drain(..) {
+                            if !all_prs.iter().any(|r| r.pr_number == cpr.pr_number && r.repo == cpr.repo) {
+                                all_prs.push(cpr);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Could not fetch commented PRs: {}", e);
+                    }
+                }
+                
+                all_prs
             };
 
             // Apply --since filter

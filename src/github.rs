@@ -1393,3 +1393,60 @@ pub async fn has_user_commented(
 
     Ok(false)
 }
+
+// Fetch PRs where the user has commented
+pub async fn fetch_prs_user_commented_on(
+    token: &str,
+    org: &str,
+    repos: &[String],
+    username: &str,
+) -> Result<Vec<PendingReview>> {
+    let client = Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()?;
+
+    let mut all_commented_prs: Vec<PendingReview> = Vec::new();
+
+    for repo in repos {
+        // Get all open PRs
+        let prs = client.pulls(org, repo)
+            .list()
+            .state(octocrab::params::State::Open)
+            .per_page(100)
+            .send()
+            .await?;
+
+        for pr in prs.items {
+            let number = pr.number;
+            // Check if user has commented on this PR
+            let comments = client.issues(org, repo)
+                .list_comments(number)
+                .per_page(100)
+                .send()
+                .await?;
+
+            // Get all items from the Page
+            let all_comments: Vec<_> = comments.into_iter().collect();
+            let user_commented = all_comments.iter().any(|c| {
+                c.user.login == username
+            });
+
+            if user_commented {
+                all_commented_prs.push(PendingReview {
+                    repo: repo.clone(),
+                    pr_number: number,
+                    pr_title: pr.title.unwrap_or_default(),
+                    pr_author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                    pr_url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                    created_at: pr.created_at.unwrap_or_default(),
+                    additions: 0,
+                    deletions: 0,
+                    draft: pr.draft.unwrap_or(false),
+                    branch: pr.head.label.clone().unwrap_or_default(),
+                });
+            }
+        }
+    }
+
+    Ok(all_commented_prs)
+}

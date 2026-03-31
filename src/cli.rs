@@ -63,6 +63,9 @@ pub enum Commands {
         /// Show specific PR by number (shorthand for --pr)
         #[arg(long, short = 'p')]
         pr: Option<u64>,
+        /// Show PRs where the user has already commented
+        #[arg(long)]
+        commented: bool,
         /// Show specific PR(s) by number (comma-separated)
         #[arg(long)]
         pr_numbers: Option<String>,

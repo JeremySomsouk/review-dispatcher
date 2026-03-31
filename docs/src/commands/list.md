@@ -1,8 +1,8 @@
 # list
 
-**List all PRs waiting for your review.**
+**List all PRs waiting for your review or where you've commented.**
 
-This is your starting point. Shows every PR where you're requested as a reviewer, sorted by oldest first (so you never miss an aging PR).
+This is your starting point. Shows every PR where you're requested as a reviewer, plus PRs where you've already commented (so you can easily revisit your feedback). Sorted by oldest first.
 
 ## When to Use
 
@@ -28,6 +28,7 @@ prctrl ls [OPTIONS]     # shorthand alias
 | `--author <NAME>` | Filter by author (partial match, case-insensitive) | - |
 | `-p, --pr <NUMBER>` | Show specific PR by number | - |
 | `--pr-numbers <NUMBERS>` | Show specific PR(s) by number (comma-separated) | - |
+| `--commented` | Show only PRs where you have already commented | `false` |
 
 ## Examples
 
@@ -59,6 +60,9 @@ prctrl list -p 4821
 
 # Show multiple PRs by number
 prctrl list --pr-numbers 4821,3156
+
+# Show only PRs where you have commented
+prctrl list --commented
 ```
 
 ## Output Example
