@@ -76,6 +76,23 @@ prctrl approve --pr 4821 --json
 ## Tips
 
 - Use `--dry-run` (`-n`) to preview what would be approved before actually approving
+- When `--pr` matches a PR in multiple repos, you'll be asked to choose which one
+- **Confirmation is required** before approving (unless using `--dry-run`)
+
+## Disambiguation
+
+If your organization has the same PR number across different repositories, using `--pr` will show a selection menu:
+
+```
+📋 PR #4821 found in multiple repos:
+
+  1. frontend / #4821 feat: add dark mode
+  2. backend / #4821 fix: login timeout
+
+Select repo (q to quit):
+```
+
+This prevents accidentally approving the wrong PR.
 - Use `--all` to quickly approve ALL pending reviews at once
 - Use `--author` and `--repo` filters to narrow down which reviews to approve
 - Use `--priority` to see priority scores when selecting reviews interactively

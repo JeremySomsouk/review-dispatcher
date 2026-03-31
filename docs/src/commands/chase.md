@@ -113,6 +113,8 @@ When run with `--send`:
 
 **Dry-run by default**: Without any flag, the command shows a preview. Use `--dry-run` to be explicit, or `--send` to actually post comments to GitHub.
 
+**PRs you already commented on are skipped**: If you've already left a comment on a PR, it will be automatically skipped to avoid duplicate notifications.
+
 ## Tips
 
 - Start with a dry run to review the message tone
