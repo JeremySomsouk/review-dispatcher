@@ -1405,48 +1405,100 @@ pub async fn fetch_prs_user_commented_on(
         .personal_token(token.to_string())
         .build()?;
 
-    let mut all_commented_prs: Vec<PendingReview> = Vec::new();
+    // Phase 1: Collect all PRs across all repos in parallel
+    #[derive(Clone)]
+    struct CandidatePr {
+        repo: String,
+        number: u64,
+        title: String,
+        author: String,
+        url: String,
+        created_at: DateTime<Utc>,
+        draft: bool,
+        branch: String,
+    }
 
-    for repo in repos {
-        // Get all open PRs
-        let prs = client.pulls(org, repo)
-            .list()
-            .state(octocrab::params::State::Open)
-            .per_page(100)
-            .send()
-            .await?;
+    let repo_futures = repos.iter().map(|repo| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = repo.clone();
+        let org = org.to_string();
+        async move {
+            let prs = client.pulls(&org, &repo)
+                .list()
+                .state(octocrab::params::State::Open)
+                .per_page(100)
+                .send()
+                .await
+                .unwrap_or_default();
+            
+            prs.items.into_iter().map(move |pr| {
+                CandidatePr {
+                    repo: repo.clone(),
+                    number: pr.number,
+                    title: pr.title.unwrap_or_default(),
+                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                    url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                    created_at: pr.created_at.unwrap_or_default(),
+                    draft: pr.draft.unwrap_or(false),
+                    branch: pr.head.label.clone().unwrap_or_default(),
+                }
+            }).collect::<Vec<_>>()
+        }
+    });
 
-        for pr in prs.items {
-            let number = pr.number;
-            // Check if user has commented on this PR
-            let comments = client.issues(org, repo)
+    let all_candidates: Vec<CandidatePr> = join_all(repo_futures)
+        .await
+        .into_iter()
+        .flatten()
+        .collect();
+
+    // Phase 2: Check comments for all PRs in parallel
+    let check_futures = all_candidates.iter().map(|c| {
+        let client = Octocrab::builder()
+            .personal_token(token.to_string())
+            .build()
+            .unwrap();
+        let repo = c.repo.clone();
+        let org = org.to_string();
+        let number = c.number;
+        let username = username.to_string();
+        
+        async move {
+            let comments = client.issues(&org, &repo)
                 .list_comments(number)
                 .per_page(100)
                 .send()
-                .await?;
-
-            // Get all items from the Page
+                .await
+                .unwrap_or_default();
+            
             let all_comments: Vec<_> = comments.into_iter().collect();
-            let user_commented = all_comments.iter().any(|c| {
-                c.user.login == username
-            });
-
-            if user_commented {
-                all_commented_prs.push(PendingReview {
-                    repo: repo.clone(),
-                    pr_number: number,
-                    pr_title: pr.title.unwrap_or_default(),
-                    pr_author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
-                    pr_url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
-                    created_at: pr.created_at.unwrap_or_default(),
-                    additions: 0,
-                    deletions: 0,
-                    draft: pr.draft.unwrap_or(false),
-                    branch: pr.head.label.clone().unwrap_or_default(),
-                });
-            }
+            let user_commented = all_comments.iter().any(|c| c.user.login == username);
+            (c.clone(), user_commented)
         }
-    }
+    });
 
-    Ok(all_commented_prs)
+    let results: Vec<(CandidatePr, bool)> = join_all(check_futures).await;
+
+    // Phase 3: Collect PRs where user commented
+    let commented_prs: Vec<PendingReview> = results
+        .into_iter()
+        .filter(|(_, commented)| *commented)
+        .map(|(c, _)| PendingReview {
+            repo: c.repo,
+            pr_number: c.number,
+            pr_title: c.title,
+            pr_author: c.author,
+            pr_url: c.url,
+            created_at: c.created_at,
+            additions: 0,
+            deletions: 0,
+            draft: c.draft,
+            branch: c.branch,
+        })
+        .collect();
+
+    Ok(commented_prs)
 }
