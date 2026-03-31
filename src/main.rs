@@ -3272,22 +3272,36 @@ async fn main() -> anyhow::Result<()> {
             let mut results: Vec<ApproveResult> = Vec::new();
             let approval_message = message.clone().unwrap_or_else(|| "LGTM!".to_string());
 
-            // Dry-run mode: just show what would be approved
-            if dry_run {
-                println!("\n🔍 Dry-run mode — the following PRs would be approved:\n");
+            // Show what will be approved and ask for confirmation
+            if !dry_run {
+                println!("\n🔍 About to approve the following PRs:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    let priority_label = if priority {
-                        let score = logger::calculate_priority_score(review);
-                        format!(" {}", logger::priority_stars(score).dimmed())
-                    } else {
-                        String::new()
-                    };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!("  {}. #{} {}  ({})",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
-                        review.repo.cyan(),
-                        priority_label
+                        review.repo.cyan()
+                    );
+                }
+                println!("\n  Total: {} PR(s)\n", prs.len());
+                
+                print!("{} ", "Continue with approval? (y/n):".yellow().bold());
+                io::stdout().flush()?;
+                let mut confirm = String::new();
+                io::stdin().read_line(&mut confirm)?;
+                if !confirm.trim().to_lowercase().starts_with('y') {
+                    println!("\n❌ Approval cancelled.\n");
+                    return Ok(());
+                }
+                println!();
+            } else {
+                println!("\n🔍 Dry-run mode — the following PRs would be approved:\n");
+                for (i, review) in prs.iter().enumerate() {
+                    println!("  {}. #{} {}  ({})",
+                        i + 1,
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        review.repo.cyan()
                     );
                 }
                 println!("\n  Total: {} PR(s)\n", prs.len());
