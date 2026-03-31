@@ -239,7 +239,7 @@ pub enum Commands {
         #[arg(long)]
         no_auto_open: bool,
         /// Interactive mode - prompt for actions on new PRs
-        #[arg(long)]
+        #[arg(long, default_value_t = true)]
         interactive: bool,
     },
     /// Stop the running monitor process
@@ -1020,7 +1020,7 @@ pub enum Commands {
         #[arg(long, short = 'x')]
         older_than: Option<u32>,
         /// Group output by age bucket instead of flat list
-        #[arg(long, short = 'g', default_value_t = false)]
+        #[arg(long, short = 'g', default_value_t = true)]
         grouped: bool,
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
@@ -1041,7 +1041,7 @@ pub enum Commands {
         #[arg(long, short = 'f')]
         filter_size: Option<String>,
         /// Group output by size bucket instead of flat list
-        #[arg(long, short = 'g', default_value_t = false)]
+        #[arg(long, short = 'g', default_value_t = true)]
         grouped: bool,
         /// Show priority scores for each PR (1-5 stars based on age and size)
         #[arg(long, short = 'P')]
