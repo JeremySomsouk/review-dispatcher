@@ -169,13 +169,48 @@ async fn main() -> anyhow::Result<()> {
                     .flatten()
                     .collect()
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 // Combine: PRs where user is requested + PRs where user commented
                 let mut all_prs = reviews.clone();
@@ -1201,13 +1236,48 @@ async fn main() -> anyhow::Result<()> {
                     .flatten()
                     .collect()
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 reviews.clone()
             };
@@ -2586,13 +2656,48 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
@@ -2787,13 +2892,48 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
@@ -2988,13 +3128,48 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
@@ -3226,13 +3401,48 @@ async fn main() -> anyhow::Result<()> {
                     .collect();
                 all_prs
             } else if let Some(num) = target_pr {
-                github::fetch_pr_by_number(
+                let fetched = github::fetch_pr_by_number(
                     &cfg.github_token,
                     &cfg.github_org,
                     &cfg.github_repos,
                     num,
                 )
-                .await?
+                .await?;
+                
+                // If PR exists in multiple repos, ask user to choose
+                if fetched.len() > 1 {
+                    println!("\n📋 PR #{} found in multiple repos:\n", num);
+                    for (i, pr) in fetched.iter().enumerate() {
+                        println!("  {}. {} / #{} {}", 
+                            i + 1, 
+                            pr.repo.cyan(), 
+                            pr.pr_number, 
+                            pr.pr_title.bold()
+                        );
+                    }
+                    print!("\n{} ", "Select repo (q to quit):".bold());
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    
+                    if input.trim().to_lowercase() == "q" {
+                        return Ok(());
+                    }
+                    
+                    if let Ok(idx) = input.trim().parse::<usize>() {
+                        if idx > 0 && idx <= fetched.len() {
+                            vec![fetched[idx - 1].clone()]
+                        } else {
+                            println!("Invalid selection.");
+                            return Ok(());
+                        }
+                    } else {
+                        println!("Invalid input.");
+                        return Ok(());
+                    }
+                } else {
+                    fetched
+                }
             } else {
                 if filtered_reviews.is_empty() {
                     println!("No matching reviews found.");
