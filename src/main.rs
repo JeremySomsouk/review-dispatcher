@@ -213,15 +213,16 @@ async fn main() -> anyhow::Result<()> {
                 }
             } else {
                 // Combine: PRs where user is requested + PRs where user commented
-                let mut all_prs = reviews.clone();
+                // Split into two groups
+                let mut requested: Vec<_> = reviews.clone();
+                let mut commented: Vec<_> = Vec::new();
                 
                 // Fetch PRs where user has commented
                 match github::fetch_prs_user_commented_on(&cfg.github_token, &cfg.github_org, &cfg.github_repos, &cfg.github_username).await {
-                    Ok(mut commented_prs) => {
-                        // Add commented PRs that aren't already in the list
-                        for cpr in commented_prs.drain(..) {
-                            if !all_prs.iter().any(|r| r.pr_number == cpr.pr_number && r.repo == cpr.repo) {
-                                all_prs.push(cpr);
+                    Ok(commented_prs) => {
+                        for cpr in commented_prs {
+                            if !requested.iter().any(|r| r.pr_number == cpr.pr_number && r.repo == cpr.repo) {
+                                commented.push(cpr);
                             }
                         }
                     }
@@ -230,7 +231,19 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 
-                all_prs
+                // Print in two sections
+                if !requested.is_empty() {
+                    println!("\n📋 {} PR(s) requested for review:", requested.len());
+                    logger::print_reviews(&requested, priority);
+                }
+                if !commented.is_empty() {
+                    println!("\n💬 {} PR(s) you have commented on:", commented.len());
+                    logger::print_reviews(&commented, priority);
+                }
+                if requested.is_empty() && commented.is_empty() {
+                    println!("\n✅ No pending reviews. You're all clear.\n");
+                }
+                return Ok(());
             };
 
             // Apply --since filter
