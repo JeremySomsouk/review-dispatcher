@@ -1,6 +1,6 @@
 [package]
 name = "prctrl"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2021"
 description = "Terminal-native GitHub PR management. Stay on top of code reviews without leaving your terminal."
 license = "MIT"

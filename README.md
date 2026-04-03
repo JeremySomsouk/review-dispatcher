@@ -117,6 +117,7 @@ Instead of a config file, you can use environment variables:
 | `prctrl mine` | Your own open PRs |
 | `prctrl top` | Highest priority PRs |
 | `prctrl delegate [pr]` | AI triage with Claude |
+| `prctrl chat` | Interactive chat with Claude |
 | `prctrl monitor` | Background monitoring |
 | `prctrl approve <pr>` | Quick approve |
 | `prctrl chase <pr>` | Follow up stale PRs |
@@ -150,6 +151,18 @@ prctrl delegate 4821
 # Uses your existing Claude Code CLI
 # Configure instructions in ~/.prctrl/instruction.md
 ```
+
+### Interactive Chat
+```bash
+# Chat with Claude about your PRs
+prctrl chat
+
+# Chat about a specific PR
+prctrl chat --pr 4821
+```
+
+The `chat` command launches an interactive Claude Code session with context about PRCtrl commands. Ask questions about PRs, get recommendations on what to review, or learn how to use PRCtrl features.
+
 
 ## Documentation
 

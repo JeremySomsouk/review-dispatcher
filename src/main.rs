@@ -84,6 +84,17 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Handle Chat command early (doesn't need GitHub config)
+    if let Commands::Chat { pr } = &cli.command {
+        use crate::chat;
+        if chat::get_backend().is_some() {
+            chat::start_chat("claude", *pr)?;
+        } else {
+            println!("Claude CLI not found. Install: https://docs.anthropic.com/claude-cli");
+        }
+        return Ok(());
+    }
+
     let cfg = config::Config::from_env()?;
     let include_mine = cli.include_mine || cli.crew;
     let include_drafts = cli.include_drafts || cli.crew;
@@ -12747,13 +12758,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        Commands::Chat { pr } => {
-            use crate::chat;
-            if chat::get_backend().is_some() {
-                chat::start_chat("claude", pr)?;
-            } else {
-                println!("Claude CLI not found. Install: https://docs.anthropic.com/claude-cli");
-            }
+        Commands::Chat { .. } => {
+            // Already handled above before GitHub config
         }
     }
 
