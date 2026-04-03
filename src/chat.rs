@@ -31,6 +31,8 @@ prctrl approve --pr 123
 prctrl chat --pr 123
 "#;
 
+
+
 pub fn get_backend() -> Option<&'static str> {
     if Command::new("claude")
         .arg("--version")
@@ -61,17 +63,17 @@ pub fn start_chat(_backend: &str, pr_number: Option<u64>) -> Result<()> {
     let system_prompt = if let Some(pr) = pr_number {
         format!(r#"You are a helpful PR review assistant. The user is asking about PR #{}.
 
-PRCtrl commands: list, delegate, stats, team, diff, info, timeline, assign, unassign, comment, approve, claim, open, files, search, filter, ci, conflicts, labels, history, notify, summary, urgent, focus, health, top, quick, catchup, age, size, cat, digest, trends, velocity, snooze, chase, estimate, export, ready, compare, follow, blocked, config
+{}
 
 When suggesting commands, use format: `prctrl <command>`
-"#, pr)
+"#, pr, PRCTRL_DOCS)
     } else {
-        r#"You are a helpful PR review assistant.
+        format!(r#"You are a helpful PR review assistant.
 
-PRCtrl commands: list, delegate, stats, team, diff, info, timeline, assign, unassign, comment, approve, claim, open, files, search, filter, ci, conflicts, labels, history, notify, summary, urgent, focus, health, top, quick, catchup, age, size, cat, digest, trends, velocity, snooze, chase, estimate, export, ready, compare, follow, blocked, config
+{}
 
 When suggesting commands, use format: `prctrl <command>`
-"#.to_string()
+"#, PRCTRL_DOCS)
     };
 
     println!("\n🤖 PRCtrl Chat - Starting Claude...\n");
@@ -86,7 +88,7 @@ When suggesting commands, use format: `prctrl <command>`
         .expect("Failed to spawn claude");
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    let stdout = child.stdout.take().expect("Failed to capture stdout");
+    let stdout = child.stdout.as_mut().expect("Failed to capture stdout");
 
     // Send system prompt
     stdin.write_all(system_prompt.as_bytes())?;
@@ -95,7 +97,6 @@ When suggesting commands, use format: `prctrl <command>`
 
     // Shared flag to control loader
     let loading = Arc::new(AtomicBool::new(false));
-    let loading_clone = loading.clone();
 
     // Main loop - read user input and send to Claude
     loop {
@@ -128,7 +129,7 @@ When suggesting commands, use format: `prctrl <command>`
         });
 
         // Read all response lines
-        let reader = BufRead::new(stdout);
+        let reader = std::io::BufReader::new(&mut *stdout);
         let mut response_lines = Vec::new();
         for line in reader.lines() {
             if let Ok(line) = line {
