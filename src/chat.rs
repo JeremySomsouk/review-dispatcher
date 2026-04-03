@@ -1,7 +1,10 @@
 use anyhow::Result;
-use colored::Colorize;
-use std::io::Write;
+use std::io::{BufRead, Write};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 const PRCTRL_DOCS: &str = r#"# PRCtrl CLI Documentation
 
@@ -41,7 +44,20 @@ pub fn get_backend() -> Option<&'static str> {
     None
 }
 
-pub fn start_chat(backend: &str, pr_number: Option<u64>) -> Result<()> {
+fn animated_loader(stop_flag: Arc<AtomicBool>) {
+    let spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let mut i = 0;
+    while !stop_flag.load(Ordering::Relaxed) {
+        print!("\r🤖 Claude is thinking... {}", spinner[i % spinner.len()]);
+        std::io::stdout().flush().ok();
+        thread::sleep(Duration::from_millis(80));
+        i += 1;
+    }
+    print!("\r");
+    std::io::stdout().flush().ok();
+}
+
+pub fn start_chat(_backend: &str, pr_number: Option<u64>) -> Result<()> {
     let system_prompt = if let Some(pr) = pr_number {
         format!(r#"You are a helpful PR review assistant. The user is asking about PR #{}.
 
@@ -58,26 +74,34 @@ When suggesting commands, use format: `prctrl <command>`
 "#.to_string()
     };
 
-    println!("\n🤖 PRCtrl Chat - Starting {}...\n", backend.cyan());
+    println!("\n🤖 PRCtrl Chat - Starting Claude...\n");
     println!("Type 'exit' to quit.\n");
 
-    let mut child = Command::new(backend)
+    let mut child = Command::new("claude")
         .args(["--print", "--model", "sonnet"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to spawn chat backend");
+        .expect("Failed to spawn claude");
 
     let stdin = child.stdin.as_mut().expect("Failed to open stdin");
-    
-    stdin.write_all(system_prompt.as_bytes())?;
-    stdin.write_all(b"\n\nHi! I'm ready to help with PRCtrl. What would you like to do?\n\n")?;
+    let stdout = child.stdout.take().expect("Failed to capture stdout");
 
-    print!("{} ", "you:".blue().bold());
-    std::io::stdout().flush()?;
-    
+    // Send system prompt
+    stdin.write_all(system_prompt.as_bytes())?;
+    stdin.write_all(b"\n\nHi! I'm ready to help with PRCtrl. Ask me anything about your PRs.\n\n")?;
+    stdin.flush()?;
+
+    // Shared flag to control loader
+    let loading = Arc::new(AtomicBool::new(false));
+    let loading_clone = loading.clone();
+
+    // Main loop - read user input and send to Claude
     loop {
+        print!("you: ");
+        std::io::stdout().flush()?;
+        
         let mut input = String::new();
         if std::io::stdin().read_line(&mut input).is_err() {
             break;
@@ -88,12 +112,45 @@ When suggesting commands, use format: `prctrl <command>`
             println!("\n👋 Goodbye!\n");
             break;
         }
-        
+
+        // Send input and start loader
         stdin.write_all(input.as_bytes())?;
         stdin.write_all(b"\n")?;
+        stdin.flush()?;
+
+        // Start animated loader
+        loading.store(true, Ordering::Relaxed);
+        let stop_loader = Arc::new(AtomicBool::new(false));
+        let stop_clone = stop_loader.clone();
         
-        print!("{} ", "you:".blue().bold());
-        std::io::stdout().flush()?;
+        let loader_handle = thread::spawn(move || {
+            animated_loader(stop_clone);
+        });
+
+        // Read all response lines
+        let reader = BufRead::new(stdout);
+        let mut response_lines = Vec::new();
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                // Check if this looks like a new prompt (user input echo)
+                if line.starts_with("you:") || line.is_empty() {
+                    break;
+                }
+                response_lines.push(line);
+            }
+        }
+
+        // Stop loader and show response
+        stop_loader.store(true, Ordering::Relaxed);
+        let _ = loader_handle.join();
+        
+        if !response_lines.is_empty() {
+            println!();
+            for line in &response_lines {
+                println!("{}", line);
+            }
+            println!();
+        }
     }
 
     Ok(())
