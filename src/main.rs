@@ -1,4 +1,5 @@
 mod cli;
+mod chat;
 mod config;
 
 fn get_reviews_dir() -> PathBuf {
@@ -214,7 +215,7 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 // Combine: PRs where user is requested + PRs where user commented
                 // Split into two groups
-                let mut requested: Vec<_> = reviews.clone();
+                let requested: Vec<_> = reviews.clone();
                 let mut commented: Vec<_> = Vec::new();
                 
                 // Fetch PRs where user has commented
@@ -12744,6 +12745,14 @@ async fn main() -> anyhow::Result<()> {
                         teams.as_deref(),
                     )?;
                 }
+            }
+        }
+        Commands::Chat { pr } => {
+            use crate::chat;
+            if chat::get_backend().is_some() {
+                chat::start_chat("claude", pr)?;
+            } else {
+                println!("Claude CLI not found. Install: https://docs.anthropic.com/claude-cli");
             }
         }
     }

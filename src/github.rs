@@ -1401,7 +1401,7 @@ pub async fn fetch_prs_user_commented_on(
     repos: &[String],
     username: &str,
 ) -> Result<Vec<PendingReview>> {
-    let client = Octocrab::builder()
+    let _client = Octocrab::builder()
         .personal_token(token.to_string())
         .build()?;
 

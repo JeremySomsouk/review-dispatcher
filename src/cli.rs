@@ -1502,6 +1502,12 @@ pub enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// Start an interactive chat session with Claude about your PRs
+    Chat {
+        /// Start chat about a specific PR
+        #[arg(long, short = 'p')]
+        pr: Option<u64>,
+    },
 }
 
 #[derive(Subcommand, Debug)]
