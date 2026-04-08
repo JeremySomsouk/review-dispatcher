@@ -435,7 +435,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Show stacked PRs (always show, regardless of --all flag)
             use crate::stack;
-            match stack::detect_stacks(None, None) {
+            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
                 Ok(stacks) => {
                     if !stacks.is_empty() {
                         print!("{}", stack::render_stacks(&stacks));
@@ -457,7 +457,7 @@ async fn main() -> anyhow::Result<()> {
                 // Show stacked PRs if requested
                 if cli.show_stacks {
                     use crate::stack;
-                    match stack::detect_stacks(None, None) {
+                    match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
                         Ok(stacks) => {
                             if !stacks.is_empty() {
                                 print!("{}", stack::render_stacks(&stacks));
@@ -475,7 +475,7 @@ async fn main() -> anyhow::Result<()> {
                 // Show stacked PRs if requested
                 if cli.show_stacks {
                     use crate::stack;
-                    match stack::detect_stacks(None, None) {
+                    match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
                         Ok(stacks) => {
                             if !stacks.is_empty() {
                                 print!("{}", stack::render_stacks(&stacks));
@@ -12807,7 +12807,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Stack { tree: _, repo, limit } => {
             use crate::stack;
-            match stack::detect_stacks(repo.as_deref(), limit) {
+            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, None, repo.as_deref(), cli.include_drafts, limit).await {
                 Ok(stacks) => {
                     print!("{}", stack::render_stacks(&stacks));
                 }
