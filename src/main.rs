@@ -453,9 +453,39 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     logger::print_reviews(&filtered, priority);
                 }
+                
+                // Show stacked PRs if requested
+                if cli.show_stacks {
+                    use crate::stack;
+                    match stack::detect_stacks(None, None) {
+                        Ok(stacks) => {
+                            if !stacks.is_empty() {
+                                print!("{}", stack::render_stacks(&stacks));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error detecting stacked PRs: {}", e);
+                        }
+                    }
+                }
             } else {
                 // Interactive selection
                 logger::print_reviews(&filtered, priority);
+                
+                // Show stacked PRs if requested
+                if cli.show_stacks {
+                    use crate::stack;
+                    match stack::detect_stacks(None, None) {
+                        Ok(stacks) => {
+                            if !stacks.is_empty() {
+                                print!("{}", stack::render_stacks(&stacks));
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error detecting stacked PRs: {}", e);
+                        }
+                    }
+                }
                 print!(
                     "\n{} ",
                     "Select PRs [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()

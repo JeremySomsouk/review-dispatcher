@@ -28,6 +28,10 @@ pub struct Cli {
     #[arg(long, short = 'c', global = true)]
     pub crew: bool,
 
+    /// Show stacked PRs (detects PRs that build on each other)
+    #[arg(long, global = true)]
+    pub show_stacks: bool,
+
     /// Exclude PRs whose title matches these prefixes (comma-separated, default: "chore(deps)")
     #[arg(long, global = true, value_delimiter = ',', default_value = "chore(deps)")]
     pub exclude_prefix: Vec<String>,
