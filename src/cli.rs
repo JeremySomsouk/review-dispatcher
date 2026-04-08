@@ -1508,6 +1508,18 @@ pub enum Commands {
         #[arg(long, short = 'p')]
         pr: Option<u64>,
     },
+    /// Detect and visualize stacked PRs (sequential dependencies)
+    Stack {
+        /// Show the full dependency tree for a PR
+        #[arg(long, short = 't')]
+        tree: bool,
+        /// Filter by repository name
+        #[arg(long, short = 'r')]
+        repo: Option<String>,
+        /// Limit number of stacks to show
+        #[arg(long, short = 'n')]
+        limit: Option<u32>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

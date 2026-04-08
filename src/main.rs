@@ -1,6 +1,7 @@
 mod cli;
 mod chat;
 mod config;
+mod stack;
 
 fn get_reviews_dir() -> PathBuf {
     dirs::config_dir()
@@ -12760,6 +12761,17 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Chat { .. } => {
             // Already handled above before GitHub config
+        }
+        Commands::Stack { tree: _, repo, limit } => {
+            use crate::stack;
+            match stack::detect_stacks(repo.as_deref(), limit) {
+                Ok(stacks) => {
+                    print!("{}", stack::render_stacks(&stacks));
+                }
+                Err(e) => {
+                    println!("Error detecting stacks: {}", e);
+                }
+            }
         }
     }
 
