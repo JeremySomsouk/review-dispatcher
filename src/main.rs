@@ -433,25 +433,25 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
+            // Show stacked PRs (always show, regardless of --all flag)
+            use crate::stack;
+            match stack::detect_stacks(None, None) {
+                Ok(stacks) => {
+                    if !stacks.is_empty() {
+                        print!("{}", stack::render_stacks(&stacks));
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error detecting stacked PRs: {}", e);
+                }
+            }
+            
             // If --all flag is set, show all without prompting
             if all {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&filtered)?);
                 } else {
                     logger::print_reviews(&filtered, priority);
-                }
-                
-                // Show stacked PRs
-                use crate::stack;
-                match stack::detect_stacks(None, None) {
-                    Ok(stacks) => {
-                        if !stacks.is_empty() {
-                            print!("{}", stack::render_stacks(&stacks));
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error detecting stacked PRs: {}", e);
-                    }
                 }
             } else {
                 // Interactive selection
