@@ -26,6 +26,32 @@ prctrl mine [flags]
 - `-p, --pr <PR_NUMBER>` — Target a specific PR by number
 - `--pr-numbers <NUMBERS>` — Target multiple PRs by number (comma-separated, e.g., `123,456,789`)
 
+## Stack Detection
+
+The `mine` command automatically detects and displays **stacked PRs** — PRs that build on each other through branch relationships. Stacks are shown after your individual PR list.
+
+Stacked PRs are detected when:
+- PR A targets branch `feature`
+- PR B targets branch `feature-2` (or any branch that builds on `feature`)
+- This creates a stack: `feature` → `feature-2`
+
+Example stack output:
+```
+┌─ Stack on `main` (3 PRs)
+
+🔵 #123 - Add new feature
+  └─ @feature
+    https://github.com/owner/repo/pull/123
+
+  #124 - Implement API endpoint
+  └─ @feature-2
+    https://github.com/owner/repo/pull/124
+
+  #125 - Add tests
+  └─ @feature-3
+    https://github.com/owner/repo/pull/125
+```
+
 ## Global Flags
 
 These flags are available globally and work with `mine`:

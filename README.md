@@ -28,6 +28,7 @@ $ prctrl list
 - **Monitor** for new PRs with native macOS notifications
 - **Delegate** triage to Claude for instant recommendations
 - **Track** review history and team metrics
+- **Stack detection** automatically identifies PRs that build on each other
 
 ## Quick Start
 
@@ -163,6 +164,47 @@ prctrl chat --pr 4821
 
 The `chat` command launches an interactive Claude Code session with context about PRCtrl commands. Ask questions about PRs, get recommendations on what to review, or learn how to use PRCtrl features.
 
+
+## Stack Detection
+
+PRCtrl automatically detects **stacked PRs** — PRs that build on each other through branch relationships. This helps you identify dependent PRs that need to be reviewed in sequence.
+
+### How it works
+
+Stack detection analyzes branch relationships:
+- PR A targets branch `feature`
+- PR B targets branch `feature-2` (or builds on `feature`)
+- This creates a stack: `feature` → `feature-2`
+
+### Usage
+
+```bash
+# Show stacked PRs in your own PRs (automatic)
+prctrl mine
+
+# Show stacked PRs in pending reviews (opt-in)
+prctrl list --show-stacks
+```
+
+### Example Output
+
+```
+┌─ Stack on `main` (3 PRs)
+
+🔵 #123 - Add new feature
+  └─ @feature
+    https://github.com/owner/repo/pull/123
+
+  #124 - Implement API endpoint
+  └─ @feature-2
+    https://github.com/owner/repo/pull/124
+
+  #125 - Add tests
+  └─ @feature-3
+    https://github.com/owner/repo/pull/125
+```
+
+The blue dot (🔵) indicates the base PR of each stack.
 
 ## Documentation
 

@@ -29,6 +29,7 @@ prctrl ls [OPTIONS]     # shorthand alias
 | `-p, --pr <NUMBER>` | Show specific PR by number | - |
 | `--pr-numbers <NUMBERS>` | Show specific PR(s) by number (comma-separated) | - |
 | `--commented` | Show only PRs where you have already commented | `false` |
+| `--show-stacks` | Show stacked PRs (PRs that build on each other) | `false` |
 
 ## Examples
 
@@ -63,6 +64,12 @@ prctrl list --pr-numbers 4821,3156
 
 # Show only PRs where you have commented
 prctrl list --commented
+
+# Show PRs with stacked PR detection
+prctrl list --show-stacks
+
+# Combine with other filters
+prctrl list --repo api --show-stacks --priority
 ```
 
 ## Output Example
@@ -81,3 +88,30 @@ prctrl list --commented
 - PRs are sorted oldest-first so you don't miss stale reviews
 - Use `--priority` to surface the most urgent ones visually
 - Combine with `--repo` to focus on one codebase at a time
+- Use `--show-stacks` to see PRs that build on each other (stacked PRs)
+
+## Stack Detection
+
+When `--show-stacks` is enabled, `list` detects **stacked PRs** — PRs where one PR's base branch is another PR's head branch. This helps identify dependent PRs that need to be reviewed in sequence.
+
+Example stack output:
+```
+┌─ Stack on `main` (3 PRs)
+
+🔵 #123 - Add new feature
+  └─ @feature
+    https://github.com/owner/repo/pull/123
+
+  #124 - Implement API endpoint
+  └─ @feature-2
+    https://github.com/owner/repo/pull/124
+
+  #125 - Add tests
+  └─ @feature-3
+    https://github.com/owner/repo/pull/125
+```
+
+Stack detection works by analyzing branch relationships:
+- PR targeting branch `feature` is the base
+- PR targeting branch `feature-2` builds on it
+- This creates a stack that should be reviewed in order
