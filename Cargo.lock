@@ -1437,7 +1437,7 @@ dependencies = [
 
 [[package]]
 name = "prctrl"
-version = "0.9.5"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1448,6 +1448,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "octocrab",
+ "once_cell",
  "open",
  "regex",
  "serde",

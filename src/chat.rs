@@ -7,13 +7,13 @@ const PRCTRL_DOCS: &str = r#"# PRCtrl CLI Documentation
 PRCtrl is a GitHub PR review management CLI tool.
 
 ## Commands
-- list, delegate, stats, team, workload, clean, monitor, stop, watch
+- list, mine, delegate, stats, clean, monitor, stop
 - diff, info, timeline, assign, unassign, comment, approve, claim
 - open, files, report, search, filter, ci, conflicts, labels
 - history, notify, summary, urgent, focus, health, top, quick
 - catchup, age, size, cat, digest, trends, velocity
-- snooze, chase, estimate, export, history, ready, compare
-- follow, blocked, config
+- snooze, chase, estimate, export, ready, compare
+- follow, blocked, ping, stack, chat, config
 
 ## Configuration
 Config file: ~/.prctrl/config.toml
@@ -42,16 +42,7 @@ pub fn get_backend() -> Option<&'static str> {
 }
 
 pub fn start_chat(_backend: &str, pr_number: Option<u64>) -> Result<()> {
-    // Check if Claude CLI exists first
-    if Command::new("claude")
-        .arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_err()
-    {
-        anyhow::bail!("Claude CLI not found. Install: https://docs.anthropic.com/claude-cli");
-    }
+    // Note: Claude CLI existence is already checked by get_backend() before calling this function.
 
     let system_prompt = if let Some(pr) = pr_number {
         format!(r#"You are a helpful PR review assistant. The user is asking about PR #{}.

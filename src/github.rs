@@ -4,6 +4,20 @@ use chrono::{DateTime, Utc};
 use octocrab::Octocrab;
 use serde::Serialize;
 
+
+/// Create a shared Octocrab client.
+///
+/// All functions should use this instead of building their own client.
+/// A single client reuses the underlying HTTP connection pool (keep-alive,
+/// TLS session) across all API calls, avoiding repeated handshakes.
+pub fn new_client(token: &str) -> Octocrab {
+    Octocrab::builder()
+        .personal_token(token.to_string())
+        .build()
+        .expect("failed to build GitHub client")
+}
+
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PendingReview {
     pub repo: String,
@@ -24,9 +38,7 @@ pub async fn fetch_pr_by_number(
     repos: &[String],
     pr_number: u64,
 ) -> Result<Vec<PendingReview>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     // Parallel fetch from all repos using join_all
     let futures = repos.iter().map(|repo| {
@@ -49,7 +61,7 @@ pub async fn fetch_pr_by_number(
                     pr_number: pr.number,
                     pr_title: pr.title.clone().unwrap_or_default(),
                     pr_author: author,
-                    pr_url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                    pr_url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
                     created_at: pr.created_at.unwrap_or_default(),
                     additions: pr.additions.unwrap_or(0),
                     deletions: pr.deletions.unwrap_or(0),
@@ -76,7 +88,7 @@ pub async fn fetch_pending_reviews(
     exclude_prefixes: &[String],
     crew_members: &[String],
 ) -> Result<Vec<PendingReview>> {
-    // First, collect all candidate PRs across all repos (without details)
+    // Collect candidate PRs across all repos with pagination
     #[derive(Clone)]
     struct CandidatePr {
         repo: String,
@@ -87,26 +99,41 @@ pub async fn fetch_pending_reviews(
         created_at: DateTime<Utc>,
         draft: bool,
         branch: String,
+        additions: Option<u64>,
+        deletions: Option<u64>,
     }
 
     let mut candidates: Vec<CandidatePr> = Vec::new();
 
-    // Parallel fetch PR lists from all repos
+    // Parallel fetch PR lists from all repos with full pagination
     let repo_futures = repos.iter().map(|repo| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = new_client(token);
         let repo = repo.clone();
         async move {
-            client
+            let mut all_prs = Vec::new();
+            let first_page = client
                 .pulls(org, &repo)
                 .list()
                 .state(octocrab::params::State::Open)
-                .per_page(50)
+                .per_page(100)
                 .send()
-                .await
-                .map(|prs| (repo, prs.items))
+                .await?;
+
+            all_prs.extend(first_page.items);
+
+            let mut next_page = first_page.next;
+            while next_page.is_some() {
+                match client.get_page(&next_page).await {
+                    Ok(Some(page)) => {
+                        next_page = page.next.clone();
+                        all_prs.extend(page.items);
+                    }
+                    Ok(None) => break,
+                    Err(_) => break,
+                }
+            }
+
+            Ok::<(String, Vec<_>), octocrab::Error>((repo, all_prs))
         }
     });
 
@@ -172,20 +199,23 @@ pub async fn fetch_pending_reviews(
                 number: pr.number,
                 title,
                 author: author.to_string(),
-                url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
                 created_at: pr.created_at.unwrap_or_default(),
                 draft: pr.draft.unwrap_or(false),
                 branch: pr.head.label.clone().unwrap_or_default(),
+                additions: pr.additions,
+                deletions: pr.deletions,
             });
         }
     }
 
-    // Parallel fetch details for all candidates using join_all
-    let detail_futures = candidates.iter().map(|c| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+    // Build pending reviews — fetch details only for PRs missing additions/deletions
+    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates.iter().partition::<Vec<_>, _>(|c| {
+        c.additions.is_none() || c.deletions.is_none()
+    });
+
+    let detail_futures = needs_detail.iter().map(|c| {
+        let client = new_client(token);
         let repo = c.repo.clone();
         let number = c.number;
         async move {
@@ -195,28 +225,38 @@ pub async fn fetch_pending_reviews(
 
     let details: Vec<Result<_, _>> = join_all(detail_futures).await;
 
-    // Build final pending reviews from candidates + details
+    let detail_map: std::collections::HashMap<(String, u64), (u64, u64)> = needs_detail
+        .into_iter()
+        .zip(details)
+        .filter_map(|(c, result)| {
+            match result {
+                Ok(detail) => Some(((c.repo.clone(), c.number), (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)))),
+                Err(e) => {
+                    eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", c.number, c.repo, e);
+                    None
+                }
+            }
+        })
+        .collect();
+
     let mut pending: Vec<PendingReview> = Vec::new();
-    for (candidate, detail_result) in candidates.into_iter().zip(details) {
-        match detail_result {
-            Ok(detail) => {
-                pending.push(PendingReview {
-                    repo: candidate.repo,
-                    pr_number: candidate.number,
-                    pr_title: candidate.title,
-                    pr_author: candidate.author,
-                    pr_url: candidate.url,
-                    created_at: candidate.created_at,
-                    additions: detail.additions.unwrap_or(0),
-                    deletions: detail.deletions.unwrap_or(0),
-                    draft: candidate.draft,
-                    branch: candidate.branch,
-                });
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", candidate.number, candidate.repo, e);
-            }
-        }
+    for candidate in candidates {
+        let (additions, deletions) = detail_map
+            .get(&(candidate.repo.clone(), candidate.number))
+            .copied()
+            .unwrap_or_else(|| (candidate.additions.unwrap_or(0), candidate.deletions.unwrap_or(0)));
+        pending.push(PendingReview {
+            repo: candidate.repo,
+            pr_number: candidate.number,
+            pr_title: candidate.title,
+            pr_author: candidate.author,
+            pr_url: candidate.url,
+            created_at: candidate.created_at,
+            additions,
+            deletions,
+            draft: candidate.draft,
+            branch: candidate.branch,
+        });
     }
 
     // Sort: oldest first (most urgent)
@@ -232,7 +272,7 @@ pub async fn fetch_my_open_prs(
     include_drafts: bool,
     exclude_prefixes: &[String],
 ) -> Result<Vec<PendingReview>> {
-    // First pass: collect candidate PRs across all repos
+    // Collect candidate PRs across all repos with full pagination
     #[derive(Clone)]
     struct CandidatePr {
         repo: String,
@@ -243,26 +283,41 @@ pub async fn fetch_my_open_prs(
         created_at: DateTime<Utc>,
         draft: bool,
         branch: String,
+        additions: Option<u64>,
+        deletions: Option<u64>,
     }
 
     let mut candidates: Vec<CandidatePr> = Vec::new();
 
-    // Parallel fetch PR lists from all repos
+    // Parallel fetch PR lists from all repos with pagination
     let repo_futures = repos.iter().map(|repo| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = new_client(token);
         let repo = repo.clone();
         async move {
-            client
+            let mut all_prs = Vec::new();
+            let first_page = client
                 .pulls(org, &repo)
                 .list()
                 .state(octocrab::params::State::Open)
-                .per_page(50)
+                .per_page(100)
                 .send()
-                .await
-                .map(|prs| (repo, prs.items))
+                .await?;
+
+            all_prs.extend(first_page.items);
+
+            let mut next_page = first_page.next;
+            while next_page.is_some() {
+                match client.get_page(&next_page).await {
+                    Ok(Some(page)) => {
+                        next_page = page.next.clone();
+                        all_prs.extend(page.items);
+                    }
+                    Ok(None) => break,
+                    Err(_) => break,
+                }
+            }
+
+            Ok::<(String, Vec<_>), octocrab::Error>((repo, all_prs))
         }
     });
 
@@ -299,20 +354,23 @@ pub async fn fetch_my_open_prs(
                 number: pr.number,
                 title,
                 author: author.to_string(),
-                url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
+                url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
                 created_at: pr.created_at.unwrap_or_default(),
                 draft: pr.draft.unwrap_or(false),
                 branch: pr.head.label.clone().unwrap_or_default(),
+                additions: pr.additions,
+                deletions: pr.deletions,
             });
         }
     }
 
-    // Parallel fetch PR details for all candidates
-    let detail_futures = candidates.iter().map(|c| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+    // Build results — fetch details only for PRs missing additions/deletions
+    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates.iter().partition::<Vec<_>, _>(|c| {
+        c.additions.is_none() || c.deletions.is_none()
+    });
+
+    let detail_futures = needs_detail.iter().map(|c| {
+        let client = new_client(token);
         let repo = c.repo.clone();
         let number = c.number;
         async move {
@@ -322,28 +380,38 @@ pub async fn fetch_my_open_prs(
 
     let details: Vec<Result<_, _>> = join_all(detail_futures).await;
 
-    // Build final results
+    let detail_map: std::collections::HashMap<(String, u64), (u64, u64)> = needs_detail
+        .into_iter()
+        .zip(details)
+        .filter_map(|(c, result)| {
+            match result {
+                Ok(detail) => Some(((c.repo.clone(), c.number), (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)))),
+                Err(e) => {
+                    eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", c.number, c.repo, e);
+                    None
+                }
+            }
+        })
+        .collect();
+
     let mut my_prs: Vec<PendingReview> = Vec::new();
-    for (candidate, detail_result) in candidates.into_iter().zip(details) {
-        match detail_result {
-            Ok(detail) => {
-                my_prs.push(PendingReview {
-                    repo: candidate.repo,
-                    pr_number: candidate.number,
-                    pr_title: candidate.title,
-                    pr_author: candidate.author,
-                    pr_url: candidate.url,
-                    created_at: candidate.created_at,
-                    additions: detail.additions.unwrap_or(0),
-                    deletions: detail.deletions.unwrap_or(0),
-                    draft: candidate.draft,
-                    branch: candidate.branch,
-                });
-            }
-            Err(e) => {
-                eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", candidate.number, candidate.repo, e);
-            }
-        }
+    for candidate in candidates {
+        let (additions, deletions) = detail_map
+            .get(&(candidate.repo.clone(), candidate.number))
+            .copied()
+            .unwrap_or_else(|| (candidate.additions.unwrap_or(0), candidate.deletions.unwrap_or(0)));
+        my_prs.push(PendingReview {
+            repo: candidate.repo,
+            pr_number: candidate.number,
+            pr_title: candidate.title,
+            pr_author: candidate.author,
+            pr_url: candidate.url,
+            created_at: candidate.created_at,
+            additions,
+            deletions,
+            draft: candidate.draft,
+            branch: candidate.branch,
+        });
     }
 
     // Sort: oldest first (most urgent)
@@ -367,9 +435,7 @@ pub async fn fetch_pr_files(
     repo: &str,
     pr_number: u64,
 ) -> Result<Vec<PullRequestFile>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     let files: Vec<PullRequestFile> = client
         .pulls(org, repo)
@@ -413,9 +479,7 @@ pub async fn fetch_pr_labels(
     repo: &str,
     pr_number: u64,
 ) -> Result<Vec<PullRequestLabel>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     let labels: Vec<PullRequestLabel> = client
         .pulls(org, repo)
@@ -485,9 +549,7 @@ pub async fn fetch_pr_diff(
     repo: &str,
     pr_number: u64,
 ) -> Result<Vec<PullRequestDiff>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     let files: Vec<PullRequestDiff> = client
         .pulls(org, repo)
@@ -581,10 +643,7 @@ pub async fn fetch_my_review_activity(
 
     // Phase 1: Fetch all PRs from all repos in parallel
     let pr_futures = repos.iter().map(|repo| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = new_client(token);
         let org = org.to_string();
         let repo = repo.clone();
          // since already bound
@@ -622,10 +681,7 @@ pub async fn fetch_my_review_activity(
     // Phase 2: Fetch timelines for all candidate PRs in parallel
     let timeline_futures: Vec<_> = repo_results.iter().flat_map(|(org, repo, prs)| {
         prs.iter().map(|(_, pr_number, _, _)| {
-            let client = Octocrab::builder()
-                .personal_token(token.to_string())
-                .build()
-                .unwrap();
+            let client = new_client(token);
             let org = org.clone();
             let repo = repo.clone();
             let pr_number = *pr_number;
@@ -713,9 +769,7 @@ pub async fn fetch_merge_conflict_status(
         .collect();
 
     // Fetch all PR details in parallel using join_all
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     let futures = fetch_tasks.iter().map(|(repo, pr_number)| {
         let client = client.clone();
@@ -757,9 +811,7 @@ pub async fn fetch_ci_status(
     org: &str,
     reviews: &[PendingReview],
 ) -> Result<Vec<CiStatus>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     // Fetch PR info + combined status + check runs for each PR in parallel
     let futures = reviews.iter().map(|review| {
@@ -889,9 +941,7 @@ pub async fn fetch_mentions(
     unread_only: bool,
     limit: usize,
 ) -> Result<Vec<Mention>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     // Use GitHub's notifications API
     #[derive(serde::Deserialize)]
@@ -1008,10 +1058,7 @@ pub async fn fetch_mentions(
 
     // Parallel fetch PR details to get author information
     let detail_futures = mentions.iter().filter(|m| m.pr_number > 0).map(|m| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = new_client(token);
         let repo = m.repo.clone();
         let pr_number = m.pr_number;
 
@@ -1087,9 +1134,7 @@ pub struct HealthStatus {
 
 /// Fetch GitHub API rate limits and health status.
 pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
-    let client = octocrab::Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     #[derive(serde::Deserialize)]
     struct RateLimitResponse {
@@ -1214,9 +1259,7 @@ pub async fn fetch_pr_timeline(
     repo: &str,
     pr_number: u64,
 ) -> Result<Vec<TimelineEvent>> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     let timeline_url = format!(
         "/repos/{}/{}/issues/{}/timeline",
@@ -1332,9 +1375,7 @@ pub async fn add_pr_reaction(
     pr_number: u64,
     reaction: &str,
 ) -> Result<()> {
-    let client = octocrab::Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
     // Map friendly names to GitHub content values
     let content = match reaction {
@@ -1374,20 +1415,26 @@ pub async fn has_user_commented(
     pr_number: u64,
     username: &str,
 ) -> Result<bool> {
-    let client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
+    let client = new_client(token);
 
-    let comments = client.issues(org, repo)
+    let mut page = client.issues(org, repo)
         .list_comments(pr_number)
         .per_page(100)
         .send()
         .await?;
 
-    for comment in comments {
-        let user_login = comment.user.login;
-        if user_login.to_lowercase() == username.to_lowercase() {
-            return Ok(true);
+    loop {
+        for comment in &page.items {
+            if comment.user.login.to_lowercase() == username.to_lowercase() {
+                return Ok(true);
+            }
+        }
+        if page.next.is_none() {
+            break;
+        }
+        match client.get_page(&page.next).await {
+            Ok(Some(next)) => page = next,
+            _ => break,
         }
     }
 
@@ -1401,11 +1448,7 @@ pub async fn fetch_prs_user_commented_on(
     repos: &[String],
     username: &str,
 ) -> Result<Vec<PendingReview>> {
-    let _client = Octocrab::builder()
-        .personal_token(token.to_string())
-        .build()?;
-
-    // Phase 1: Collect all PRs across all repos in parallel
+    // Phase 1: Collect all PRs across all repos in parallel with pagination
     #[derive(Clone)]
     struct CandidatePr {
         repo: String,
@@ -1418,34 +1461,62 @@ pub async fn fetch_prs_user_commented_on(
         branch: String,
     }
 
+    let client = new_client(token);
+
     let repo_futures = repos.iter().map(|repo| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = client.clone();
         let repo = repo.clone();
         let org = org.to_string();
         async move {
-            let prs = client.pulls(&org, &repo)
+            let mut all_prs = Vec::new();
+            let first_page = client
+                .pulls(&org, &repo)
                 .list()
                 .state(octocrab::params::State::Open)
                 .per_page(100)
                 .send()
-                .await
-                .unwrap_or_default();
-            
-            prs.items.into_iter().map(move |pr| {
-                CandidatePr {
-                    repo: repo.clone(),
-                    number: pr.number,
-                    title: pr.title.unwrap_or_default(),
-                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
-                    url: pr.html_url.map(|u| u.to_string()).unwrap_or_default(),
-                    created_at: pr.created_at.unwrap_or_default(),
-                    draft: pr.draft.unwrap_or(false),
-                    branch: pr.head.label.clone().unwrap_or_default(),
+                .await;
+
+            match first_page {
+                Ok(page) => {
+                    let candidates: Vec<CandidatePr> = page.items.iter().map(|pr| CandidatePr {
+                        repo: repo.clone(),
+                        number: pr.number,
+                        title: pr.title.clone().unwrap_or_default(),
+                        author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                        url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                        created_at: pr.created_at.unwrap_or_default(),
+                        draft: pr.draft.unwrap_or(false),
+                        branch: pr.head.label.clone().unwrap_or_default(),
+                    }).collect();
+                    all_prs.extend(candidates);
+
+                    let mut next_page = page.next;
+                    while next_page.is_some() {
+                        match client.get_page(&next_page).await {
+                            Ok(Some(p)) => {
+                                let more: Vec<CandidatePr> = p.items.iter().map(|pr: &octocrab::models::pulls::PullRequest| CandidatePr {
+                                    repo: repo.clone(),
+                                    number: pr.number,
+                                    title: pr.title.clone().unwrap_or_default(),
+                                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                                    url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                                    created_at: pr.created_at.unwrap_or_default(),
+                                    draft: pr.draft.unwrap_or(false),
+                                    branch: pr.head.label.clone().unwrap_or_default(),
+                                }).collect();
+                                next_page = p.next.clone();
+                                all_prs.extend(more);
+                            }
+                            Ok(None) => break,
+                            Err(_) => break,
+                        }
+                    }
                 }
-            }).collect::<Vec<_>>()
+                Err(_) => {}
+            }
+
+            all_prs
         }
     });
 
@@ -1455,32 +1526,46 @@ pub async fn fetch_prs_user_commented_on(
         .flatten()
         .collect();
 
-    // Phase 2: Check comments for all PRs in parallel
+    // Phase 2: Check comments for all PRs in parallel using shared client
     let check_futures = all_candidates.iter().map(|c| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = client.clone();
         let repo = c.repo.clone();
         let org = org.to_string();
         let number = c.number;
         let username = username.to_string();
+        let c = c.clone();
         
         async move {
-            let comments = client.issues(&org, &repo)
+            let mut found = false;
+            let mut page = match client.issues(&org, &repo)
                 .list_comments(number)
                 .per_page(100)
                 .send()
                 .await
-                .unwrap_or_default();
-            
-            let all_comments: Vec<_> = comments.into_iter().collect();
-            let user_commented = all_comments.iter().any(|c| c.user.login == username);
-            (c.clone(), user_commented)
+            {
+                Ok(p) => p,
+                Err(_) => return (c, false),
+            };
+
+            loop {
+                if page.items.iter().any(|cm| cm.user.login == username) {
+                    found = true;
+                    break;
+                }
+                if page.next.is_none() {
+                    break;
+                }
+                match client.get_page(&page.next).await {
+                    Ok(Some(next)) => page = next,
+                    _ => break,
+                }
+            }
+
+            (c, found)
         }
     });
 
-    let results: Vec<(CandidatePr, bool)> = join_all(check_futures).await;
+    let results: Vec<_> = join_all(check_futures).await;
 
     // Phase 3: Collect PRs where user commented
     let commented_prs: Vec<PendingReview> = results

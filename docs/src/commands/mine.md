@@ -28,28 +28,38 @@ prctrl mine [flags]
 
 ## Stack Detection
 
-The `mine` command automatically detects and displays **stacked PRs** — PRs that build on each other through branch relationships. Stacks are shown after your individual PR list.
+The `mine` command automatically detects and displays **stacked PRs** — PRs that build on each other. Stacks are shown after your individual PR list.
 
-Stacked PRs are detected when:
-- PR A targets branch `feature`
-- PR B targets branch `feature-2` (or any branch that builds on `feature`)
-- This creates a stack: `feature` → `feature-2`
+### Detection methods
+
+PRCtrl uses two methods to detect stacked PRs:
+
+**1. Branch chaining** — A PR's base branch is another PR's head branch:
+- PR A: `feature` → `main`
+- PR B: `feature-2` → `feature`
+- This creates a stack: PR A → PR B
+
+**2. Convention** — PRs sharing the same ticket key with `[N/M]` position markers:
+- PR #1: `refactor(TAHC-1666): add client [1/3]` on branch `TAHC-1666-client`
+- PR #2: `refactor(TAHC-1666): add service [2/3]` on branch `TAHC-1666-service`
+- PR #3: `refactor(TAHC-1666): add tests [3/3]` on branch `TAHC-1666-tests`
+- These are grouped into a stack by the `TAHC-1666` ticket key
 
 Example stack output:
 ```
-┌─ Stack on `main` (3 PRs)
+┌─ Stack on `main` (3 PRs, branch-chain)
 
-🔵 #123 - Add new feature
-  └─ @feature
-    https://github.com/owner/repo/pull/123
+🔵 [1/3] #974 - refactor(TAHC-1666): extract OnboardingCmsClient port [1/3] [DRAFT]
+  └─ TAHC-1666-onboarding-cms-client-port
+    https://github.com/doctolib/health-content/pull/974
 
-  #124 - Implement API endpoint
-  └─ @feature-2
-    https://github.com/owner/repo/pull/124
+  [2/3] #975 - refactor(TAHC-1666): extract OnboardingCompletionChecker port [2/3] [DRAFT]
+  └─ TAHC-1666-onboarding-completion-checker
+    https://github.com/doctolib/health-content/pull/975
 
-  #125 - Add tests
-  └─ @feature-3
-    https://github.com/owner/repo/pull/125
+  [3/3] #976 - refactor(TAHC-1666): extract OnboardingDebugController [3/3] [DRAFT]
+  └─ TAHC-1666-onboarding-debug-controller
+    https://github.com/doctolib/health-content/pull/976
 ```
 
 ## Global Flags
@@ -57,7 +67,7 @@ Example stack output:
 These flags are available globally and work with `mine`:
 
 - `-p, --pr <PR_NUMBER>` — Target a specific PR by number (overrides filters)
-- `--include-drafts` — Include draft PRs in results
+- `-d, --include-drafts` — Include draft PRs in results
 - `--exclude-prefix <PREFIXES>` — Exclude PRs with matching title prefixes (comma-separated)
 - `-o, --output-dir <PATH>` — Folder for review files (default: ./reviews)
 
@@ -79,6 +89,9 @@ prctrl mine --priority
 
 # Get JSON output for scripting
 prctrl mine --json
+
+# Include draft PRs
+prctrl mine -d
 
 # Only show PRs from the last 7 days
 prctrl mine --since-days 7

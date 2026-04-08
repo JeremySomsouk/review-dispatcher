@@ -1,9 +1,8 @@
 use anyhow::Result;
 use futures::future::join_all;
-use octocrab::Octocrab;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct StackedPR {
     pub number: u64,
     pub title: String,
@@ -16,7 +15,7 @@ pub struct StackedPR {
     pub draft: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct Stack {
     pub base_branch: String,
     pub repo: String,
@@ -24,7 +23,7 @@ pub struct Stack {
     pub kind: StackKind,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum StackKind {
     /// PRs chained by branch: PR B targets PR A's head branch
     BranchChain,
@@ -86,20 +85,36 @@ async fn fetch_all_prs(
     include_drafts: bool,
 ) -> Result<Vec<StackedPR>> {
     let repo_futures = repos.iter().map(|repo_name| {
-        let client = Octocrab::builder()
-            .personal_token(token.to_string())
-            .build()
-            .unwrap();
+        let client = crate::github::new_client(token);
         let repo_name = repo_name.clone();
         async move {
-            client
+            let mut all_prs = Vec::new();
+            let first_page = client
                 .pulls(org, &repo_name)
                 .list()
                 .state(octocrab::params::State::Open)
                 .per_page(100)
                 .send()
-                .await
-                .map(|prs| (repo_name, prs.items))
+                .await?;
+
+            all_prs.extend(first_page.items);
+
+            let mut next_page = first_page.next;
+            while next_page.is_some() {
+                match client.get_page(&next_page).await {
+                    Ok(Some(page)) => {
+                        next_page = page.next.clone();
+                        all_prs.extend(page.items);
+                    }
+                    Ok(None) => break,
+                    Err(e) => {
+                        eprintln!("Warning: Failed to fetch next page: {}", e);
+                        break;
+                    }
+                }
+            }
+
+            Ok::<(String, Vec<_>), octocrab::Error>((repo_name, all_prs))
         }
     });
 

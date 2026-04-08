@@ -96,6 +96,7 @@ The `crew` feature filters PRs to show only those from your team members:
 [github]
 # ... required fields above ...
 crew_members = ["alice", "bob", "carol"]
+```
 
 **Alternative: Environment Variables**
 

@@ -34,6 +34,7 @@
 - [age](commands/age.md)
 - [size](commands/size.md)
 - [compare](commands/compare.md)
+- [stack](commands/stack.md)
 
 ## Monitoring & Notifications
 

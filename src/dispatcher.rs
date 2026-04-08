@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
 use crate::github::PendingReview;
@@ -423,7 +422,7 @@ pub async fn monitor_new_prs(
 
         // Wait for the specified interval
         println!("Waiting {} seconds before next check...", interval_seconds);
-        thread::sleep(Duration::from_secs(interval_seconds));
+        tokio::time::sleep(Duration::from_secs(interval_seconds)).await;
     }
     
     // Clean up when exiting normally

@@ -1,4 +1,5 @@
 mod cli;
+mod commands;
 mod chat;
 mod config;
 mod stack;
@@ -38,7 +39,10 @@ fn read_snoozed_prs(snooze_file: &PathBuf) -> Vec<(String, u64)> {
     };
     let entries = match serde_json::from_str::<Vec<serde_json::Value>>(&content) {
         Ok(e) => e,
-        Err(_) => return Vec::new(),
+        Err(err) => {
+            eprintln!("Warning: Failed to parse snooze file {:?}: {}", snooze_file, err);
+            return Vec::new();
+        }
     };
     let now = chrono::Utc::now();
     entries
@@ -435,15 +439,13 @@ async fn main() -> anyhow::Result<()> {
 
             // Show stacked PRs (always show, regardless of --all flag)
             use crate::stack;
-            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
-                Ok(stacks) => {
-                    if !stacks.is_empty() {
-                        print!("{}", stack::render_stacks(&stacks));
-                    }
+            let detected_stacks = stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await;
+            if let Ok(ref stacks) = detected_stacks {
+                if !stacks.is_empty() {
+                    print!("{}", stack::render_stacks(stacks));
                 }
-                Err(e) => {
-                    eprintln!("Error detecting stacked PRs: {}", e);
-                }
+            } else if let Err(ref e) = detected_stacks {
+                eprintln!("Error detecting stacked PRs: {}", e);
             }
             
             // If --all flag is set, show all without prompting
@@ -454,17 +456,11 @@ async fn main() -> anyhow::Result<()> {
                     logger::print_reviews(&filtered, priority);
                 }
                 
-                // Show stacked PRs if requested
+                // Show stacked PRs if requested (reuse already-fetched stacks)
                 if cli.show_stacks {
-                    use crate::stack;
-                    match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
-                        Ok(stacks) => {
-                            if !stacks.is_empty() {
-                                print!("{}", stack::render_stacks(&stacks));
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Error detecting stacked PRs: {}", e);
+                    if let Ok(ref stacks) = detected_stacks {
+                        if !stacks.is_empty() {
+                            print!("{}", stack::render_stacks(stacks));
                         }
                     }
                 }
@@ -472,17 +468,11 @@ async fn main() -> anyhow::Result<()> {
                 // Interactive selection
                 logger::print_reviews(&filtered, priority);
                 
-                // Show stacked PRs if requested
+                // Show stacked PRs if requested (reuse already-fetched stacks)
                 if cli.show_stacks {
-                    use crate::stack;
-                    match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await {
-                        Ok(stacks) => {
-                            if !stacks.is_empty() {
-                                print!("{}", stack::render_stacks(&stacks));
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Error detecting stacked PRs: {}", e);
+                    if let Ok(ref stacks) = detected_stacks {
+                        if !stacks.is_empty() {
+                            print!("{}", stack::render_stacks(stacks));
                         }
                     }
                 }
@@ -2060,8 +2050,7 @@ async fn main() -> anyhow::Result<()> {
             let detail_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -2831,8 +2820,7 @@ async fn main() -> anyhow::Result<()> {
             let assign_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3067,8 +3055,7 @@ async fn main() -> anyhow::Result<()> {
             let unassign_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3298,8 +3285,7 @@ async fn main() -> anyhow::Result<()> {
             let comment_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3591,8 +3577,7 @@ async fn main() -> anyhow::Result<()> {
             let detail_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3613,8 +3598,7 @@ async fn main() -> anyhow::Result<()> {
 
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3868,8 +3852,7 @@ async fn main() -> anyhow::Result<()> {
             let claim_futures = targets.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -7597,7 +7580,7 @@ async fn main() -> anyhow::Result<()> {
                         // Phase 1: Fetch all PR details in parallel
                         let client = octocrab::Octocrab::builder()
                             .personal_token(cfg.github_token.clone())
-                            .build()?;
+                            .build().expect("failed to build GitHub client");
 
                         let pr_futures = followed.iter().map(|pr| {
                             let client = client.clone();
@@ -7722,7 +7705,7 @@ async fn main() -> anyhow::Result<()> {
 
                     let client = octocrab::Octocrab::builder()
                         .personal_token(cfg.github_token.clone())
-                        .build()?;
+                        .build().expect("failed to build GitHub client");
 
                     // Phase 1: Fetch all PR details in parallel
                     let pr_futures = followed.iter().map(|pr| {
@@ -8065,7 +8048,7 @@ async fn main() -> anyhow::Result<()> {
                     async move {
                         let client = octocrab::Octocrab::builder()
                             .personal_token(token)
-                            .build()?;
+                            .build().expect("failed to build GitHub client");
                         client.issues(&org, &repo)
                             .create_comment(pr_number, &message)
                             .await
@@ -11926,8 +11909,7 @@ async fn main() -> anyhow::Result<()> {
             let futures = fetch_tasks.iter().map(move |(repo_name, pr_number)| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build()
-                    .unwrap();
+                    .build().expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo_name = repo_name.clone();
                 let pr_number = *pr_number;
@@ -12167,7 +12149,7 @@ async fn main() -> anyhow::Result<()> {
                 async move {
                     let client = octocrab::Octocrab::builder()
                         .personal_token(token)
-                        .build()?;
+                        .build().expect("failed to build GitHub client");
                     client.pulls(org, repo_name).get(pr_number).await
                 }
             });
@@ -12187,7 +12169,7 @@ async fn main() -> anyhow::Result<()> {
                 Some(async move {
                     let client = octocrab::Octocrab::builder()
                         .personal_token(token)
-                        .build()?;
+                        .build().expect("failed to build GitHub client");
                     let state: String = client
                         .get(
                             format!("/repos/{}/{}/commits/{}/status", org, repo_name, sha),
@@ -12592,7 +12574,7 @@ async fn main() -> anyhow::Result<()> {
             // Fetch both PRs
             let client = octocrab::Octocrab::builder()
                 .personal_token(cfg.github_token.clone())
-                .build()?;
+                .build().expect("failed to build GitHub client");
 
             #[derive(Debug, Clone, serde::Serialize)]
             struct ComparedPr {
@@ -12805,14 +12787,18 @@ async fn main() -> anyhow::Result<()> {
         Commands::Chat { .. } => {
             // Already handled above before GitHub config
         }
-        Commands::Stack { tree: _, repo, limit } => {
+        Commands::Stack { json, repo, author, limit } => {
             use crate::stack;
-            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, None, repo.as_deref(), cli.include_drafts, limit).await {
+            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, author.as_deref(), repo.as_deref(), cli.include_drafts, limit).await {
                 Ok(stacks) => {
-                    print!("{}", stack::render_stacks(&stacks));
+                    if json {
+                        println!("{}", serde_json::to_string_pretty(&stacks)?);
+                    } else {
+                        print!("{}", stack::render_stacks(&stacks));
+                    }
                 }
                 Err(e) => {
-                    println!("Error detecting stacks: {}", e);
+                    eprintln!("Error detecting stacks: {}", e);
                 }
             }
         }
@@ -13270,10 +13256,32 @@ fn run_config_show() -> anyhow::Result<()> {
     }
 
     let content = std::fs::read_to_string(&config_path)?;
+    let masked = mask_token_in_config(&content);
     println!("\n📄 Current Configuration\n");
-    println!("{}", content);
+    println!("{}", masked);
 
     Ok(())
+}
+
+/// Mask sensitive values (tokens, API keys) in config output.
+/// Shows first 4 and last 4 characters with **** in between.
+fn mask_token_in_config(content: &str) -> String {
+    let sensitive_keys = ["token", "api_key", "anthropic_api_key"];
+    let mut lines: Vec<String> = content.lines().map(String::from).collect();
+    for line in lines.iter_mut() {
+        if let Some((key, value)) = line.split_once('=') {
+            let key_trimmed = key.trim();
+            if sensitive_keys.iter().any(|k| key_trimmed == *k) {
+                // Extract the quoted value
+                let val = value.trim().trim_matches('"').trim();
+                if val.len() > 8 {
+                    let masked_val = format!("{}****{}", &val[..4], &val[val.len()-4..]);
+                    *line = line.replace(val, &masked_val);
+                }
+            }
+        }
+    }
+    lines.join("\n")
 }
 
 fn run_config_update(

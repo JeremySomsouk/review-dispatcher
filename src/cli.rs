@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "prctrl")]
+#[command(name = "prctrl", version, about = "Terminal-native GitHub PR management. Stay on top of code reviews without leaving your terminal.", author = "Jeremy Somsouk <jeremy@somsouk.fr>")]
 pub struct Cli {
     /// Folder where review files will be written (default: ./reviews)
     #[arg(long, short, global = true)]
@@ -1514,12 +1514,15 @@ pub enum Commands {
     },
     /// Detect and visualize stacked PRs (sequential dependencies)
     Stack {
-        /// Show the full dependency tree for a PR
-        #[arg(long, short = 't')]
-        tree: bool,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
         /// Filter by repository name
         #[arg(long, short = 'r')]
         repo: Option<String>,
+        /// Filter by author username
+        #[arg(long)]
+        author: Option<String>,
         /// Limit number of stacks to show
         #[arg(long, short = 'n')]
         limit: Option<u32>,
