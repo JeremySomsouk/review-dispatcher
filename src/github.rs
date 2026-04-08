@@ -1,9 +1,8 @@
 use anyhow::Result;
-use futures::future::join_all;
 use chrono::{DateTime, Utc};
+use futures::future::join_all;
 use octocrab::Octocrab;
 use serde::Serialize;
-
 
 /// Create a shared Octocrab client.
 ///
@@ -16,7 +15,6 @@ pub fn new_client(token: &str) -> Octocrab {
         .build()
         .expect("failed to build GitHub client")
 }
-
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PendingReview {
@@ -44,9 +42,7 @@ pub async fn fetch_pr_by_number(
     let futures = repos.iter().map(|repo| {
         let client = &client;
         let repo_name = repo.clone();
-        async move {
-            (repo_name, client.pulls(org, repo).get(pr_number).await)
-        }
+        async move { (repo_name, client.pulls(org, repo).get(pr_number).await) }
     });
 
     let results_vec: Vec<(String, Result<_, _>)> = join_all(futures).await;
@@ -55,13 +51,21 @@ pub async fn fetch_pr_by_number(
     for (repo_name, result) in results_vec {
         match result {
             Ok(pr) => {
-                let author = pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default();
+                let author = pr
+                    .user
+                    .as_ref()
+                    .map(|u| u.login.clone())
+                    .unwrap_or_default();
                 results.push(PendingReview {
                     repo: repo_name,
                     pr_number: pr.number,
                     pr_title: pr.title.clone().unwrap_or_default(),
                     pr_author: author,
-                    pr_url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                    pr_url: pr
+                        .html_url
+                        .as_ref()
+                        .map(|u| u.to_string())
+                        .unwrap_or_default(),
                     created_at: pr.created_at.unwrap_or_default(),
                     additions: pr.additions.unwrap_or(0),
                     deletions: pr.deletions.unwrap_or(0),
@@ -156,7 +160,10 @@ pub async fn fetch_pending_reviews(
             }
 
             let title = pr.title.clone().unwrap_or_default();
-            if exclude_prefixes.iter().any(|p| !p.is_empty() && title.starts_with(p)) {
+            if exclude_prefixes
+                .iter()
+                .any(|p| !p.is_empty() && title.starts_with(p))
+            {
                 continue;
             }
 
@@ -199,7 +206,11 @@ pub async fn fetch_pending_reviews(
                 number: pr.number,
                 title,
                 author: author.to_string(),
-                url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                url: pr
+                    .html_url
+                    .as_ref()
+                    .map(|u| u.to_string())
+                    .unwrap_or_default(),
                 created_at: pr.created_at.unwrap_or_default(),
                 draft: pr.draft.unwrap_or(false),
                 branch: pr.head.label.clone().unwrap_or_default(),
@@ -210,17 +221,15 @@ pub async fn fetch_pending_reviews(
     }
 
     // Build pending reviews — fetch details only for PRs missing additions/deletions
-    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates.iter().partition::<Vec<_>, _>(|c| {
-        c.additions.is_none() || c.deletions.is_none()
-    });
+    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates
+        .iter()
+        .partition::<Vec<_>, _>(|c| c.additions.is_none() || c.deletions.is_none());
 
     let detail_futures = needs_detail.iter().map(|c| {
         let client = new_client(token);
         let repo = c.repo.clone();
         let number = c.number;
-        async move {
-            client.pulls(org, &repo).get(number).await
-        }
+        async move { client.pulls(org, &repo).get(number).await }
     });
 
     let details: Vec<Result<_, _>> = join_all(detail_futures).await;
@@ -228,13 +237,17 @@ pub async fn fetch_pending_reviews(
     let detail_map: std::collections::HashMap<(String, u64), (u64, u64)> = needs_detail
         .into_iter()
         .zip(details)
-        .filter_map(|(c, result)| {
-            match result {
-                Ok(detail) => Some(((c.repo.clone(), c.number), (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)))),
-                Err(e) => {
-                    eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", c.number, c.repo, e);
-                    None
-                }
+        .filter_map(|(c, result)| match result {
+            Ok(detail) => Some((
+                (c.repo.clone(), c.number),
+                (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)),
+            )),
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to fetch details for PR #{} in {}: {}",
+                    c.number, c.repo, e
+                );
+                None
             }
         })
         .collect();
@@ -244,7 +257,12 @@ pub async fn fetch_pending_reviews(
         let (additions, deletions) = detail_map
             .get(&(candidate.repo.clone(), candidate.number))
             .copied()
-            .unwrap_or_else(|| (candidate.additions.unwrap_or(0), candidate.deletions.unwrap_or(0)));
+            .unwrap_or_else(|| {
+                (
+                    candidate.additions.unwrap_or(0),
+                    candidate.deletions.unwrap_or(0),
+                )
+            });
         pending.push(PendingReview {
             repo: candidate.repo,
             pr_number: candidate.number,
@@ -340,7 +358,10 @@ pub async fn fetch_my_open_prs(
             }
 
             let title = pr.title.clone().unwrap_or_default();
-            if exclude_prefixes.iter().any(|p| !p.is_empty() && title.starts_with(p)) {
+            if exclude_prefixes
+                .iter()
+                .any(|p| !p.is_empty() && title.starts_with(p))
+            {
                 continue;
             }
 
@@ -354,7 +375,11 @@ pub async fn fetch_my_open_prs(
                 number: pr.number,
                 title,
                 author: author.to_string(),
-                url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                url: pr
+                    .html_url
+                    .as_ref()
+                    .map(|u| u.to_string())
+                    .unwrap_or_default(),
                 created_at: pr.created_at.unwrap_or_default(),
                 draft: pr.draft.unwrap_or(false),
                 branch: pr.head.label.clone().unwrap_or_default(),
@@ -365,17 +390,15 @@ pub async fn fetch_my_open_prs(
     }
 
     // Build results — fetch details only for PRs missing additions/deletions
-    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates.iter().partition::<Vec<_>, _>(|c| {
-        c.additions.is_none() || c.deletions.is_none()
-    });
+    let (needs_detail, _has_data): (Vec<_>, Vec<_>) = candidates
+        .iter()
+        .partition::<Vec<_>, _>(|c| c.additions.is_none() || c.deletions.is_none());
 
     let detail_futures = needs_detail.iter().map(|c| {
         let client = new_client(token);
         let repo = c.repo.clone();
         let number = c.number;
-        async move {
-            client.pulls(org, &repo).get(number).await
-        }
+        async move { client.pulls(org, &repo).get(number).await }
     });
 
     let details: Vec<Result<_, _>> = join_all(detail_futures).await;
@@ -383,13 +406,17 @@ pub async fn fetch_my_open_prs(
     let detail_map: std::collections::HashMap<(String, u64), (u64, u64)> = needs_detail
         .into_iter()
         .zip(details)
-        .filter_map(|(c, result)| {
-            match result {
-                Ok(detail) => Some(((c.repo.clone(), c.number), (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)))),
-                Err(e) => {
-                    eprintln!("Warning: Failed to fetch details for PR #{} in {}: {}", c.number, c.repo, e);
-                    None
-                }
+        .filter_map(|(c, result)| match result {
+            Ok(detail) => Some((
+                (c.repo.clone(), c.number),
+                (detail.additions.unwrap_or(0), detail.deletions.unwrap_or(0)),
+            )),
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to fetch details for PR #{} in {}: {}",
+                    c.number, c.repo, e
+                );
+                None
             }
         })
         .collect();
@@ -399,7 +426,12 @@ pub async fn fetch_my_open_prs(
         let (additions, deletions) = detail_map
             .get(&(candidate.repo.clone(), candidate.number))
             .copied()
-            .unwrap_or_else(|| (candidate.additions.unwrap_or(0), candidate.deletions.unwrap_or(0)));
+            .unwrap_or_else(|| {
+                (
+                    candidate.additions.unwrap_or(0),
+                    candidate.deletions.unwrap_or(0),
+                )
+            });
         my_prs.push(PendingReview {
             repo: candidate.repo,
             pr_number: candidate.number,
@@ -536,9 +568,9 @@ pub struct CiStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct CiCheck {
     pub name: String,
-    pub status: String,       // "completed", "in_progress", "queued", "pending", "waiting", "requested"
+    pub status: String, // "completed", "in_progress", "queued", "pending", "waiting", "requested"
     pub conclusion: Option<String>, // "success", "failure", "neutral", "cancelled", "skipped", "timed_out", "action_required"
-    pub app_name: String,     // "GitHub Actions", "CircleCI", "Jenkins", etc.
+    pub app_name: String,           // "GitHub Actions", "CircleCI", "Jenkins", etc.
     pub started_at: Option<String>,
     pub completed_at: Option<String>,
 }
@@ -605,7 +637,8 @@ pub async fn fetch_pr_diff(
                     "tf" => "hcl",
                     "proto" => "protobuf",
                     _ => ext,
-                }.to_string()
+                }
+                .to_string()
             });
             PullRequestDiff {
                 filename: f.filename,
@@ -646,7 +679,7 @@ pub async fn fetch_my_review_activity(
         let client = new_client(token);
         let org = org.to_string();
         let repo = repo.clone();
-         // since already bound
+        // since already bound
 
         async move {
             let prs = client
@@ -659,15 +692,25 @@ pub async fn fetch_my_review_activity(
                 .unwrap_or_default();
 
             // Filter PRs updated within our window
-            let candidates: Vec<_> = prs.items
+            let candidates: Vec<_> = prs
+                .items
                 .into_iter()
                 .filter(|pr| {
-                    let updated_at = pr.updated_at
+                    let updated_at = pr
+                        .updated_at
                         .unwrap_or_else(|| pr.created_at.unwrap_or_else(chrono::Utc::now));
                     updated_at >= since
                 })
                 .map(|pr| {
-                    (repo.clone(), pr.number, pr.title.clone().unwrap_or_default(), pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default())
+                    (
+                        repo.clone(),
+                        pr.number,
+                        pr.title.clone().unwrap_or_default(),
+                        pr.user
+                            .as_ref()
+                            .map(|u| u.login.clone())
+                            .unwrap_or_default(),
+                    )
                 })
                 .collect();
 
@@ -676,40 +719,45 @@ pub async fn fetch_my_review_activity(
     });
 
     #[allow(clippy::type_complexity)]
-    let repo_results: Vec<(String, String, Vec<(String, u64, String, String)>)> = join_all(pr_futures).await;
+    let repo_results: Vec<(String, String, Vec<(String, u64, String, String)>)> =
+        join_all(pr_futures).await;
 
     // Phase 2: Fetch timelines for all candidate PRs in parallel
-    let timeline_futures: Vec<_> = repo_results.iter().flat_map(|(org, repo, prs)| {
-        prs.iter().map(|(_, pr_number, _, _)| {
-            let client = new_client(token);
-            let org = org.clone();
-            let repo = repo.clone();
-            let pr_number = *pr_number;
+    let timeline_futures: Vec<_> = repo_results
+        .iter()
+        .flat_map(|(org, repo, prs)| {
+            prs.iter()
+                .map(|(_, pr_number, _, _)| {
+                    let client = new_client(token);
+                    let org = org.clone();
+                    let repo = repo.clone();
+                    let pr_number = *pr_number;
 
-            async move {
-                let timeline: Vec<serde_json::Value> = client
-                    .get(
-                        format!(
-                            "/repos/{}/{}/issues/{}/timeline",
-                            org, repo, pr_number
-                        ),
-                        None::<&str>,
-                    )
-                    .await
-                    .unwrap_or_default();
+                    async move {
+                        let timeline: Vec<serde_json::Value> = client
+                            .get(
+                                format!("/repos/{}/{}/issues/{}/timeline", org, repo, pr_number),
+                                None::<&str>,
+                            )
+                            .await
+                            .unwrap_or_default();
 
-                (pr_number, repo, timeline)
-            }
-        }).collect::<Vec<_>>()
-    }).collect();
+                        (pr_number, repo, timeline)
+                    }
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
 
-    let timeline_results: Vec<(u64, String, Vec<serde_json::Value>)> = join_all(timeline_futures).await;
+    let timeline_results: Vec<(u64, String, Vec<serde_json::Value>)> =
+        join_all(timeline_futures).await;
 
     // Phase 3: Parse timeline results and extract reviews
     let mut all_reviews = Vec::new();
     for (pr_number, repo, timeline) in timeline_results {
         // Find the PR info from repo_results
-        let pr_info = repo_results.iter()
+        let pr_info = repo_results
+            .iter()
             .find(|(_, r, _)| r == &repo)
             .and_then(|(_, _, prs)| prs.iter().find(|(_, num, _, _)| *num == pr_number));
 
@@ -775,9 +823,7 @@ pub async fn fetch_merge_conflict_status(
         let client = client.clone();
         let repo = repo.clone();
         let pr_number = *pr_number;
-        async move {
-            client.pulls(org, &repo).get(pr_number).await
-        }
+        async move { client.pulls(org, &repo).get(pr_number).await }
     });
 
     let results_vec: Vec<Result<_, _>> = join_all(futures).await;
@@ -797,7 +843,10 @@ pub async fn fetch_merge_conflict_status(
                 });
             }
             Err(e) => {
-                eprintln!("Warning: Failed to fetch PR #{} in {}: {}", pr_number, repo, e);
+                eprintln!(
+                    "Warning: Failed to fetch PR #{} in {}: {}",
+                    pr_number, repo, e
+                );
             }
         }
     }
@@ -827,14 +876,8 @@ pub async fn fetch_ci_status(
             let pr_title = pr.title.clone().unwrap_or_default();
 
             // Step 2 & 3: Fetch combined status and check runs in parallel
-            let status_url = format!(
-                "/repos/{}/{}/commits/{}/status",
-                org, repo, head_sha
-            );
-            let check_runs_url = format!(
-                "/repos/{}/{}/commits/{}/check-runs",
-                org, repo, head_sha
-            );
+            let status_url = format!("/repos/{}/{}/commits/{}/status", org, repo, head_sha);
+            let check_runs_url = format!("/repos/{}/{}/commits/{}/check-runs", org, repo, head_sha);
 
             #[derive(serde::Deserialize)]
             struct CombinedStatus {
@@ -871,16 +914,18 @@ pub async fn fetch_ci_status(
 
             let checks: Vec<CiCheck> = check_runs_result
                 .map(|response: CheckRunsResponse| {
-                    response.check_runs.into_iter().map(|cr| {
-                        CiCheck {
+                    response
+                        .check_runs
+                        .into_iter()
+                        .map(|cr| CiCheck {
                             name: cr.name,
                             status: cr.status,
                             conclusion: cr.conclusion,
                             app_name: cr.app_name,
                             started_at: cr.started_at,
                             completed_at: cr.completed_at,
-                        }
-                    }).collect()
+                        })
+                        .collect()
                 })
                 .unwrap_or_default();
 
@@ -903,7 +948,10 @@ pub async fn fetch_ci_status(
         match result {
             Ok(status) => ci_statuses.push(status),
             Err(e) => {
-                eprintln!("Warning: Failed to fetch CI status for #{} in {}: {}", review.pr_number, review.repo, e);
+                eprintln!(
+                    "Warning: Failed to fetch CI status for #{} in {}: {}",
+                    review.pr_number, review.repo, e
+                );
             }
         }
     }
@@ -980,12 +1028,20 @@ pub async fn fetch_mentions(
     for notification in all_notifications {
         // Filter: only PR/issue notifications (not repository, discussions, etc.)
         if notification.subject.notification_type != "PullRequest"
-            && notification.subject.notification_type != "Issue" {
+            && notification.subject.notification_type != "Issue"
+        {
             continue;
         }
 
         // Filter: only if it involves this user (mention, review_requested, assign, author, team_mention)
-        let relevant_reasons = ["mention", "review_requested", "assign", "author", "team_mention", "cm"];
+        let relevant_reasons = [
+            "mention",
+            "review_requested",
+            "assign",
+            "author",
+            "team_mention",
+            "cm",
+        ];
         if !relevant_reasons.contains(&notification.reason.as_str()) {
             continue;
         }
@@ -1068,18 +1124,26 @@ pub async fn fetch_mentions(
             let org = parts.first().unwrap_or(&"");
             let repo_name = parts.get(1).unwrap_or(&"");
             // For PullRequest notifications, fetch the PR to get author
-            client.pulls(org.to_string(), repo_name.to_string()).get(pr_number).await
+            client
+                .pulls(org.to_string(), repo_name.to_string())
+                .get(pr_number)
+                .await
         }
     });
 
     let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
 
     // Build a map of (repo, pr_number) -> author
-    let mut author_map: std::collections::HashMap<(String, u64), String> = std::collections::HashMap::new();
+    let mut author_map: std::collections::HashMap<(String, u64), String> =
+        std::collections::HashMap::new();
     for (mention, result) in mentions.iter().zip(detail_results.into_iter()) {
         if mention.pr_number > 0 {
             if let Ok(detail) = result {
-                let author = detail.user.as_ref().map(|u| u.login.clone()).unwrap_or_default();
+                let author = detail
+                    .user
+                    .as_ref()
+                    .map(|u| u.login.clone())
+                    .unwrap_or_default();
                 author_map.insert((mention.repo.clone(), mention.pr_number), author);
             }
         }
@@ -1174,8 +1238,8 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
             let mut limits = vec![];
 
             // Core API
-            let reset_core = chrono::DateTime::from_timestamp(response.rate.reset as i64, 0)
-                .unwrap_or(now);
+            let reset_core =
+                chrono::DateTime::from_timestamp(response.rate.reset as i64, 0).unwrap_or(now);
             limits.push(RateLimitInfo {
                 resource: "core".to_string(),
                 limit: response.rate.limit,
@@ -1185,8 +1249,9 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
             });
 
             // Search API
-            let reset_search = chrono::DateTime::from_timestamp(response.resources.search.reset as i64, 0)
-                .unwrap_or(now);
+            let reset_search =
+                chrono::DateTime::from_timestamp(response.resources.search.reset as i64, 0)
+                    .unwrap_or(now);
             limits.push(RateLimitInfo {
                 resource: "search".to_string(),
                 limit: response.resources.search.limit,
@@ -1197,8 +1262,8 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
 
             // GraphQL (optional)
             if let Some(graphql) = response.resources.graphql {
-                let reset_graphql = chrono::DateTime::from_timestamp(graphql.reset as i64, 0)
-                    .unwrap_or(now);
+                let reset_graphql =
+                    chrono::DateTime::from_timestamp(graphql.reset as i64, 0).unwrap_or(now);
                 limits.push(RateLimitInfo {
                     resource: "graphql".to_string(),
                     limit: graphql.limit,
@@ -1218,17 +1283,18 @@ pub async fn fetch_health_status(token: &str) -> Result<HealthStatus> {
         login: String,
     }
 
-    let (authenticated, username) = match client.get::<UserResponse, _, _>("user", None::<&str>).await {
-        Ok(user) => (true, Some(user.login)),
-        Err(_) => (false, None),
-    };
+    let (authenticated, username) =
+        match client.get::<UserResponse, _, _>("user", None::<&str>).await {
+            Ok(user) => (true, Some(user.login)),
+            Err(_) => (false, None),
+        };
 
     let server_time = chrono::Utc::now();
 
     // Check if any rate limit is critically low (< 10%)
-    let rate_limit_warning = rate_limits.iter().any(|r| {
-        r.limit > 0 && (r.remaining as f64 / r.limit as f64) < 0.1
-    });
+    let rate_limit_warning = rate_limits
+        .iter()
+        .any(|r| r.limit > 0 && (r.remaining as f64 / r.limit as f64) < 0.1);
 
     Ok(HealthStatus {
         rate_limits,
@@ -1261,10 +1327,7 @@ pub async fn fetch_pr_timeline(
 ) -> Result<Vec<TimelineEvent>> {
     let client = new_client(token);
 
-    let timeline_url = format!(
-        "/repos/{}/{}/issues/{}/timeline",
-        org, repo, pr_number
-    );
+    let timeline_url = format!("/repos/{}/{}/issues/{}/timeline", org, repo, pr_number);
 
     let events: Vec<serde_json::Value> = client
         .get(&timeline_url, Some(&[("per_page", "100")]))
@@ -1274,18 +1337,21 @@ pub async fn fetch_pr_timeline(
     let mut timeline = Vec::new();
 
     for event in events {
-        let event_type = event.get("event")
+        let event_type = event
+            .get("event")
             .and_then(|e| e.as_str())
             .unwrap_or("unknown")
             .to_string();
 
-        let created_at = event.get("created_at")
+        let created_at = event
+            .get("created_at")
             .and_then(|t| t.as_str())
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::Utc))
             .unwrap_or_else(chrono::Utc::now);
 
-        let actor = event.get("actor")
+        let actor = event
+            .get("actor")
             .or_else(|| event.get("user"))
             .and_then(|a| a.get("login"))
             .and_then(|l| l.as_str())
@@ -1358,7 +1424,7 @@ pub async fn fetch_pr_timeline(
 }
 
 /// Send an emoji reaction to a PR/issue to get author's attention without leaving a comment.
-/// 
+///
 /// GitHub supports these reaction emojis:
 /// - `+1` (thumbs up)
 /// - `-1` (thumbs down)
@@ -1390,10 +1456,7 @@ pub async fn add_pr_reaction(
         _ => reaction, // Use as-is if it doesn't match
     };
 
-    let url = format!(
-        "/repos/{}/{}/issues/{}/reactions",
-        org, repo, pr_number
-    );
+    let url = format!("/repos/{}/{}/issues/{}/reactions", org, repo, pr_number);
 
     #[derive(serde::Serialize)]
     struct ReactionPayload {
@@ -1401,7 +1464,12 @@ pub async fn add_pr_reaction(
     }
 
     let _: serde_json::Value = client
-        .post(&url, Some(&ReactionPayload { content: content.to_string() })) // Uses POST /repos/{owner}/{repo}/issues/{issue_number}/reactions
+        .post(
+            &url,
+            Some(&ReactionPayload {
+                content: content.to_string(),
+            }),
+        ) // Uses POST /repos/{owner}/{repo}/issues/{issue_number}/reactions
         .await?;
 
     Ok(())
@@ -1417,7 +1485,8 @@ pub async fn has_user_commented(
 ) -> Result<bool> {
     let client = new_client(token);
 
-    let mut page = client.issues(org, repo)
+    let mut page = client
+        .issues(org, repo)
         .list_comments(pr_number)
         .per_page(100)
         .send()
@@ -1477,54 +1546,72 @@ pub async fn fetch_prs_user_commented_on(
                 .send()
                 .await;
 
-            match first_page {
-                Ok(page) => {
-                    let candidates: Vec<CandidatePr> = page.items.iter().map(|pr| CandidatePr {
+            if let Ok(page) = first_page {
+                let candidates: Vec<CandidatePr> = page
+                    .items
+                    .iter()
+                    .map(|pr: &octocrab::models::pulls::PullRequest| CandidatePr {
                         repo: repo.clone(),
                         number: pr.number,
                         title: pr.title.clone().unwrap_or_default(),
-                        author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
-                        url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                        author: pr
+                            .user
+                            .as_ref()
+                            .map(|u| u.login.clone())
+                            .unwrap_or_default(),
+                        url: pr
+                            .html_url
+                            .as_ref()
+                            .map(|u| u.to_string())
+                            .unwrap_or_default(),
                         created_at: pr.created_at.unwrap_or_default(),
                         draft: pr.draft.unwrap_or(false),
                         branch: pr.head.label.clone().unwrap_or_default(),
-                    }).collect();
-                    all_prs.extend(candidates);
+                    })
+                    .collect();
+                all_prs.extend(candidates);
 
-                    let mut next_page = page.next;
-                    while next_page.is_some() {
-                        match client.get_page(&next_page).await {
-                            Ok(Some(p)) => {
-                                let more: Vec<CandidatePr> = p.items.iter().map(|pr: &octocrab::models::pulls::PullRequest| CandidatePr {
+                let mut next_page = page.next;
+                while next_page.is_some() {
+                    match client.get_page(&next_page).await {
+                        Ok(Some(p)) => {
+                            let more: Vec<CandidatePr> = p
+                                .items
+                                .iter()
+                                .map(|pr: &octocrab::models::pulls::PullRequest| CandidatePr {
                                     repo: repo.clone(),
                                     number: pr.number,
                                     title: pr.title.clone().unwrap_or_default(),
-                                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
-                                    url: pr.html_url.as_ref().map(|u| u.to_string()).unwrap_or_default(),
+                                    author: pr
+                                        .user
+                                        .as_ref()
+                                        .map(|u| u.login.clone())
+                                        .unwrap_or_default(),
+                                    url: pr
+                                        .html_url
+                                        .as_ref()
+                                        .map(|u| u.to_string())
+                                        .unwrap_or_default(),
                                     created_at: pr.created_at.unwrap_or_default(),
                                     draft: pr.draft.unwrap_or(false),
                                     branch: pr.head.label.clone().unwrap_or_default(),
-                                }).collect();
-                                next_page = p.next.clone();
-                                all_prs.extend(more);
-                            }
-                            Ok(None) => break,
-                            Err(_) => break,
+                                })
+                                .collect();
+                            next_page = p.next.clone();
+                            all_prs.extend(more);
                         }
+                        Ok(None) => break,
+                        Err(_) => break,
                     }
                 }
-                Err(_) => {}
             }
 
             all_prs
         }
     });
 
-    let all_candidates: Vec<CandidatePr> = join_all(repo_futures)
-        .await
-        .into_iter()
-        .flatten()
-        .collect();
+    let all_candidates: Vec<CandidatePr> =
+        join_all(repo_futures).await.into_iter().flatten().collect();
 
     // Phase 2: Check comments for all PRs in parallel using shared client
     let check_futures = all_candidates.iter().map(|c| {
@@ -1534,10 +1621,11 @@ pub async fn fetch_prs_user_commented_on(
         let number = c.number;
         let username = username.to_string();
         let c = c.clone();
-        
+
         async move {
             let mut found = false;
-            let mut page = match client.issues(&org, &repo)
+            let mut page = match client
+                .issues(&org, &repo)
                 .list_comments(number)
                 .per_page(100)
                 .send()

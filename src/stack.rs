@@ -175,11 +175,7 @@ async fn fetch_all_prs(
     }
 
     // Sort by repo then PR number for consistency
-    all_prs.sort_by(|a, b| {
-        a.repo
-            .cmp(&b.repo)
-            .then_with(|| a.number.cmp(&b.number))
-    });
+    all_prs.sort_by(|a, b| a.repo.cmp(&b.repo).then_with(|| a.number.cmp(&b.number)));
 
     Ok(all_prs)
 }
@@ -207,12 +203,17 @@ fn detect_branch_chain_stacks(all_prs: &[StackedPR]) -> Vec<Stack> {
 
     // Find chain roots: PRs whose base branch is NOT any other PR's head branch
     // (these are the starting points of chains)
-    let roots: Vec<&StackedPR> = all_prs.iter().filter(|pr| {
-        let key = (pr.repo.clone(), pr.base_branch.clone());
-        // A root is a PR whose base branch isn't another PR's head branch
-        !head_to_prs.contains_key(&key)
-            || head_to_prs.get(&key).map_or(true, |prs| prs.iter().all(|p| p.number == pr.number))
-    }).collect();
+    let roots: Vec<&StackedPR> = all_prs
+        .iter()
+        .filter(|pr| {
+            let key = (pr.repo.clone(), pr.base_branch.clone());
+            // A root is a PR whose base branch isn't another PR's head branch
+            !head_to_prs.contains_key(&key)
+                || head_to_prs
+                    .get(&key)
+                    .is_none_or(|prs| prs.iter().all(|p| p.number == pr.number))
+        })
+        .collect();
 
     let mut stacks = Vec::new();
     let mut used_prs: HashSet<(String, u64)> = HashSet::new();
@@ -232,7 +233,9 @@ fn detect_branch_chain_stacks(all_prs: &[StackedPR]) -> Vec<Stack> {
             let child_key = (last.repo.clone(), last.head_branch.clone());
             if let Some(children) = base_to_children.get(&child_key) {
                 // Find a child that's not already used
-                if let Some(child) = children.iter().find(|c| !used_prs.contains(&(c.repo.clone(), c.number)) && c.number != last.number) {
+                if let Some(child) = children.iter().find(|c| {
+                    !used_prs.contains(&(c.repo.clone(), c.number)) && c.number != last.number
+                }) {
                     used_prs.insert((child.repo.clone(), child.number));
                     chain.push((*child).clone());
                     continue;
@@ -245,7 +248,12 @@ fn detect_branch_chain_stacks(all_prs: &[StackedPR]) -> Vec<Stack> {
         if chain.len() >= 2 {
             let base_branch = chain.first().unwrap().base_branch.clone();
             let repo = chain.first().unwrap().repo.clone();
-            stacks.push(build_stack(&repo, &base_branch, chain, StackKind::BranchChain));
+            stacks.push(build_stack(
+                &repo,
+                &base_branch,
+                chain,
+                StackKind::BranchChain,
+            ));
         }
     }
 
@@ -270,7 +278,10 @@ fn extract_position_index(title: &str) -> Option<usize> {
 
 /// Detect convention-based stacks: PRs sharing the same ticket key
 /// with [N/M] position markers in the title
-fn detect_convention_stacks(all_prs: &[StackedPR], already_used: &HashSet<(String, u64)>) -> Vec<Stack> {
+fn detect_convention_stacks(
+    all_prs: &[StackedPR],
+    already_used: &HashSet<(String, u64)>,
+) -> Vec<Stack> {
     // Group PRs by (repo, ticket_key) that have [N/M] markers
     let mut ticket_groups: HashMap<(String, String), Vec<&StackedPR>> = HashMap::new();
 
@@ -280,8 +291,8 @@ fn detect_convention_stacks(all_prs: &[StackedPR], already_used: &HashSet<(Strin
         }
 
         // Try to extract ticket key from branch name first, then title
-        let ticket_key = extract_ticket_key(&pr.head_branch)
-            .or_else(|| extract_ticket_key(&pr.title));
+        let ticket_key =
+            extract_ticket_key(&pr.head_branch).or_else(|| extract_ticket_key(&pr.title));
 
         if let Some(key) = ticket_key {
             // Only include PRs that have a position marker [N/M] or are in a group with them
@@ -301,7 +312,9 @@ fn detect_convention_stacks(all_prs: &[StackedPR], already_used: &HashSet<(Strin
         }
 
         // Check if at least one PR has a [N/M] marker, or all share the same base branch
-        let has_position_marker = prs.iter().any(|p| extract_position_index(&p.title).is_some());
+        let has_position_marker = prs
+            .iter()
+            .any(|p| extract_position_index(&p.title).is_some());
         let all_same_base = prs.windows(2).all(|w| w[0].base_branch == w[1].base_branch);
 
         if !has_position_marker && !all_same_base {
@@ -380,7 +393,9 @@ pub fn render_stacks(stacks: &[Stack]) -> String {
         };
         output.push_str(&format!(
             "┌─ Stack on `{}` ({} PRs, {})\n",
-            stack.base_branch, stack.prs.len(), kind_label
+            stack.base_branch,
+            stack.prs.len(),
+            kind_label
         ));
 
         for pr in &stack.prs {

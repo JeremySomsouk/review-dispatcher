@@ -45,19 +45,25 @@ pub fn start_chat(_backend: &str, pr_number: Option<u64>) -> Result<()> {
     // Note: Claude CLI existence is already checked by get_backend() before calling this function.
 
     let system_prompt = if let Some(pr) = pr_number {
-        format!(r#"You are a helpful PR review assistant. The user is asking about PR #{}.
+        format!(
+            r#"You are a helpful PR review assistant. The user is asking about PR #{}.
 
 {}
 
 When suggesting commands, use format: `prctrl <command>`
-"#, pr, PRCTRL_DOCS)
+"#,
+            pr, PRCTRL_DOCS
+        )
     } else {
-        format!(r#"You are a helpful PR review assistant.
+        format!(
+            r#"You are a helpful PR review assistant.
 
 {}
 
 When suggesting commands, use format: `prctrl <command>`
-"#, PRCTRL_DOCS)
+"#,
+            PRCTRL_DOCS
+        )
     };
 
     println!("\n🤖 PRCtrl Chat - Starting Claude...\n");
@@ -71,7 +77,7 @@ When suggesting commands, use format: `prctrl <command>`
         .arg(&system_prompt)
         .status()
         .context("Failed to run Claude")?;
-    
+
     if !status.success() {
         eprintln!("\n⚠️  Claude exited with status: {}", status);
     }

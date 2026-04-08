@@ -15,7 +15,10 @@ const INSTRUCTION_FILE: &str = "instruction.md";
 
 pub const PID_FILE: &str = ".prctrl-monitor.pid";
 
-pub fn delegate_to_claude(review: &PendingReview, custom_instruction_path: Option<PathBuf>) -> Result<String> {
+pub fn delegate_to_claude(
+    review: &PendingReview,
+    custom_instruction_path: Option<PathBuf>,
+) -> Result<String> {
     // Use custom path if provided, otherwise use default search
     let (custom_instructions, source_path) = if let Some(path) = custom_instruction_path {
         if path.exists() {
@@ -30,14 +33,14 @@ pub fn delegate_to_claude(review: &PendingReview, custom_instruction_path: Optio
     } else {
         read_custom_instructions()
     };
-    
+
     // Log which instruction file was loaded
     if let Some(path) = source_path {
         println!("📖 Using custom instructions from: {}", path);
     } else {
         println!("📖 Using default review instructions");
     }
-    
+
     let prompt = format!(
         "You are a senior engineer doing a code review pre-screening.\n\
          PR: {title} (#{number}) by {author}\n\
@@ -64,10 +67,10 @@ pub fn delegate_to_claude(review: &PendingReview, custom_instruction_path: Optio
     // 1. Count tokens in the prompt and response
     // 2. Multiply by model's price per token
     // 3. Display the actual cost
-    
+
     // For now, we show Claude's effort estimate
     // Future enhancement: Add actual token counting
-    
+
     let output = Command::new("claude")
         .args(["--print", "--model", "opus", &prompt])
         .env_remove("CLAUDECODE")
@@ -153,7 +156,7 @@ fn read_custom_instructions() -> (String, Option<String>) {
             }
         }
     }
-    
+
     // Check current directory
     let current_path = PathBuf::from(INSTRUCTION_FILE);
     if current_path.exists() {
@@ -163,7 +166,7 @@ fn read_custom_instructions() -> (String, Option<String>) {
             }
         }
     }
-    
+
     // Check user config directory
     if let Some(home_dir) = dirs::home_dir() {
         let config_path = home_dir.join(".prctrl").join(INSTRUCTION_FILE);
@@ -175,8 +178,11 @@ fn read_custom_instructions() -> (String, Option<String>) {
             }
         }
     }
-    
-    (String::from("Follow the standard code review process."), None)
+
+    (
+        String::from("Follow the standard code review process."),
+        None,
+    )
 }
 
 /// Open file in IntelliJ IDEA
@@ -184,8 +190,17 @@ pub fn open_in_intellij(path: &PathBuf) -> Result<()> {
     #[cfg(target_os = "macos")]
     {
         // Try different IntelliJ variants
-        let ideas = ["IntelliJ IDEA", "Goland", "CLion", "PhpStorm", "WebStorm", "PyCharm", "RubyMine", "Rider"];
-        
+        let ideas = [
+            "IntelliJ IDEA",
+            "Goland",
+            "CLion",
+            "PhpStorm",
+            "WebStorm",
+            "PyCharm",
+            "RubyMine",
+            "Rider",
+        ];
+
         for idea in ideas {
             if Command::new("open")
                 .arg("-a")
@@ -197,7 +212,7 @@ pub fn open_in_intellij(path: &PathBuf) -> Result<()> {
                 return Ok(());
             }
         }
-        
+
         // Fallback to default open
         Command::new("open").arg(path).status()?;
     }
@@ -205,8 +220,10 @@ pub fn open_in_intellij(path: &PathBuf) -> Result<()> {
     {
         // On other platforms, just open with default application
         #[cfg(target_os = "windows")]
-        Command::new("cmd").args(["/c", "start", "", path.to_str().unwrap()]).status()?;
-        
+        Command::new("cmd")
+            .args(["/c", "start", "", path.to_str().unwrap()])
+            .status()?;
+
         #[cfg(target_os = "linux")]
         Command::new("xdg-open").arg(path).status()?;
     }
@@ -259,44 +276,60 @@ pub async fn monitor_new_prs(
 ) -> Result<()> {
     // Check if another monitor is already running
     if is_monitor_running() {
-        return Err(anyhow::anyhow!("A monitor process is already running. Use 'prctrl monitor-stop' to stop it first."));
+        return Err(anyhow::anyhow!(
+            "A monitor process is already running. Use 'prctrl monitor-stop' to stop it first."
+        ));
     }
 
     // Write PID file
     write_pid_file()?;
-    
+
     // Set up Ctrl+C handler to clean up PID file
     let running = Arc::new(AtomicBool::new(true));
     let running_clone = running.clone();
-    
+
     ctrlc::set_handler(move || {
         running_clone.store(false, Ordering::SeqCst);
         println!("\n🛑 Monitor stopped by user");
         let _ = remove_pid_file();
         std::process::exit(0);
     })?;
-    
+
     // Show comprehensive configuration info
     println!("\n📋 Monitor Configuration:");
-    
+
     // Show working directory
     if let Ok(current_dir) = std::env::current_dir() {
         println!("  📁 Working directory: {}", current_dir.display());
     }
-    
+
     // Show instruction file
     let (_, instruction_path) = read_custom_instructions();
     match instruction_path {
         Some(path) => println!("  📖 Instructions: {}", path),
         None => println!("  📖 Instructions: Using built-in defaults"),
     }
-    
+
     // Show environment info
     println!("  🔧 Environment:");
     println!("    - Interval: {} seconds", interval_seconds);
-    println!("    - Notifications: {}", if send_notifications { "enabled" } else { "disabled" });
-    println!("    - Interactive: {}", if interactive_mode { "enabled" } else { "disabled" });
-    
+    println!(
+        "    - Notifications: {}",
+        if send_notifications {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
+    println!(
+        "    - Interactive: {}",
+        if interactive_mode {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
+
     // Show filter configuration
     println!("  🎯 Filters:");
     println!("    - Include mine: {}", include_mine);
@@ -329,16 +362,26 @@ pub async fn monitor_new_prs(
 
         // Check for new PRs
         if current_count > last_pr_count {
-            let new_prs: Vec<_> = pending.iter().rev().take(current_count - last_pr_count).collect();
-            
+            let new_prs: Vec<_> = pending
+                .iter()
+                .rev()
+                .take(current_count - last_pr_count)
+                .collect();
+
             for pr in new_prs {
                 println!("🔔 New PR detected: #{} - {}", pr.pr_number, pr.pr_title);
-                
+
                 if send_notifications {
                     let notification_title = format!("New PR: #{}", pr.pr_number);
-                    let notification_message = format!("{} by {} in {}", pr.pr_title, pr.pr_author, pr.repo);
-                    
-                    if notifications::send_mac_notification(&notification_title, &notification_message, Some(&pr.pr_url), auto_open_browser) {
+                    let notification_message =
+                        format!("{} by {} in {}", pr.pr_title, pr.pr_author, pr.repo);
+
+                    if notifications::send_mac_notification(
+                        &notification_title,
+                        &notification_message,
+                        Some(&pr.pr_url),
+                        auto_open_browser,
+                    ) {
                         if auto_open_browser {
                             println!("✓ macOS notification sent (Chrome will open automatically)");
                         } else {
@@ -348,7 +391,7 @@ pub async fn monitor_new_prs(
                         println!("⚠ Failed to send macOS notification");
                     }
                 }
-                
+
                 // Interactive mode - prompt for actions
                 if interactive_mode {
                     println!("\n🎯 Quick Actions for PR #{}:", pr.pr_number);
@@ -357,27 +400,30 @@ pub async fn monitor_new_prs(
                     println!("  [i] Open in IntelliJ");
                     println!("  [s] Skip this PR");
                     println!("  [q] Quit interactive mode");
-                    
+
                     print!("\nChoose action: ");
                     std::io::stdout().flush()?;
-                    
+
                     let mut input = String::new();
                     std::io::stdin().read_line(&mut input)?;
                     let choice = input.trim().to_lowercase();
-                    
+
                     match choice.as_str() {
                         "d" | "delegate" => {
                             println!("⏳ Delegating PR #{} to Claude...", pr.pr_number);
                             match crate::dispatcher::delegate_to_claude(pr, None) {
                                 Ok(summary) => {
                                     println!("✅ Claude review completed:");
-                                    println!("   {}", summary.lines().next().unwrap_or("No summary"));
-                                    
+                                    println!(
+                                        "   {}",
+                                        summary.lines().next().unwrap_or("No summary")
+                                    );
+
                                     // Write review to file
                                     if let Some(ref dir) = output_dir {
                                         let path = writer::write_review(dir, pr, Some(&summary))?;
                                         println!("   💾 Saved to {}", path.display());
-                                        
+
                                         // Automatically open in IntelliJ (like auto-open for PRs)
                                         println!("   🎯 Opening Claude review in IntelliJ...");
                                         open_in_intellij(&path)?;
@@ -424,7 +470,7 @@ pub async fn monitor_new_prs(
         println!("Waiting {} seconds before next check...", interval_seconds);
         tokio::time::sleep(Duration::from_secs(interval_seconds)).await;
     }
-    
+
     // Clean up when exiting normally
     let _ = remove_pid_file();
     Ok(())

@@ -1,6 +1,6 @@
+mod chat;
 mod cli;
 mod commands;
-mod chat;
 mod config;
 mod stack;
 
@@ -40,7 +40,10 @@ fn read_snoozed_prs(snooze_file: &PathBuf) -> Vec<(String, u64)> {
     let entries = match serde_json::from_str::<Vec<serde_json::Value>>(&content) {
         Ok(e) => e,
         Err(err) => {
-            eprintln!("Warning: Failed to parse snooze file {:?}: {}", snooze_file, err);
+            eprintln!(
+                "Warning: Failed to parse snooze file {:?}: {}",
+                snooze_file, err
+            );
             return Vec::new();
         }
     };
@@ -76,7 +79,14 @@ async fn main() -> anyhow::Result<()> {
                 run_config_show()?;
                 return Ok(());
             }
-            cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
+            cli::ConfigAction::Update {
+                token,
+                username,
+                org,
+                repos,
+                teams,
+                ..
+            } => {
                 run_config_update(
                     token.as_deref(),
                     username.as_deref(),
@@ -122,34 +132,74 @@ async fn main() -> anyhow::Result<()> {
     let output_dir: Option<PathBuf> = cli.output_dir.clone().or_else(|| Some(get_reviews_dir()));
 
     match cli.command {
-        Commands::List { json, since_days, priority, repo, author, pr, pr_numbers, commented } => {
-
-
+        Commands::List {
+            json,
+            since_days,
+            priority,
+            repo,
+            author,
+            pr,
+            pr_numbers,
+            commented,
+        } => {
             // Handle --commented flag: fetch PRs where user has commented
             if commented {
                 let username = cfg.github_username.clone();
                 let token = cfg.github_token.clone();
                 let org = cfg.github_org.clone();
 
-                match github::fetch_prs_user_commented_on(&token, &org, &cfg.github_repos, &username).await {
+                match github::fetch_prs_user_commented_on(
+                    &token,
+                    &org,
+                    &cfg.github_repos,
+                    &username,
+                )
+                .await
+                {
                     Ok(commented_prs) => {
                         if commented_prs.is_empty() {
                             println!("\n💬 No PRs found where you have commented.\n");
                         } else {
-                            println!("\n💬 PRs you have commented on ({} total):\n", commented_prs.len());
+                            println!(
+                                "\n💬 PRs you have commented on ({} total):\n",
+                                commented_prs.len()
+                            );
                             // Apply filters
-                            let filtered: Vec<_> = commented_prs.into_iter()
-                                .filter(|r| repo.as_ref().map(|p| r.repo.to_lowercase().contains(&p.to_lowercase())).unwrap_or(true))
-                                .filter(|r| author.as_ref().map(|p| r.pr_author.to_lowercase().contains(&p.to_lowercase())).unwrap_or(true))
-                                .filter(|r| since_days.map(|d| {
-                                    let cutoff = chrono::Utc::now() - chrono::Duration::days(d as i64);
-                                    r.created_at >= cutoff
-                                }).unwrap_or(true))
+                            let filtered: Vec<_> = commented_prs
+                                .into_iter()
+                                .filter(|r| {
+                                    repo.as_ref()
+                                        .map(|p| r.repo.to_lowercase().contains(&p.to_lowercase()))
+                                        .unwrap_or(true)
+                                })
+                                .filter(|r| {
+                                    author
+                                        .as_ref()
+                                        .map(|p| {
+                                            r.pr_author.to_lowercase().contains(&p.to_lowercase())
+                                        })
+                                        .unwrap_or(true)
+                                })
+                                .filter(|r| {
+                                    since_days
+                                        .map(|d| {
+                                            let cutoff = chrono::Utc::now()
+                                                - chrono::Duration::days(d as i64);
+                                            r.created_at >= cutoff
+                                        })
+                                        .unwrap_or(true)
+                                })
                                 .collect();
 
                             for pr in filtered {
                                 let age = (chrono::Utc::now() - pr.created_at).num_days();
-                                println!("  #{} {} by {} ({}d)", pr.pr_number, pr.pr_title.bold(), pr.pr_author.cyan(), age);
+                                println!(
+                                    "  #{} {} by {} ({}d)",
+                                    pr.pr_number,
+                                    pr.pr_title.bold(),
+                                    pr.pr_author.cyan(),
+                                    age
+                                );
                             }
                             println!();
                         }
@@ -166,7 +216,10 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle batch PR numbers first
             let base_reviews: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
-                let nums: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                let nums: Vec<u64> = nums
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
                 if nums.is_empty() {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
@@ -193,15 +246,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -209,11 +263,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -233,12 +287,22 @@ async fn main() -> anyhow::Result<()> {
                 // Split into two groups
                 let requested: Vec<_> = reviews.clone();
                 let mut commented: Vec<_> = Vec::new();
-                
+
                 // Fetch PRs where user has commented
-                match github::fetch_prs_user_commented_on(&cfg.github_token, &cfg.github_org, &cfg.github_repos, &cfg.github_username).await {
+                match github::fetch_prs_user_commented_on(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    &cfg.github_username,
+                )
+                .await
+                {
                     Ok(commented_prs) => {
                         for cpr in commented_prs {
-                            if !requested.iter().any(|r| r.pr_number == cpr.pr_number && r.repo == cpr.repo) {
+                            if !requested
+                                .iter()
+                                .any(|r| r.pr_number == cpr.pr_number && r.repo == cpr.repo)
+                            {
                                 commented.push(cpr);
                             }
                         }
@@ -247,7 +311,7 @@ async fn main() -> anyhow::Result<()> {
                         eprintln!("Warning: Could not fetch commented PRs: {}", e);
                     }
                 }
-                
+
                 // Print in two sections
                 if !requested.is_empty() {
                     println!("\n📋 {} PR(s) requested for review:", requested.len());
@@ -313,7 +377,11 @@ async fn main() -> anyhow::Result<()> {
                 let _snoozed_count = snoozed_prs.len();
                 filtered
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .inspect(|_| ())
                     .collect()
             } else {
@@ -334,7 +402,8 @@ async fn main() -> anyhow::Result<()> {
                     for review in &filtered {
                         writer::write_review(dir, review, None)?;
                     }
-                    let index_name = index_path.file_name()
+                    let index_name = index_path
+                        .file_name()
                         .map(|n| n.to_string_lossy())
                         .unwrap_or_else(|| "INDEX.md".into());
                     println!(
@@ -346,7 +415,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mine { json, all, priority, since_days, repo, author, pr_number, pr_numbers } => {
+        Commands::Mine {
+            json,
+            all,
+            priority,
+            since_days,
+            repo,
+            author,
+            pr_number,
+            pr_numbers,
+        } => {
             let my_prs = github::fetch_my_open_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -367,8 +445,16 @@ async fn main() -> anyhow::Result<()> {
                 });
 
                 match (target, pr_nums) {
-                    (Some(num), _) => my_prs.iter().filter(|r| r.pr_number == num).cloned().collect(),
-                    (None, Some(nums)) => my_prs.iter().filter(|r| nums.contains(&r.pr_number)).cloned().collect(),
+                    (Some(num), _) => my_prs
+                        .iter()
+                        .filter(|r| r.pr_number == num)
+                        .cloned()
+                        .collect(),
+                    (None, Some(nums)) => my_prs
+                        .iter()
+                        .filter(|r| nums.contains(&r.pr_number))
+                        .cloned()
+                        .collect(),
                     (None, None) => my_prs.clone(),
                 }
             };
@@ -411,7 +497,8 @@ async fn main() -> anyhow::Result<()> {
 
             // Filter out snoozed PRs (consistent with list/delegate/search commands)
             // Skip snooze filtering when --pr, --pr_number, or --pr_numbers is specified
-            let skip_snooze_filter = cli.pr.is_some() || pr_number.is_some() || pr_numbers.is_some();
+            let skip_snooze_filter =
+                cli.pr.is_some() || pr_number.is_some() || pr_numbers.is_some();
             let filtered: Vec<_> = if !skip_snooze_filter {
                 let snooze_file = output_dir
                     .clone()
@@ -422,7 +509,11 @@ async fn main() -> anyhow::Result<()> {
 
                 filtered
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             } else {
                 filtered
@@ -430,7 +521,10 @@ async fn main() -> anyhow::Result<()> {
 
             if filtered.is_empty() {
                 if cli.pr.or(pr_number).is_some() {
-                    println!("No PR #{} found in your open PRs.", cli.pr.or(pr_number).unwrap());
+                    println!(
+                        "No PR #{} found in your open PRs.",
+                        cli.pr.or(pr_number).unwrap()
+                    );
                 } else {
                     println!("No matching PRs found.");
                 }
@@ -439,7 +533,16 @@ async fn main() -> anyhow::Result<()> {
 
             // Show stacked PRs (always show, regardless of --all flag)
             use crate::stack;
-            let detected_stacks = stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, Some(&cfg.github_username), None, cli.include_drafts, None).await;
+            let detected_stacks = stack::detect_stacks(
+                &cfg.github_token,
+                &cfg.github_org,
+                &cfg.github_repos,
+                Some(&cfg.github_username),
+                None,
+                cli.include_drafts,
+                None,
+            )
+            .await;
             if let Ok(ref stacks) = detected_stacks {
                 if !stacks.is_empty() {
                     print!("{}", stack::render_stacks(stacks));
@@ -447,7 +550,7 @@ async fn main() -> anyhow::Result<()> {
             } else if let Err(ref e) = detected_stacks {
                 eprintln!("Error detecting stacked PRs: {}", e);
             }
-            
+
             // If --all flag is set, show all without prompting
             if all {
                 if json {
@@ -455,7 +558,7 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     logger::print_reviews(&filtered, priority);
                 }
-                
+
                 // Show stacked PRs if requested (reuse already-fetched stacks)
                 if cli.show_stacks {
                     if let Ok(ref stacks) = detected_stacks {
@@ -467,7 +570,7 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 // Interactive selection
                 logger::print_reviews(&filtered, priority);
-                
+
                 // Show stacked PRs if requested (reuse already-fetched stacks)
                 if cli.show_stacks {
                     if let Ok(ref stacks) = detected_stacks {
@@ -486,7 +589,8 @@ async fn main() -> anyhow::Result<()> {
                 match parse_selection(input.trim(), filtered.len()) {
                     Selection::Quit => return Ok(()),
                     Selection::Indices(indices) => {
-                        let selected: Vec<_> = indices.into_iter().map(|i| filtered[i].clone()).collect();
+                        let selected: Vec<_> =
+                            indices.into_iter().map(|i| filtered[i].clone()).collect();
                         if json {
                             println!("{}", serde_json::to_string_pretty(&selected)?);
                         } else {
@@ -522,7 +626,8 @@ async fn main() -> anyhow::Result<()> {
                 for review in &filtered {
                     writer::write_review(dir, review, None)?;
                 }
-                let index_name = index_path.file_name()
+                let index_name = index_path
+                    .file_name()
                     .map(|n| n.to_string_lossy())
                     .unwrap_or_else(|| "INDEX.md".into());
                 println!(
@@ -533,7 +638,17 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Delegate { json, dry_run, priority, since_days, repo, author, all, quiet, pr_numbers } => {
+        Commands::Delegate {
+            json,
+            dry_run,
+            priority,
+            since_days,
+            repo,
+            author,
+            all,
+            quiet,
+            pr_numbers,
+        } => {
             let pr_number = cli.pr;
 
             // Apply filters to reviews (same logic as List command) unless --pr is specified
@@ -570,14 +685,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -597,14 +716,19 @@ async fn main() -> anyhow::Result<()> {
 
                 result
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             };
 
             let targets: Vec<_> = match pr_number {
                 Some(num) => {
                     // First, check if the PR exists in filtered_reviews (respects --repo, --author, --since filters + snooze)
-                    let from_list: Vec<_> = filtered_reviews.iter()
+                    let from_list: Vec<_> = filtered_reviews
+                        .iter()
                         .filter(|r| r.pr_number == num)
                         .cloned()
                         .collect();
@@ -619,10 +743,7 @@ async fn main() -> anyhow::Result<()> {
                             for (i, r) in from_list.iter().enumerate() {
                                 println!("  [{}] {} ({})", i + 1, r.pr_title, r.repo);
                             }
-                            print!(
-                                "\n{} ",
-                                "Select repo [e.g. 1] (q to quit):".bold()
-                            );
+                            print!("\n{} ", "Select repo [e.g. 1] (q to quit):".bold());
                             io::stdout().flush()?;
                             let mut input = String::new();
                             io::stdin().read_line(&mut input)?;
@@ -654,10 +775,7 @@ async fn main() -> anyhow::Result<()> {
                             for (i, r) in direct.iter().enumerate() {
                                 println!("  [{}] {} ({})", i + 1, r.pr_title, r.repo);
                             }
-                            print!(
-                                "\n{} ",
-                                "Select repo [e.g. 1] (q to quit):".bold()
-                            );
+                            print!("\n{} ", "Select repo [e.g. 1] (q to quit):".bold());
                             io::stdout().flush()?;
                             let mut input = String::new();
                             io::stdin().read_line(&mut input)?;
@@ -698,12 +816,12 @@ async fn main() -> anyhow::Result<()> {
                             .filter_map(|r| r.ok())
                             .flatten()
                             .collect();
-                        
+
                         if all_prs.is_empty() {
                             println!("No PRs found for the specified numbers.");
                             return Ok(());
                         }
-                        
+
                         // Apply filters to fetched PRs
                         let filtered: Vec<_> = all_prs
                             .into_iter()
@@ -715,17 +833,18 @@ async fn main() -> anyhow::Result<()> {
                                 }
                                 if let Some(ref author_filter) = author {
                                     let pattern = author_filter.to_lowercase();
-                                    matches = matches && r.pr_author.to_lowercase().contains(&pattern);
+                                    matches =
+                                        matches && r.pr_author.to_lowercase().contains(&pattern);
                                 }
                                 matches
                             })
                             .collect();
-                        
+
                         if filtered.is_empty() {
                             println!("No matching reviews found among specified PRs.");
                             return Ok(());
                         }
-                        
+
                         filtered
                     } else if filtered_reviews.is_empty() {
                         println!("No matching reviews found.");
@@ -747,9 +866,10 @@ async fn main() -> anyhow::Result<()> {
 
                         match parse_selection(input, filtered_reviews.len()) {
                             Selection::Quit => return Ok(()),
-                            Selection::Indices(indices) => {
-                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                            }
+                            Selection::Indices(indices) => indices
+                                .into_iter()
+                                .map(|i| filtered_reviews[i].clone())
+                                .collect(),
                         }
                     }
                 }
@@ -770,7 +890,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -801,32 +922,31 @@ async fn main() -> anyhow::Result<()> {
                     (review.clone(), summary)
                 }
             });
-            let results: Vec<(github::PendingReview, Result<String, anyhow::Error>)> = join_all(delegate_futures).await;
+            let results: Vec<(github::PendingReview, Result<String, anyhow::Error>)> =
+                join_all(delegate_futures).await;
 
             if json {
                 let output: Vec<DelegateResult> = results
                     .into_iter()
-                    .map(|(review, summary)| {
-                        match summary {
-                            Ok(s) => DelegateResult {
-                                pr_number: review.pr_number,
-                                pr_title: review.pr_title,
-                                repo: review.repo,
-                                url: review.pr_url,
-                                success: true,
-                                summary: Some(s),
-                                error: None,
-                            },
-                            Err(e) => DelegateResult {
-                                pr_number: review.pr_number,
-                                pr_title: review.pr_title,
-                                repo: review.repo,
-                                url: review.pr_url,
-                                success: false,
-                                summary: None,
-                                error: Some(e.to_string()),
-                            },
-                        }
+                    .map(|(review, summary)| match summary {
+                        Ok(s) => DelegateResult {
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title,
+                            repo: review.repo,
+                            url: review.pr_url,
+                            success: true,
+                            summary: Some(s),
+                            error: None,
+                        },
+                        Err(e) => DelegateResult {
+                            pr_number: review.pr_number,
+                            pr_title: review.pr_title,
+                            repo: review.repo,
+                            url: review.pr_url,
+                            success: false,
+                            summary: None,
+                            error: Some(e.to_string()),
+                        },
                     })
                     .collect();
 
@@ -854,7 +974,10 @@ async fn main() -> anyhow::Result<()> {
 
                                 if let Some(ref dir) = output_dir {
                                     let path = writer::write_review(dir, &review, Some(&summary))?;
-                                    println!("   💾 Saved → {}", path.display().to_string().dimmed());
+                                    println!(
+                                        "   💾 Saved → {}",
+                                        path.display().to_string().dimmed()
+                                    );
                                 }
                             }
                         }
@@ -870,16 +993,26 @@ async fn main() -> anyhow::Result<()> {
                 if !quiet {
                     println!();
                 }
-                
+
                 if let Some(ref dir) = output_dir {
                     writer::write_index(dir, &reviews)?;
                 }
             }
         }
 
-        Commands::Stats { json, all, dry_run, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
-            use std::collections::HashMap;
+        Commands::Stats {
+            json,
+            all,
+            dry_run,
+            pr_numbers: _pr_numbers,
+            pr_number,
+            repo,
+            author,
+            priority,
+            since_days,
+        } => {
             use chrono::Duration;
+            use std::collections::HashMap;
 
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr_number);
@@ -887,7 +1020,11 @@ async fn main() -> anyhow::Result<()> {
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
                 let mut result = match target_pr {
-                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    Some(num) => reviews
+                        .iter()
+                        .filter(|r| r.pr_number == num)
+                        .cloned()
+                        .collect(),
                     None => reviews.clone(),
                 };
                 if let Some(ref repo_filter) = repo {
@@ -912,7 +1049,10 @@ async fn main() -> anyhow::Result<()> {
                     println!("No matching reviews found.");
                     return Ok(());
                 }
-                println!("\n📊 {} PR(s) would be included in stats:\n", filtered.len());
+                println!(
+                    "\n📊 {} PR(s) would be included in stats:\n",
+                    filtered.len()
+                );
                 for (i, review) in filtered.iter().enumerate() {
                     let priority_label = if priority {
                         let score = logger::calculate_priority_score(review);
@@ -920,7 +1060,14 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}  {}#{} — {}{}", i + 1, review.repo.dimmed(), review.pr_number, review.pr_title.bold(), priority_label);
+                    println!(
+                        "  {}  {}#{} — {}{}",
+                        i + 1,
+                        review.repo.dimmed(),
+                        review.pr_number,
+                        review.pr_title.bold(),
+                        priority_label
+                    );
                 }
                 println!();
                 return Ok(());
@@ -988,7 +1135,8 @@ async fn main() -> anyhow::Result<()> {
                 let avg_wait_days = if stats_reviews.is_empty() {
                     0.0
                 } else {
-                    let total_wait: Duration = stats_reviews.iter().map(|r| now - r.created_at).sum();
+                    let total_wait: Duration =
+                        stats_reviews.iter().map(|r| now - r.created_at).sum();
                     (total_wait / stats_reviews.len() as i32).num_hours() as f64 / 24.0
                 };
 
@@ -1011,7 +1159,8 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 println!("\n📊 Review Statistics\n{}", "─".repeat(40));
                 println!("  Total pending reviews: {}", stats_reviews.len());
-                println!("  Total lines changed:   +{} / -{}",
+                println!(
+                    "  Total lines changed:   +{} / -{}",
                     total_additions.to_string().green(),
                     total_deletions.to_string().red()
                 );
@@ -1019,16 +1168,22 @@ async fn main() -> anyhow::Result<()> {
                 if !stats_reviews.is_empty() {
                     // Average wait time
                     let now = chrono::Utc::now();
-                    let total_wait: Duration = stats_reviews.iter().map(|r| now - r.created_at).sum();
+                    let total_wait: Duration =
+                        stats_reviews.iter().map(|r| now - r.created_at).sum();
                     let avg_wait = total_wait / stats_reviews.len() as i32;
-                    println!("  Avg time waiting:      {} days",
-                        (avg_wait.num_hours() as f64 / 24.0).round());
+                    println!(
+                        "  Avg time waiting:      {} days",
+                        (avg_wait.num_hours() as f64 / 24.0).round()
+                    );
 
                     // Oldest PR
                     if let Some(oldest) = stats_reviews.first() {
                         let age = now - oldest.created_at;
-                        println!("  Oldest PR:             #{} ({} ago)", oldest.pr_number,
-                            format_duration(age));
+                        println!(
+                            "  Oldest PR:             #{} ({} ago)",
+                            oldest.pr_number,
+                            format_duration(age)
+                        );
                     }
 
                     // Breakdown by repo
@@ -1054,7 +1209,8 @@ async fn main() -> anyhow::Result<()> {
 
                     // Priority breakdown if --priority flag is set
                     if priority && !stats_reviews.is_empty() {
-                        let mut scored: Vec<_> = stats_reviews.iter()
+                        let mut scored: Vec<_> = stats_reviews
+                            .iter()
                             .map(|r| {
                                 let score = logger::calculate_priority_score(r);
                                 (r, score)
@@ -1074,8 +1230,14 @@ async fn main() -> anyhow::Result<()> {
                             };
                             let total = most_urgent.additions + most_urgent.deletions;
                             println!("\n  🚨 Most Urgent:");
-                            println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
-                            println!("    👤 {}  •  📦 {} lines  •  ⏱️ {}  •  {}",
+                            println!(
+                                "    {}  #{}  {}",
+                                most_urgent.pr_title.bold(),
+                                most_urgent.pr_number,
+                                logger::priority_stars(*top_score).red()
+                            );
+                            println!(
+                                "    👤 {}  •  📦 {} lines  •  ⏱️ {}  •  {}",
                                 most_urgent.pr_author.cyan(),
                                 total,
                                 age_str.red(),
@@ -1085,7 +1247,8 @@ async fn main() -> anyhow::Result<()> {
                         }
 
                         // Group by score for breakdown
-                        let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> = HashMap::new();
+                        let mut score_groups: HashMap<u8, Vec<&github::PendingReview>> =
+                            HashMap::new();
                         for (review, score) in &scored {
                             score_groups.entry(*score).or_default().push(review);
                         }
@@ -1102,7 +1265,8 @@ async fn main() -> anyhow::Result<()> {
                                 } else {
                                     format!("{} days", age_days)
                                 };
-                                println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                                println!(
+                                    "    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
                                     stars,
                                     prs.len(),
                                     age_str,
@@ -1120,9 +1284,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::TeamSummary { json, all: _all, pr, pr_numbers: _pr_numbers, pr_number, repo, author, priority, since_days } => {
-            use std::collections::HashMap;
+        Commands::TeamSummary {
+            json,
+            all: _all,
+            pr,
+            pr_numbers: _pr_numbers,
+            pr_number,
+            repo,
+            author,
+            priority,
+            since_days,
+        } => {
             use serde::Serialize;
+            use std::collections::HashMap;
 
             // Priority: global --pr flag > local --pr > local --pr_number
             let target_pr = cli.pr.or(pr).or(pr_number);
@@ -1130,7 +1304,11 @@ async fn main() -> anyhow::Result<()> {
             // Apply filters (same logic as List command)
             let filtered: Vec<_> = {
                 let mut result = match target_pr {
-                    Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                    Some(num) => reviews
+                        .iter()
+                        .filter(|r| r.pr_number == num)
+                        .cloned()
+                        .collect(),
                     None => reviews.clone(),
                 };
                 if let Some(ref repo_filter) = repo {
@@ -1210,7 +1388,8 @@ async fn main() -> anyhow::Result<()> {
                 // Priority breakdown if --priority flag is set
                 if priority && !filtered.is_empty() {
                     println!("\n  Priority breakdown:");
-                    let mut scored: Vec<_> = filtered.iter()
+                    let mut scored: Vec<_> = filtered
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             (r, score)
@@ -1235,7 +1414,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 format!("{} days", age_days)
                             };
-                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                            println!(
+                                "    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
                                 stars,
                                 prs.len(),
                                 age_str,
@@ -1250,9 +1430,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Load { threshold, repo, author, since_days, priority, json, pr, pr_numbers } => {
-            use std::collections::HashMap;
+        Commands::Load {
+            threshold,
+            repo,
+            author,
+            since_days,
+            priority,
+            json,
+            pr,
+            pr_numbers,
+        } => {
             use serde::Serialize;
+            use std::collections::HashMap;
 
             let min_threshold = threshold.unwrap_or(3) as usize;
 
@@ -1275,7 +1464,10 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle batch PR numbers first
             let base_reviews: Vec<github::PendingReview> = if let Some(ref nums) = pr_numbers {
-                let nums: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+                let nums: Vec<u64> = nums
+                    .split(',')
+                    .filter_map(|s| s.trim().parse().ok())
+                    .collect();
                 if nums.is_empty() {
                     println!("❌ No valid PR numbers provided.");
                     return Ok(());
@@ -1302,15 +1494,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -1318,11 +1511,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -1378,7 +1571,10 @@ async fn main() -> anyhow::Result<()> {
                 let total_lines = prs.iter().map(|r| r.additions + r.deletions).sum::<u64>();
                 let total_additions: u64 = prs.iter().map(|r| r.additions).sum();
                 let total_deletions: u64 = prs.iter().map(|r| r.deletions).sum();
-                let ages: Vec<i64> = prs.iter().map(|r| (now - r.created_at).num_days()).collect();
+                let ages: Vec<i64> = prs
+                    .iter()
+                    .map(|r| (now - r.created_at).num_days())
+                    .collect();
                 let avg_age = if ages.is_empty() {
                     0.0
                 } else {
@@ -1427,8 +1623,12 @@ async fn main() -> anyhow::Result<()> {
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 println!("\n⚖️  Review Load Distribution\n{}", "─".repeat(50));
-                println!("  Total pending PRs: {} | Team members: {} | Overload threshold: {} PRs\n",
-                    total_prs.to_string().cyan(), total_load_members, min_threshold);
+                println!(
+                    "  Total pending PRs: {} | Team members: {} | Overload threshold: {} PRs\n",
+                    total_prs.to_string().cyan(),
+                    total_load_members,
+                    min_threshold
+                );
 
                 if loads.is_empty() {
                     println!("  No review requests found.\n");
@@ -1440,7 +1640,8 @@ async fn main() -> anyhow::Result<()> {
                 println!("  Workload bar (max {} PRs):", max_count);
                 print!("  ");
                 for load in &loads {
-                    let bar_len = ((load.pr_count as f64 / max_count as f64) * 20.0).round() as usize;
+                    let bar_len =
+                        ((load.pr_count as f64 / max_count as f64) * 20.0).round() as usize;
                     let bar = if load.overloaded {
                         "█".repeat(bar_len).red()
                     } else {
@@ -1459,8 +1660,15 @@ async fn main() -> anyhow::Result<()> {
                 println!("\n");
 
                 // Detailed table
-                println!("  {:<20} {:>4} {:>8} {:>8} {:>10} {:>10}",
-                    "Author".bold(), "PRs", "+add", "-del", "Avg Age", "Status");
+                println!(
+                    "  {:<20} {:>4} {:>8} {:>8} {:>10} {:>10}",
+                    "Author".bold(),
+                    "PRs",
+                    "+add",
+                    "-del",
+                    "Avg Age",
+                    "Status"
+                );
                 println!("  {}", "─".repeat(70));
 
                 let overloaded_count = loads.iter().filter(|l| l.overloaded).count();
@@ -1492,22 +1700,39 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!("  {}", "─".repeat(70));
-                println!("  Summary: {} healthy | {} overloaded", healthy_count, overloaded_count.to_string().red());
+                println!(
+                    "  Summary: {} healthy | {} overloaded",
+                    healthy_count,
+                    overloaded_count.to_string().red()
+                );
 
                 // Recommendations
                 println!("\n  💡 Recommendations:");
                 if overloaded_count > 0 {
-                    let overloaded_members: Vec<_> = loads.iter().filter(|l| l.overloaded).collect();
+                    let overloaded_members: Vec<_> =
+                        loads.iter().filter(|l| l.overloaded).collect();
                     if let Some(top) = overloaded_members.first() {
-                        println!("  • {} has the most pending PRs ({}), consider reassigning some",
-                            top.author.bold(), top.pr_count);
+                        println!(
+                            "  • {} has the most pending PRs ({}), consider reassigning some",
+                            top.author.bold(),
+                            top.pr_count
+                        );
                     }
                     let avg = total_prs as f64 / total_load_members.max(1) as f64;
                     println!("  • Average load: {:.1} PRs per member", avg);
-                    let underloaded: Vec<_> = loads.iter().filter(|l| l.pr_count < (avg as usize * 2 / 3)).collect();
+                    let underloaded: Vec<_> = loads
+                        .iter()
+                        .filter(|l| l.pr_count < (avg as usize * 2 / 3))
+                        .collect();
                     if !underloaded.is_empty() {
-                        println!("  • Consider delegating to: {}",
-                            underloaded.iter().map(|l| l.author.as_str()).collect::<Vec<_>>().join(", "));
+                        println!(
+                            "  • Consider delegating to: {}",
+                            underloaded
+                                .iter()
+                                .map(|l| l.author.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
                     }
                 } else {
                     println!("  • Team workload is balanced! 🎉");
@@ -1516,7 +1741,8 @@ async fn main() -> anyhow::Result<()> {
                 // Priority breakdown if --priority flag is set
                 if priority && !filtered.is_empty() {
                     println!("\n  Priority breakdown:");
-                    let mut scored: Vec<_> = filtered.iter()
+                    let mut scored: Vec<_> = filtered
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             (r, score)
@@ -1541,7 +1767,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 format!("{} days", age_days)
                             };
-                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                            println!(
+                                "    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
                                 stars,
                                 prs.len(),
                                 age_str,
@@ -1594,11 +1821,20 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
         }
-        
-        Commands::Monitor { interval, notify, auto_open, no_auto_open, interactive } => {
+
+        Commands::Monitor {
+            interval,
+            notify,
+            auto_open,
+            no_auto_open,
+            interactive,
+        } => {
             let effective_auto_open = auto_open && !no_auto_open;
-            
-            println!("👀 Starting PR monitor (polling every {} seconds)...", interval);
+
+            println!(
+                "👀 Starting PR monitor (polling every {} seconds)...",
+                interval
+            );
             if interactive {
                 println!("🎮 Interactive mode enabled - will prompt for actions on new PRs");
             }
@@ -1612,7 +1848,7 @@ async fn main() -> anyhow::Result<()> {
                 println!("🔔 Notifications disabled");
             }
             println!("Press Ctrl+C to stop.");
-            
+
             dispatcher::monitor_new_prs(
                 &cfg.github_token,
                 &cfg.github_org,
@@ -1631,7 +1867,7 @@ async fn main() -> anyhow::Result<()> {
             )
             .await?;
         }
-        
+
         Commands::MonitorStop => {
             println!("🛑 Stopping monitor process...");
             match dispatcher::kill_existing_monitor() {
@@ -1640,7 +1876,7 @@ async fn main() -> anyhow::Result<()> {
                 Err(e) => println!("❌ Error stopping monitor: {}", e),
             }
         }
-        
+
         Commands::MonitorStatus => {
             if dispatcher::is_monitor_running() {
                 println!("✅ Monitor process is running");
@@ -1652,7 +1888,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Diff { pr_number, pr_numbers, pr, all, dry_run, json, priority, repo, author, since_days } => {
+        Commands::Diff {
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            dry_run,
+            json,
+            priority,
+            repo,
+            author,
+            since_days,
+        } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -1742,9 +1989,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -1763,7 +2011,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -1848,13 +2097,19 @@ async fn main() -> anyhow::Result<()> {
 
                     println!("\n{}", "─".repeat(60));
                     println!("📄 {}  #{}", review.pr_title.bold(), review.pr_number);
-                    println!("   👤 {}  •  📅 {}  •  🌿 {}",
+                    println!(
+                        "   👤 {}  •  📅 {}  •  🌿 {}",
                         review.pr_author.cyan(),
                         age_label,
                         review.branch.dimmed()
                     );
-                    println!("   📊 {}  •  +{} additions  •  -{} deletions",
-                        if review.draft { "DRAFT".yellow() } else { "READY".green() },
+                    println!(
+                        "   📊 {}  •  +{} additions  •  -{} deletions",
+                        if review.draft {
+                            "DRAFT".yellow()
+                        } else {
+                            "READY".green()
+                        },
                         review.additions.to_string().green(),
                         review.deletions.to_string().red()
                     );
@@ -1867,7 +2122,11 @@ async fn main() -> anyhow::Result<()> {
                         "L" => colored::Color::Red,
                         _ => colored::Color::Magenta,
                     };
-                    println!("   📦 Size: {} ({} lines)", size_label.color(size_color), total);
+                    println!(
+                        "   📦 Size: {} ({} lines)",
+                        size_label.color(size_color),
+                        total
+                    );
 
                     let age_cat = if age_days == 0 {
                         "🔥 HOT"
@@ -1883,7 +2142,11 @@ async fn main() -> anyhow::Result<()> {
                     println!("   ⏱️  Age: {} ({} days)", age_cat, age_days);
 
                     if priority {
-                        println!("   ⭐ Priority: {}/5  {}", priority_score, logger::priority_stars(priority_score));
+                        println!(
+                            "   ⭐ Priority: {}/5  {}",
+                            priority_score,
+                            logger::priority_stars(priority_score)
+                        );
                     }
 
                     println!("   📁 Repository: {}", review.repo);
@@ -1893,7 +2156,17 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Info { pr_number, json, priority, repo, author, since_days, all, pr_numbers, pr } => {
+        Commands::Info {
+            pr_number,
+            json,
+            priority,
+            repo,
+            author,
+            since_days,
+            all,
+            pr_numbers,
+            pr,
+        } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -1975,71 +2248,82 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // Apply snooze filtering (unless --pr, --pr-numbers, or --all is specified)
-            let filtered_reviews: Vec<github::PendingReview> = if target_pr.is_none() && pr_numbers.is_none() && !all {
-                let snooze_file = output_dir
-                    .clone()
-                    .unwrap_or_else(|| PathBuf::from("./reviews"))
-                    .join(".snoozed.json");
+            let filtered_reviews: Vec<github::PendingReview> =
+                if target_pr.is_none() && pr_numbers.is_none() && !all {
+                    let snooze_file = output_dir
+                        .clone()
+                        .unwrap_or_else(|| PathBuf::from("./reviews"))
+                        .join(".snoozed.json");
 
-                let now = chrono::Utc::now();
-                let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
-                            entries
-                                .into_iter()
-                                .filter_map(|e| {
-                                    let repo = e.get("repo")?.as_str()?.to_string();
-                                    let pr_number = e.get("pr_number")?.as_u64()?;
-                                    let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
-                                        if until.with_timezone(&chrono::Utc) > now {
-                                            return Some((repo, pr_number));
+                    let now = chrono::Utc::now();
+                    let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
+                        if let Ok(content) = std::fs::read_to_string(&snooze_file) {
+                            if let Ok(entries) =
+                                serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                            {
+                                entries
+                                    .into_iter()
+                                    .filter_map(|e| {
+                                        let repo = e.get("repo")?.as_str()?.to_string();
+                                        let pr_number = e.get("pr_number")?.as_u64()?;
+                                        let until_str = e.get("snoozed_until")?.as_str()?;
+                                        if let Ok(until) =
+                                            chrono::DateTime::parse_from_rfc3339(until_str)
+                                        {
+                                            if until.with_timezone(&chrono::Utc) > now {
+                                                return Some((repo, pr_number));
+                                            }
                                         }
-                                    }
-                                    None
-                                })
-                                .collect()
+                                        None
+                                    })
+                                    .collect()
+                            } else {
+                                Vec::new()
+                            }
                         } else {
                             Vec::new()
                         }
                     } else {
                         Vec::new()
-                    }
+                    };
+
+                    filtered_reviews
+                        .into_iter()
+                        .filter(|r| {
+                            !snoozed_prs
+                                .iter()
+                                .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                        })
+                        .collect()
                 } else {
-                    Vec::new()
+                    filtered_reviews
                 };
 
-                filtered_reviews
-                    .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
-                    .collect()
-            } else {
-                filtered_reviews
-            };
-
             // Handle interactive selection if no targeting flags provided
-            let prs: Vec<github::PendingReview> = if target_pr.is_none() && pr_numbers.is_none() && !all {
-                if filtered_reviews.is_empty() {
-                    println!("No matching reviews found.");
-                    return Ok(());
-                }
-                logger::print_reviews(&filtered_reviews, false);
-                print!(
-                    "\n{} ",
-                    "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
-                );
-                io::stdout().flush()?;
-                let mut input = String::new();
-                io::stdin().read_line(&mut input)?;
-                match parse_selection(input.trim(), filtered_reviews.len()) {
-                    Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
+            let prs: Vec<github::PendingReview> =
+                if target_pr.is_none() && pr_numbers.is_none() && !all {
+                    if filtered_reviews.is_empty() {
+                        println!("No matching reviews found.");
+                        return Ok(());
                     }
-                }
-            } else {
-                filtered_reviews
-            };
+                    logger::print_reviews(&filtered_reviews, false);
+                    print!(
+                        "\n{} ",
+                        "Select PR to info [e.g. 1 or 1,3 or 1-3] (q to quit):".bold()
+                    );
+                    io::stdout().flush()?;
+                    let mut input = String::new();
+                    io::stdin().read_line(&mut input)?;
+                    match parse_selection(input.trim(), filtered_reviews.len()) {
+                        Selection::Quit => return Ok(()),
+                        Selection::Indices(indices) => indices
+                            .into_iter()
+                            .map(|i| filtered_reviews[i].clone())
+                            .collect(),
+                    }
+                } else {
+                    filtered_reviews
+                };
 
             if prs.is_empty() {
                 println!("No PR found.");
@@ -2050,14 +2334,13 @@ async fn main() -> anyhow::Result<()> {
             let detail_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
 
-                async move {
-                    client.pulls(&org, &repo).get(pr_number).await
-                }
+                async move { client.pulls(&org, &repo).get(pr_number).await }
             });
 
             let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
@@ -2067,12 +2350,18 @@ async fn main() -> anyhow::Result<()> {
                 let full_pr = match result {
                     Ok(pr) => pr,
                     Err(e) => {
-                        eprintln!("Warning: Failed to fetch details for PR #{}: {}", review.pr_number, e);
+                        eprintln!(
+                            "Warning: Failed to fetch details for PR #{}: {}",
+                            review.pr_number, e
+                        );
                         continue;
                     }
                 };
 
-                let body = full_pr.body.clone().unwrap_or_else(|| "No description provided.".to_string());
+                let body = full_pr
+                    .body
+                    .clone()
+                    .unwrap_or_else(|| "No description provided.".to_string());
                 let mut lines: Vec<&str> = body.lines().collect();
                 if lines.len() > 50 {
                     lines.truncate(50);
@@ -2133,11 +2422,22 @@ async fn main() -> anyhow::Result<()> {
                     println!("  📅 Created:   {}", created_str);
                     println!("  🔄 Updated:   {}", updated_str);
                     println!("  🌿 Branch:    {}", review.branch.dimmed());
-                    println!("  📊 State:     {}", if review.draft { "DRAFT".yellow() } else { "OPEN".green() });
+                    println!(
+                        "  📊 State:     {}",
+                        if review.draft {
+                            "DRAFT".yellow()
+                        } else {
+                            "OPEN".green()
+                        }
+                    );
                     println!("  📁 Repository: {}", review.repo);
                     if priority {
                         let score = logger::calculate_priority_score(&review);
-                        println!("  ⭐ Priority:  {}/5  {}", score, logger::priority_stars(score));
+                        println!(
+                            "  ⭐ Priority:  {}/5  {}",
+                            score,
+                            logger::priority_stars(score)
+                        );
                     }
                     println!();
                     println!("  👥 Requested Reviewers:");
@@ -2153,7 +2453,11 @@ async fn main() -> anyhow::Result<()> {
                     }
                     println!();
                     println!("  🏷️  Labels:");
-                    let labels = full_pr.labels.as_ref().map(|l| l.iter().map(|label| label.name.clone()).collect::<Vec<_>>()).unwrap_or_default();
+                    let labels = full_pr
+                        .labels
+                        .as_ref()
+                        .map(|l| l.iter().map(|label| label.name.clone()).collect::<Vec<_>>())
+                        .unwrap_or_default();
                     if labels.is_empty() {
                         println!("     (none)");
                     } else {
@@ -2176,7 +2480,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Timeline { pr_number, json, pr, pr_numbers, all, dry_run, repo, author, priority, since_days } => {
+        Commands::Timeline {
+            pr_number,
+            json,
+            pr,
+            pr_numbers,
+            all,
+            dry_run,
+            repo,
+            author,
+            priority,
+            since_days,
+        } => {
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -2229,7 +2544,14 @@ async fn main() -> anyhow::Result<()> {
                         } else {
                             String::new()
                         };
-                        println!("  {}  {}#{} — {}{}", i + 1, pr.repo.dimmed(), pr.pr_number, pr.pr_title.bold(), priority_display);
+                        println!(
+                            "  {}  {}#{} — {}{}",
+                            i + 1,
+                            pr.repo.dimmed(),
+                            pr.pr_number,
+                            pr.pr_title.bold(),
+                            priority_display
+                        );
                     }
                     println!();
                     return Ok(());
@@ -2244,14 +2566,22 @@ async fn main() -> anyhow::Result<()> {
                         review.pr_number,
                     )
                 });
-                let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> = futures::future::join_all(futures).await;
+                let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> =
+                    futures::future::join_all(futures).await;
                 let total_prs = prs_from_numbers.len();
 
-                for (i, (review, timeline_result)) in prs_from_numbers.iter().zip(timeline_results.into_iter()).enumerate() {
+                for (i, (review, timeline_result)) in prs_from_numbers
+                    .iter()
+                    .zip(timeline_results.into_iter())
+                    .enumerate()
+                {
                     let timeline = match timeline_result {
                         Ok(t) => t,
                         Err(e) => {
-                            eprintln!("Warning: Failed to fetch timeline for PR #{}: {}", review.pr_number, e);
+                            eprintln!(
+                                "Warning: Failed to fetch timeline for PR #{}: {}",
+                                review.pr_number, e
+                            );
                             continue;
                         }
                     };
@@ -2308,7 +2638,14 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 String::new()
                             };
-                            println!("  {}  {}#{} — {}{}", i + 1, pr.repo.dimmed(), pr.pr_number, pr.pr_title.bold(), priority_display);
+                            println!(
+                                "  {}  {}#{} — {}{}",
+                                i + 1,
+                                pr.repo.dimmed(),
+                                pr.pr_number,
+                                pr.pr_title.bold(),
+                                priority_display
+                            );
                         }
                         println!();
                         return Ok(());
@@ -2323,14 +2660,22 @@ async fn main() -> anyhow::Result<()> {
                             review.pr_number,
                         )
                     });
-                    let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> = futures::future::join_all(futures).await;
+                    let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> =
+                        futures::future::join_all(futures).await;
                     let total_prs = filtered.len();
 
-                    for (i, (review, timeline_result)) in filtered.iter().zip(timeline_results.into_iter()).enumerate() {
+                    for (i, (review, timeline_result)) in filtered
+                        .iter()
+                        .zip(timeline_results.into_iter())
+                        .enumerate()
+                    {
                         let timeline = match timeline_result {
                             Ok(t) => t,
                             Err(e) => {
-                                eprintln!("Warning: Failed to fetch timeline for PR #{}: {}", review.pr_number, e);
+                                eprintln!(
+                                    "Warning: Failed to fetch timeline for PR #{}: {}",
+                                    review.pr_number, e
+                                );
                                 continue;
                             }
                         };
@@ -2370,7 +2715,14 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}  {}#{} — {}{}", i + 1, pr.repo.dimmed(), pr.pr_number, pr.pr_title.bold(), priority_display);
+                    println!(
+                        "  {}  {}#{} — {}{}",
+                        i + 1,
+                        pr.repo.dimmed(),
+                        pr.pr_number,
+                        pr.pr_title.bold(),
+                        priority_display
+                    );
                 }
                 println!();
                 return Ok(());
@@ -2385,14 +2737,20 @@ async fn main() -> anyhow::Result<()> {
                     review.pr_number,
                 )
             });
-            let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> = futures::future::join_all(futures).await;
+            let timeline_results: Vec<Result<Vec<github::TimelineEvent>, anyhow::Error>> =
+                futures::future::join_all(futures).await;
             let total_prs = prs.len();
 
-            for (i, (review, timeline_result)) in prs.iter().zip(timeline_results.into_iter()).enumerate() {
+            for (i, (review, timeline_result)) in
+                prs.iter().zip(timeline_results.into_iter()).enumerate()
+            {
                 let timeline = match timeline_result {
                     Ok(t) => t,
                     Err(e) => {
-                        eprintln!("Warning: Failed to fetch timeline for PR #{}: {}", review.pr_number, e);
+                        eprintln!(
+                            "Warning: Failed to fetch timeline for PR #{}: {}",
+                            review.pr_number, e
+                        );
                         continue;
                     }
                 };
@@ -2400,7 +2758,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Browse { pr_number, pr_numbers, pr, all, dry_run, quiet, json, priority, repo, author, since_days } => {
+        Commands::Browse {
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            dry_run,
+            quiet,
+            json,
+            priority,
+            repo,
+            author,
+            since_days,
+        } => {
             // In JSON mode, also suppress per-PR output
             let quiet = quiet || json;
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
@@ -2441,14 +2811,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -2468,7 +2842,11 @@ async fn main() -> anyhow::Result<()> {
 
                 filtered_reviews
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             } else {
                 filtered_reviews
@@ -2562,9 +2940,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -2583,7 +2962,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -2607,14 +2987,24 @@ async fn main() -> anyhow::Result<()> {
                     #[serde(skip_serializing_if = "Option::is_none")]
                     priority_score: Option<u8>,
                 }
-                let output: Vec<BrowseOutput> = targets.iter().map(|r| BrowseOutput {
-                    pr_number: r.pr_number,
-                    pr_title: &r.pr_title,
-                    repo: &r.repo,
-                    url: &r.pr_url,
-                    priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
-                }).collect();
-                println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+                let output: Vec<BrowseOutput> = targets
+                    .iter()
+                    .map(|r| BrowseOutput {
+                        pr_number: r.pr_number,
+                        pr_title: &r.pr_title,
+                        repo: &r.repo,
+                        url: &r.pr_url,
+                        priority_score: if priority {
+                            Some(logger::calculate_priority_score(r))
+                        } else {
+                            None
+                        },
+                    })
+                    .collect();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&output).unwrap_or_default()
+                );
                 return Ok(());
             }
 
@@ -2634,13 +3024,23 @@ async fn main() -> anyhow::Result<()> {
                     Ok(_) => {
                         success_count += 1;
                         if !quiet {
-                            println!("  ✅ {}{}({})", review.pr_title.dimmed(), priority_label, review.pr_url.cyan());
+                            println!(
+                                "  ✅ {}{}({})",
+                                review.pr_title.dimmed(),
+                                priority_label,
+                                review.pr_url.cyan()
+                            );
                         }
                     }
                     Err(e) => {
                         fail_count += 1;
                         if !quiet {
-                            println!("  ❌ Failed to open {}{}: {}", review.pr_title.dimmed(), priority_label, e);
+                            println!(
+                                "  ❌ Failed to open {}{}: {}",
+                                review.pr_title.dimmed(),
+                                priority_label,
+                                e
+                            );
                         }
                     }
                 }
@@ -2649,11 +3049,27 @@ async fn main() -> anyhow::Result<()> {
                 println!();
             } else {
                 // In quiet mode, just show summary
-                println!("Opened {} PR(s) ({} success, {} failed)", targets.len(), success_count, fail_count);
+                println!(
+                    "Opened {} PR(s) ({} success, {} failed)",
+                    targets.len(),
+                    success_count,
+                    fail_count
+                );
             }
         }
 
-        Commands::Assign { all, pr_numbers, pr_number, since_days, dry_run, json, quiet, repo, author, priority } => {
+        Commands::Assign {
+            all,
+            pr_numbers,
+            pr_number,
+            since_days,
+            dry_run,
+            json,
+            quiet,
+            repo,
+            author,
+            priority,
+        } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2721,15 +3137,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -2737,11 +3154,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -2771,9 +3188,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -2792,7 +3210,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -2820,7 +3239,8 @@ async fn main() -> anyhow::Result<()> {
             let assign_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -2840,8 +3260,7 @@ async fn main() -> anyhow::Result<()> {
                 if !json && !quiet {
                     print!(
                         "\n⏳ Requesting review on #{} {}... ",
-                        review.pr_number,
-                        review.pr_title
+                        review.pr_number, review.pr_title
                     );
                     io::stdout().flush()?;
                 }
@@ -2859,7 +3278,10 @@ async fn main() -> anyhow::Result<()> {
                             });
                         } else if !quiet {
                             println!("{}", "✅ Assigned".green());
-                            println!("   👤 You're now a reviewer on {} ({})", review.pr_title, review.repo);
+                            println!(
+                                "   👤 You're now a reviewer on {} ({})",
+                                review.pr_title, review.repo
+                            );
                             println!("   🔗 {}", review.pr_url.blue().underline());
                         }
                     }
@@ -2888,7 +3310,18 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Unassign { all, pr_numbers, pr_number, since_days, dry_run, json, quiet, repo, author, priority } => {
+        Commands::Unassign {
+            all,
+            pr_numbers,
+            pr_number,
+            since_days,
+            dry_run,
+            json,
+            quiet,
+            repo,
+            author,
+            priority,
+        } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other batch commands)
@@ -2956,15 +3389,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -2972,11 +3406,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -3006,9 +3440,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -3027,7 +3462,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -3055,7 +3491,8 @@ async fn main() -> anyhow::Result<()> {
             let unassign_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3075,8 +3512,7 @@ async fn main() -> anyhow::Result<()> {
                 if !json && !quiet {
                     print!(
                         "\n⏳ Removing yourself from review on #{} {}... ",
-                        review.pr_number,
-                        review.pr_title
+                        review.pr_number, review.pr_title
                     );
                     io::stdout().flush()?;
                 }
@@ -3094,7 +3530,10 @@ async fn main() -> anyhow::Result<()> {
                             });
                         } else if !quiet {
                             println!("{}", "✅ Unassigned".green());
-                            println!("   👤 You're no longer a reviewer on {} ({})", review.pr_title, review.repo);
+                            println!(
+                                "   👤 You're no longer a reviewer on {} ({})",
+                                review.pr_title, review.repo
+                            );
                             println!("   🔗 {}", review.pr_url.blue().underline());
                         }
                     }
@@ -3123,7 +3562,19 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Comment { all, pr_numbers, pr_number, text, since_days, dry_run, json, quiet, repo, author, priority } => {
+        Commands::Comment {
+            all,
+            pr_numbers,
+            pr_number,
+            text,
+            since_days,
+            dry_run,
+            json,
+            quiet,
+            repo,
+            author,
+            priority,
+        } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
@@ -3191,15 +3642,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -3207,11 +3659,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -3241,9 +3693,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -3256,7 +3709,8 @@ async fn main() -> anyhow::Result<()> {
             if dry_run {
                 println!("\n🔍 Dry-run mode — the following PRs would receive a comment:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    println!(
+                        "  {}. #{} {}  ({})",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -3285,7 +3739,8 @@ async fn main() -> anyhow::Result<()> {
             let comment_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3305,8 +3760,7 @@ async fn main() -> anyhow::Result<()> {
                 if !json && !quiet {
                     print!(
                         "\n💬 Posting comment on #{} {}... ",
-                        review.pr_number,
-                        review.pr_title
+                        review.pr_number, review.pr_title
                     );
                     io::stdout().flush()?;
                 }
@@ -3354,7 +3808,19 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Approve { all, pr_numbers, pr_number, message, since_days, dry_run, json, priority, quiet, repo, author } => {
+        Commands::Approve {
+            all,
+            pr_numbers,
+            pr_number,
+            message,
+            since_days,
+            dry_run,
+            json,
+            priority,
+            quiet,
+            repo,
+            author,
+        } => {
             let target_pr = cli.pr.or(pr_number);
 
             // Apply --repo and --author filters (consistent with other commands)
@@ -3389,14 +3855,18 @@ async fn main() -> anyhow::Result<()> {
                     let now = chrono::Utc::now();
                     let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                         if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                            if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                            if let Ok(entries) =
+                                serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                            {
                                 entries
                                     .into_iter()
                                     .filter_map(|e| {
                                         let repo = e.get("repo")?.as_str()?.to_string();
                                         let pr_number = e.get("pr_number")?.as_u64()?;
                                         let until_str = e.get("snoozed_until")?.as_str()?;
-                                        if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                        if let Ok(until) =
+                                            chrono::DateTime::parse_from_rfc3339(until_str)
+                                        {
                                             if until.with_timezone(&chrono::Utc) > now {
                                                 return Some((repo, pr_number));
                                             }
@@ -3416,7 +3886,11 @@ async fn main() -> anyhow::Result<()> {
 
                     result
                         .into_iter()
-                        .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                        .filter(|r| {
+                            !snoozed_prs
+                                .iter()
+                                .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                        })
                         .collect()
                 } else {
                     result
@@ -3463,15 +3937,16 @@ async fn main() -> anyhow::Result<()> {
                     num,
                 )
                 .await?;
-                
+
                 // If PR exists in multiple repos, ask user to choose
                 if fetched.len() > 1 {
                     println!("\n📋 PR #{} found in multiple repos:\n", num);
                     for (i, pr) in fetched.iter().enumerate() {
-                        println!("  {}. {} / #{} {}", 
-                            i + 1, 
-                            pr.repo.cyan(), 
-                            pr.pr_number, 
+                        println!(
+                            "  {}. {} / #{} {}",
+                            i + 1,
+                            pr.repo.cyan(),
+                            pr.pr_number,
                             pr.pr_title.bold()
                         );
                     }
@@ -3479,11 +3954,11 @@ async fn main() -> anyhow::Result<()> {
                     io::stdout().flush()?;
                     let mut input = String::new();
                     io::stdin().read_line(&mut input)?;
-                    
+
                     if input.trim().to_lowercase() == "q" {
                         return Ok(());
                     }
-                    
+
                     if let Ok(idx) = input.trim().parse::<usize>() {
                         if idx > 0 && idx <= fetched.len() {
                             vec![fetched[idx - 1].clone()]
@@ -3513,9 +3988,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -3541,7 +4017,8 @@ async fn main() -> anyhow::Result<()> {
             if !dry_run {
                 println!("\n🔍 About to approve the following PRs:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    println!(
+                        "  {}. #{} {}  ({})",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -3549,7 +4026,7 @@ async fn main() -> anyhow::Result<()> {
                     );
                 }
                 println!("\n  Total: {} PR(s)\n", prs.len());
-                
+
                 print!("{} ", "Continue with approval? (y/n):".yellow().bold());
                 io::stdout().flush()?;
                 let mut confirm = String::new();
@@ -3562,7 +4039,8 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 println!("\n🔍 Dry-run mode — the following PRs would be approved:\n");
                 for (i, review) in prs.iter().enumerate() {
-                    println!("  {}. #{} {}  ({})",
+                    println!(
+                        "  {}. #{} {}  ({})",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -3577,48 +4055,51 @@ async fn main() -> anyhow::Result<()> {
             let detail_futures = prs.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
 
-                async move {
-                    client.pulls(&org, &repo).get(pr_number).await
-                }
+                async move { client.pulls(&org, &repo).get(pr_number).await }
             });
 
             let detail_results: Vec<Result<_, _>> = join_all(detail_futures).await;
 
             // Phase 2: Approve all PRs in parallel using the fetched commit SHAs
-            let approve_futures = prs.iter().zip(detail_results.iter()).filter_map(|(review, detail_result)| {
-                let commit_id = match detail_result {
-                    Ok(pr) => pr.head.sha.clone(),
-                    Err(_) => return None,
-                };
+            let approve_futures =
+                prs.iter()
+                    .zip(detail_results.iter())
+                    .filter_map(|(review, detail_result)| {
+                        let commit_id = match detail_result {
+                            Ok(pr) => pr.head.sha.clone(),
+                            Err(_) => return None,
+                        };
 
-                let client = octocrab::Octocrab::builder()
-                    .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
-                let org = cfg.github_org.clone();
-                let repo = review.repo.clone();
-                let pr_number = review.pr_number;
-                let msg = approval_message.clone();
+                        let client = octocrab::Octocrab::builder()
+                            .personal_token(cfg.github_token.clone())
+                            .build()
+                            .expect("failed to build GitHub client");
+                        let org = cfg.github_org.clone();
+                        let repo = review.repo.clone();
+                        let pr_number = review.pr_number;
+                        let msg = approval_message.clone();
 
-                Some(async move {
-                    #[allow(deprecated)]
-                    client
-                        .pulls(&org, &repo)
-                        .pull_number(pr_number)
-                        .reviews()
-                        .create_review(
-                            commit_id,
-                            msg,
-                            octocrab::models::pulls::ReviewAction::Approve,
-                            Vec::new(),
-                        )
-                        .await
-                })
-            });
+                        Some(async move {
+                            #[allow(deprecated)]
+                            client
+                                .pulls(&org, &repo)
+                                .pull_number(pr_number)
+                                .reviews()
+                                .create_review(
+                                    commit_id,
+                                    msg,
+                                    octocrab::models::pulls::ReviewAction::Approve,
+                                    Vec::new(),
+                                )
+                                .await
+                        })
+                    });
 
             let approve_results: Vec<Result<_, _>> = join_all(approve_futures).await;
 
@@ -3628,8 +4109,7 @@ async fn main() -> anyhow::Result<()> {
                 if !json && !quiet {
                     print!(
                         "\n⏳ Approving #{} {}... ",
-                        review.pr_number,
-                        review.pr_title
+                        review.pr_number, review.pr_title
                     );
                     io::stdout().flush()?;
                 }
@@ -3671,9 +4151,16 @@ async fn main() -> anyhow::Result<()> {
                                         String::new()
                                     };
                                     println!("{}", "✅ Approved".green());
-                                    println!("   👍 You approved {} ({})", review.pr_title, review.repo);
+                                    println!(
+                                        "   👍 You approved {} ({})",
+                                        review.pr_title, review.repo
+                                    );
                                     if priority {
-                                        println!("   {}🔗 {}", priority_display, review.pr_url.blue().underline());
+                                        println!(
+                                            "   {}🔗 {}",
+                                            priority_display,
+                                            review.pr_url.blue().underline()
+                                        );
                                     } else {
                                         println!("   🔗 {}", review.pr_url.blue().underline());
                                     }
@@ -3703,7 +4190,9 @@ async fn main() -> anyhow::Result<()> {
                                         repo: review.repo.clone(),
                                         url: review.pr_url.clone(),
                                         success: false,
-                                        error: Some("Internal error: missing approval result".to_string()),
+                                        error: Some(
+                                            "Internal error: missing approval result".to_string(),
+                                        ),
                                     });
                                 } else if !quiet {
                                     println!("{}", "❌ Failed".red());
@@ -3722,7 +4211,17 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Claim { all, pr_numbers, since_days, dry_run, priority, repo, author, json, quiet } => {
+        Commands::Claim {
+            all,
+            pr_numbers,
+            since_days,
+            dry_run,
+            priority,
+            repo,
+            author,
+            json,
+            quiet,
+        } => {
             // Apply filters to reviews (consistent with list/delegate commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -3796,9 +4295,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -3817,7 +4317,8 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         String::new()
                     };
-                    println!("  {}. #{} {}  ({}){}",
+                    println!(
+                        "  {}. #{} {}  ({}){}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -3852,7 +4353,8 @@ async fn main() -> anyhow::Result<()> {
             let claim_futures = targets.iter().map(|review| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo = review.repo.clone();
                 let pr_number = review.pr_number;
@@ -3932,7 +4434,17 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Files { pr_number, pr_numbers, pr, all, priority, json, repo, author, since_days } => {
+        Commands::Files {
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            priority,
+            json,
+            repo,
+            author,
+            since_days,
+        } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             // Apply --repo, --author, and --since-days filters when using interactive selection or --all
@@ -3970,14 +4482,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -3997,7 +4513,11 @@ async fn main() -> anyhow::Result<()> {
 
                 filtered_reviews
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             } else {
                 filtered_reviews
@@ -4082,7 +4602,10 @@ async fn main() -> anyhow::Result<()> {
                     review.pr_number,
                 )
             });
-            let file_results: Vec<(github::PendingReview, Result<Vec<github::PullRequestFile>, anyhow::Error>)> = targets
+            let file_results: Vec<(
+                github::PendingReview,
+                Result<Vec<github::PullRequestFile>, anyhow::Error>,
+            )> = targets
                 .iter()
                 .cloned()
                 .zip(join_all(file_futures).await)
@@ -4129,7 +4652,13 @@ async fn main() -> anyhow::Result<()> {
                             };
 
                             println!("\n{}", "─".repeat(60));
-                            println!("📄 {}  #{}{}{}", review.pr_title.bold(), review.pr_number, priority_display, format!("  ({} files)", files.len()).dimmed());
+                            println!(
+                                "📄 {}  #{}{}{}",
+                                review.pr_title.bold(),
+                                review.pr_number,
+                                priority_display,
+                                format!("  ({} files)", files.len()).dimmed()
+                            );
                             println!("{}", "─".repeat(60));
 
                             if files.is_empty() {
@@ -4166,7 +4695,10 @@ async fn main() -> anyhow::Result<()> {
                         if json {
                             // Skip failed PRs in JSON mode (consistent with other commands)
                         } else {
-                            println!("\n❌ Failed to fetch files for #{} {}: {}", review.pr_number, review.pr_title, e);
+                            println!(
+                                "\n❌ Failed to fetch files for #{} {}: {}",
+                                review.pr_number, review.pr_title, e
+                            );
                         }
                     }
                 }
@@ -4179,7 +4711,17 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Search { query, pr_numbers, pr_number, since_days, sort_by, priority, json, repo, author } => {
+        Commands::Search {
+            query,
+            pr_numbers,
+            pr_number,
+            since_days,
+            sort_by,
+            priority,
+            json,
+            repo,
+            author,
+        } => {
             // Apply --pr filter first (targets specific PR even in search)
             // Priority: global --pr flag > local --pr_number > --pr-numbers
             let target_pr = cli.pr.or(pr_number);
@@ -4289,14 +4831,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -4316,7 +4862,11 @@ async fn main() -> anyhow::Result<()> {
 
                 filtered
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             } else {
                 filtered
@@ -4346,7 +4896,9 @@ async fn main() -> anyhow::Result<()> {
                         "title" => {
                             // Alphabetical by title
                             let title_lower = r.pr_title.to_lowercase();
-                            title_lower.bytes().fold(0i64, |acc, b| acc * 256 + b as i64)
+                            title_lower
+                                .bytes()
+                                .fold(0i64, |acc, b| acc * 256 + b as i64)
                         }
                         _ => {
                             // "priority" (default) - use priority score
@@ -4376,7 +4928,22 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Filter { all, pr_number, pr_numbers, repo, author, min_size, max_size, min_age, max_age, since_days, drafts_only, no_drafts, priority, json } => {
+        Commands::Filter {
+            all,
+            pr_number,
+            pr_numbers,
+            repo,
+            author,
+            min_size,
+            max_size,
+            min_age,
+            max_age,
+            since_days,
+            drafts_only,
+            no_drafts,
+            priority,
+            json,
+        } => {
             // Target specific PR: global --pr flag > local --pr_number
             let target_pr = cli.pr.or(pr_number);
 
@@ -4421,78 +4988,89 @@ async fn main() -> anyhow::Result<()> {
                 if json {
                     println!("{}", serde_json::to_string_pretty(&prs_from_numbers)?);
                 } else {
-                    println!("\n🔍 {} PR(s) found\n", prs_from_numbers.len().to_string().yellow().bold());
+                    println!(
+                        "\n🔍 {} PR(s) found\n",
+                        prs_from_numbers.len().to_string().yellow().bold()
+                    );
                     logger::print_reviews(&prs_from_numbers, priority);
                 }
                 return Ok(());
             }
 
             // Apply filters to the reviews (for non-batch mode)
-            let filtered: Vec<_> = reviews.iter().filter(|r| {
-                // Filter by specific PR number (if provided via --pr or --pr_number)
-                if let Some(num) = target_pr {
-                    if r.pr_number != num {
-                        return false;
+            let filtered: Vec<_> = reviews
+                .iter()
+                .filter(|r| {
+                    // Filter by specific PR number (if provided via --pr or --pr_number)
+                    if let Some(num) = target_pr {
+                        if r.pr_number != num {
+                            return false;
+                        }
                     }
-                }
 
-                // Filter by repo (partial match, case-insensitive)
-                if let Some(ref repo_filter) = repo {
-                    if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
-                        return false;
+                    // Filter by repo (partial match, case-insensitive)
+                    if let Some(ref repo_filter) = repo {
+                        if !r.repo.to_lowercase().contains(&repo_filter.to_lowercase()) {
+                            return false;
+                        }
                     }
-                }
 
-                // Filter by author (partial match, case-insensitive)
-                if let Some(ref author_filter) = author {
-                    if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
-                        return false;
+                    // Filter by author (partial match, case-insensitive)
+                    if let Some(ref author_filter) = author {
+                        if !r
+                            .pr_author
+                            .to_lowercase()
+                            .contains(&author_filter.to_lowercase())
+                        {
+                            return false;
+                        }
                     }
-                }
 
-                // Filter by size
-                let total_size = r.additions + r.deletions;
-                if let Some(min) = min_size {
-                    if total_size < min {
-                        return false;
+                    // Filter by size
+                    let total_size = r.additions + r.deletions;
+                    if let Some(min) = min_size {
+                        if total_size < min {
+                            return false;
+                        }
                     }
-                }
-                if let Some(max) = max_size {
-                    if total_size > max {
-                        return false;
+                    if let Some(max) = max_size {
+                        if total_size > max {
+                            return false;
+                        }
                     }
-                }
 
-                // Filter by age
-                let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
-                if let Some(min) = min_age {
-                    if age_days < min {
+                    // Filter by age
+                    let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
+                    if let Some(min) = min_age {
+                        if age_days < min {
+                            return false;
+                        }
+                    }
+                    if let Some(max) = max_age {
+                        if age_days > max {
+                            return false;
+                        }
+                    }
+
+                    // Filter by since_days (PRs created in the last N days)
+                    if let Some(days) = since_days {
+                        if age_days >= days {
+                            return false;
+                        }
+                    }
+
+                    // Filter by draft status
+                    if drafts_only && !r.draft {
                         return false;
                     }
-                }
-                if let Some(max) = max_age {
-                    if age_days > max {
+                    if no_drafts && r.draft {
                         return false;
                     }
-                }
 
-                // Filter by since_days (PRs created in the last N days)
-                if let Some(days) = since_days {
-                    if age_days >= days {
-                        return false;
-                    }
-                }
-
-                // Filter by draft status
-                if drafts_only && !r.draft {
-                    return false;
-                }
-                if no_drafts && r.draft {
-                    return false;
-                }
-
-                true
-            }).cloned().collect();
+                    true
+                })
+                .cloned()
+                .collect();
 
             // Filter out snoozed PRs (unless --pr is specified, consistent with list/delegate/search)
             let filtered: Vec<_> = if target_pr.is_none() {
@@ -4504,14 +5082,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -4531,7 +5113,11 @@ async fn main() -> anyhow::Result<()> {
 
                 filtered
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .collect()
             } else {
                 filtered
@@ -4573,7 +5159,8 @@ async fn main() -> anyhow::Result<()> {
             match parse_selection(input.trim(), filtered.len()) {
                 Selection::Quit => return Ok(()),
                 Selection::Indices(indices) => {
-                    let selected: Vec<_> = indices.into_iter().map(|i| filtered[i].clone()).collect();
+                    let selected: Vec<_> =
+                        indices.into_iter().map(|i| filtered[i].clone()).collect();
                     if json {
                         println!("{}", serde_json::to_string_pretty(&selected)?);
                     } else {
@@ -4587,7 +5174,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Labels { pr_number, pr_numbers, pr, all, filter_by, repo, author, since_days, json, priority } => {
+        Commands::Labels {
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            filter_by,
+            repo,
+            author,
+            since_days,
+            json,
+            priority,
+        } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             // Apply --repo and --author and --since-days filters when using interactive selection or --all
@@ -4653,7 +5251,11 @@ async fn main() -> anyhow::Result<()> {
                     )
                 });
                 let all_results = futures::future::join_all(futures).await;
-                let all_prs: Vec<_> = all_results.into_iter().filter_map(|r| r.ok()).flatten().collect();
+                let all_prs: Vec<_> = all_results
+                    .into_iter()
+                    .filter_map(|r| r.ok())
+                    .flatten()
+                    .collect();
                 all_prs
             } else {
                 if filtered_reviews.is_empty() {
@@ -4670,9 +5272,10 @@ async fn main() -> anyhow::Result<()> {
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -4691,14 +5294,18 @@ async fn main() -> anyhow::Result<()> {
                 )
             });
 
-            let label_results: Vec<(github::PendingReview, Result<Vec<github::PullRequestLabel>, anyhow::Error>)> = targets
+            let label_results: Vec<(
+                github::PendingReview,
+                Result<Vec<github::PullRequestLabel>, anyhow::Error>,
+            )> = targets
                 .iter()
                 .cloned()
                 .zip(join_all(label_futures).await)
                 .collect();
 
             // Collect labels for display
-            let mut all_labels_data: Vec<(github::PendingReview, Vec<github::PullRequestLabel>)> = Vec::new();
+            let mut all_labels_data: Vec<(github::PendingReview, Vec<github::PullRequestLabel>)> =
+                Vec::new();
             let mut total_labels_count = 0usize;
 
             for (review, result) in label_results {
@@ -4708,7 +5315,10 @@ async fn main() -> anyhow::Result<()> {
                         all_labels_data.push((review, labels));
                     }
                     Err(e) => {
-                        println!("\n❌ Failed to fetch labels for #{}: {}", review.pr_number, e);
+                        println!(
+                            "\n❌ Failed to fetch labels for #{}: {}",
+                            review.pr_number, e
+                        );
                     }
                 }
             }
@@ -4742,7 +5352,10 @@ async fn main() -> anyhow::Result<()> {
                         }
                     })
                     .collect();
-                println!("{}", serde_json::to_string_pretty(&json_output).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json_output).unwrap_or_default()
+                );
             } else {
                 println!("\n🏷️  Labels Summary\n{}", "─".repeat(45));
 
@@ -4774,11 +5387,21 @@ async fn main() -> anyhow::Result<()> {
                         // Show priority score if requested
                         let priority_line = if priority {
                             let score = logger::calculate_priority_score(review);
-                            format!("  ⭐ Priority: {}/5  {}", score, logger::priority_stars(score))
+                            format!(
+                                "  ⭐ Priority: {}/5  {}",
+                                score,
+                                logger::priority_stars(score)
+                            )
                         } else {
                             String::new()
                         };
-                        println!("\n📄 #{} {} ({}){}", review.pr_number, review.pr_title.bold(), review.repo, priority_line);
+                        println!(
+                            "\n📄 #{} {} ({}){}",
+                            review.pr_number,
+                            review.pr_title.bold(),
+                            review.repo,
+                            priority_line
+                        );
                         if labels.is_empty() {
                             println!("  (no labels)");
                         } else {
@@ -4798,13 +5421,15 @@ async fn main() -> anyhow::Result<()> {
                         let mut label_counts: HashMap<String, (String, usize)> = HashMap::new();
                         for (_, labels) in &all_labels_data {
                             for label in labels {
-                                let entry = label_counts.entry(label.name.clone()).or_insert_with(|| (label.color.clone(), 0));
+                                let entry = label_counts
+                                    .entry(label.name.clone())
+                                    .or_insert_with(|| (label.color.clone(), 0));
                                 entry.1 += 1;
                             }
                         }
                         println!("\n📊 Label Frequency:");
                         let mut sorted: Vec<_> = label_counts.iter().collect();
-                        sorted.sort_by(|a, b| b.1.1.cmp(&a.1.1));
+                        sorted.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
                         for (name, (color, count)) in sorted.iter().take(10) {
                             let bar = "█".repeat(*count).cyan();
                             println!("  {}  {}  {}", colorize_label(name, color), bar, count);
@@ -4815,7 +5440,21 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Review { pr_number, pr_numbers, pr, all, dry_run, context, output_file, language, priority, repo, author, since_days, json } => {
+        Commands::Review {
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            dry_run,
+            context,
+            output_file,
+            language,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+        } => {
             // Apply --repo, --author, and --since-days filters first (consistent with other commands)
             let filtered_reviews: Vec<_> = {
                 let mut result = reviews.clone();
@@ -4879,9 +5518,7 @@ async fn main() -> anyhow::Result<()> {
                         )
                         .await?
                     }
-                    None if all && !filtered_reviews.is_empty() => {
-                        filtered_reviews
-                    }
+                    None if all && !filtered_reviews.is_empty() => filtered_reviews,
                     None => {
                         if filtered_reviews.is_empty() {
                             println!("No matching reviews found.");
@@ -4897,9 +5534,10 @@ async fn main() -> anyhow::Result<()> {
                         io::stdin().read_line(&mut input)?;
                         match parse_selection(input.trim(), filtered_reviews.len()) {
                             Selection::Quit => return Ok(()),
-                            Selection::Indices(indices) => {
-                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                            }
+                            Selection::Indices(indices) => indices
+                                .into_iter()
+                                .map(|i| filtered_reviews[i].clone())
+                                .collect(),
                         }
                     }
                 }
@@ -4921,7 +5559,8 @@ async fn main() -> anyhow::Result<()> {
                         String::new()
                     };
                     let total = review.additions + review.deletions;
-                    println!("  {}. #{} {}  ({}) [{} lines]{}",
+                    println!(
+                        "  {}. #{} {}  ({}) [{} lines]{}",
                         i + 1,
                         review.pr_number,
                         review.pr_title.bold(),
@@ -4977,7 +5616,10 @@ async fn main() -> anyhow::Result<()> {
                 let files = match result {
                     Ok(f) => f,
                     Err(e) => {
-                        eprintln!("Warning: Failed to fetch diff for PR #{}: {}", review.pr_number, e);
+                        eprintln!(
+                            "Warning: Failed to fetch diff for PR #{}: {}",
+                            review.pr_number, e
+                        );
                         continue;
                     }
                 };
@@ -5002,13 +5644,16 @@ async fn main() -> anyhow::Result<()> {
                         total_additions,
                         total_deletions,
                         priority_score,
-                        file_summaries: files.iter().map(|f| FileSummary {
-                            filename: &f.filename,
-                            status: &f.status,
-                            additions: f.additions,
-                            deletions: f.deletions,
-                            language: f.language.as_ref(),
-                        }).collect(),
+                        file_summaries: files
+                            .iter()
+                            .map(|f| FileSummary {
+                                filename: &f.filename,
+                                status: &f.status,
+                                additions: f.additions,
+                                deletions: f.deletions,
+                                language: f.language.as_ref(),
+                            })
+                            .collect(),
                     });
                 } else {
                     let priority_display = if let Some(score) = priority_score {
@@ -5018,8 +5663,14 @@ async fn main() -> anyhow::Result<()> {
                     };
 
                     println!("\n{}", "─".repeat(60));
-                    println!("📄 {}  #{}{}", review.pr_title.bold(), review.pr_number, priority_display);
-                    println!("   👤 {}  •  📁 {}  •  +{} / -{} lines",
+                    println!(
+                        "📄 {}  #{}{}",
+                        review.pr_title.bold(),
+                        review.pr_number,
+                        priority_display
+                    );
+                    println!(
+                        "   👤 {}  •  📁 {}  •  +{} / -{} lines",
                         review.pr_author.cyan(),
                         review.repo,
                         total_additions.to_string().green(),
@@ -5040,26 +5691,28 @@ async fn main() -> anyhow::Result<()> {
                                 "renamed" => "R",
                                 _ => "?",
                             };
-                            let lang = language.as_ref().or(file.language.as_ref()).map(|s| s.as_str()).unwrap_or("");
+                            let lang = language
+                                .as_ref()
+                                .or(file.language.as_ref())
+                                .map(|s| s.as_str())
+                                .unwrap_or("");
                             let header = format!(
                                 "diff --git a/{} b/{} {}",
-                                file.filename, file.filename,
-                                if file.status == "renamed" { "(renamed)" } else { "" }
+                                file.filename,
+                                file.filename,
+                                if file.status == "renamed" {
+                                    "(renamed)"
+                                } else {
+                                    ""
+                                }
                             );
                             let hunk_header = if file.patch.is_some() {
                                 format!(
                                     "@@ -{},{} +{},{} @@ [{}] {}",
-                                    1, file.deletions,
-                                    1, file.additions,
-                                    lang,
-                                    status_icon
+                                    1, file.deletions, 1, file.additions, lang, status_icon
                                 )
                             } else {
-                                format!(
-                                    "@@ -0,0 +0,0 @@ [{}] {}",
-                                    lang,
-                                    status_icon
-                                )
+                                format!("@@ -0,0 +0,0 @@ [{}] {}", lang, status_icon)
                             };
 
                             unified_diff.push_str(&format!("{}\n", header));
@@ -5071,11 +5724,20 @@ async fn main() -> anyhow::Result<()> {
                                 for line in patch.lines() {
                                     let line = line.trim_end();
                                     if line.is_empty() {
-                                        unified_diff.push_str(&format!("{}{}\n", context_str, line));
+                                        unified_diff
+                                            .push_str(&format!("{}{}\n", context_str, line));
                                     } else if line.starts_with('+') && !line.starts_with("+++") {
-                                        unified_diff.push_str(&format!("{}{}\n", "+".yellow(), &line[1..]));
+                                        unified_diff.push_str(&format!(
+                                            "{}{}\n",
+                                            "+".yellow(),
+                                            &line[1..]
+                                        ));
                                     } else if line.starts_with('-') && !line.starts_with("---") {
-                                        unified_diff.push_str(&format!("{}{}\n", "-".red(), &line[1..]));
+                                        unified_diff.push_str(&format!(
+                                            "{}{}\n",
+                                            "-".red(),
+                                            &line[1..]
+                                        ));
                                     } else if line.starts_with(' ') || line.starts_with("@@") {
                                         unified_diff.push_str(&format!(" {}\n", line));
                                     } else {
@@ -5090,7 +5752,8 @@ async fn main() -> anyhow::Result<()> {
 
                         if let Some(ref path) = output_file {
                             std::fs::write(path, &unified_diff)?;
-                            println!("   💾 Diff written to {} ({:.1} KB)",
+                            println!(
+                                "   💾 Diff written to {} ({:.1} KB)",
                                 path.display().to_string().cyan(),
                                 unified_diff.len() as f64 / 1024.0
                             );
@@ -5106,8 +5769,8 @@ async fn main() -> anyhow::Result<()> {
                                 // Pipe diff through bat with appropriate language
                                 let mut cmd = std::process::Command::new("bat");
                                 cmd.arg("--style=changes")
-                                   .arg("--color=always")
-                                   .arg("--language=diff");
+                                    .arg("--color=always")
+                                    .arg("--language=diff");
                                 cmd.arg("--");
                                 cmd.arg("-");
 
@@ -5141,7 +5804,15 @@ async fn main() -> anyhow::Result<()> {
             println!();
         }
 
-        Commands::Top { limit, min_score, priority, repo, author, since_days, json } => {
+        Commands::Top {
+            limit,
+            min_score,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+        } => {
             let limit = limit.unwrap_or(10);
             let min_score = min_score.unwrap_or(3).min(5);
 
@@ -5207,7 +5878,11 @@ async fn main() -> anyhow::Result<()> {
                 Vec::new()
             };
 
-            scored.retain(|(r, _)| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo));
+            scored.retain(|(r, _)| {
+                !snoozed_prs
+                    .iter()
+                    .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+            });
 
             // Sort by priority score descending, then by age ascending
             scored.sort_by(|a, b| {
@@ -5222,7 +5897,10 @@ async fn main() -> anyhow::Result<()> {
             let top_prs: Vec<_> = scored.into_iter().take(limit).collect();
 
             if top_prs.is_empty() {
-                println!("\n🎯 No high-priority reviews found (min score: {})\n", min_score);
+                println!(
+                    "\n🎯 No high-priority reviews found (min score: {})\n",
+                    min_score
+                );
                 return Ok(());
             }
 
@@ -5284,7 +5962,11 @@ async fn main() -> anyhow::Result<()> {
                         "XL".magenta()
                     };
 
-                    let draft_label = if r.draft { " [DRAFT]".yellow() } else { "".normal() };
+                    let draft_label = if r.draft {
+                        " [DRAFT]".yellow()
+                    } else {
+                        "".normal()
+                    };
 
                     let priority_display = if priority {
                         format!(" {}", logger::priority_stars(*score))
@@ -5308,10 +5990,7 @@ async fn main() -> anyhow::Result<()> {
                         size,
                         age_label
                     );
-                    println!(
-                        "      🔗 {}",
-                        r.pr_url.blue().underline()
-                    );
+                    println!("      🔗 {}", r.pr_url.blue().underline());
                     println!();
                 }
                 println!("{}", "─".repeat(50));
@@ -5320,7 +5999,15 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Quick { max_lines, limit, priority, repo, author, json, since_days } => {
+        Commands::Quick {
+            max_lines,
+            limit,
+            priority,
+            repo,
+            author,
+            json,
+            since_days,
+        } => {
             let max_lines = max_lines.unwrap_or(200);
             let limit = limit.unwrap_or(10);
 
@@ -5329,7 +6016,8 @@ async fn main() -> anyhow::Result<()> {
                 match since_days {
                     Some(days) => {
                         let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                        reviews.iter()
+                        reviews
+                            .iter()
                             .filter(|r| r.created_at >= cutoff)
                             .cloned()
                             .collect()
@@ -5364,7 +6052,10 @@ async fn main() -> anyhow::Result<()> {
                 .collect();
 
             if quick_wins.is_empty() {
-                println!("\n⚡ No quick wins found (max {} lines, non-draft)\n", max_lines);
+                println!(
+                    "\n⚡ No quick wins found (max {} lines, non-draft)\n",
+                    max_lines
+                );
                 return Ok(());
             }
 
@@ -5441,7 +6132,17 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Catchup { pr_number, min_age, limit, json, priority, repo, author, all, since_days } => {
+        Commands::Catchup {
+            pr_number,
+            min_age,
+            limit,
+            json,
+            priority,
+            repo,
+            author,
+            all,
+            since_days,
+        } => {
             let min_age = min_age as i64;
             let limit = limit.unwrap_or(10);
 
@@ -5450,7 +6151,11 @@ async fn main() -> anyhow::Result<()> {
 
             // Handle --pr filter first (shorthand for specific PR)
             let pr_filtered: Vec<_> = match cli.pr.or(pr_number) {
-                Some(num) => reviews.iter().filter(|r| r.pr_number == num).cloned().collect(),
+                Some(num) => reviews
+                    .iter()
+                    .filter(|r| r.pr_number == num)
+                    .cloned()
+                    .collect(),
                 None => reviews.clone(),
             };
 
@@ -5458,7 +6163,10 @@ async fn main() -> anyhow::Result<()> {
             let pr_filtered: Vec<_> = match since_days {
                 Some(days) => {
                     let since_cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    pr_filtered.into_iter().filter(|r| r.created_at >= since_cutoff).collect()
+                    pr_filtered
+                        .into_iter()
+                        .filter(|r| r.created_at >= since_cutoff)
+                        .collect()
                 }
                 None => pr_filtered,
             };
@@ -5489,7 +6197,10 @@ async fn main() -> anyhow::Result<()> {
             let shown: Vec<_> = neglected.iter().take(effective_limit).cloned().collect();
 
             if shown.is_empty() {
-                println!("\n🎯 No neglected PRs found (all younger than {} days)\n", min_age);
+                println!(
+                    "\n🎯 No neglected PRs found (all younger than {} days)\n",
+                    min_age
+                );
                 return Ok(());
             }
 
@@ -5546,7 +6257,13 @@ async fn main() -> anyhow::Result<()> {
                     let urgency_bar: String = (0..5)
                         .map(|i| {
                             if i < bar_len {
-                                if i < 2 { "🔵" } else if i < 4 { "🟡" } else { "🔴" }
+                                if i < 2 {
+                                    "🔵"
+                                } else if i < 4 {
+                                    "🟡"
+                                } else {
+                                    "🔴"
+                                }
                             } else {
                                 "⚪"
                             }
@@ -5597,10 +6314,7 @@ async fn main() -> anyhow::Result<()> {
                         total,
                         age_label
                     );
-                    println!(
-                        "      🔗 {}",
-                        r.pr_url.blue().underline()
-                    );
+                    println!("      🔗 {}", r.pr_url.blue().underline());
                     println!();
                 }
 
@@ -5617,7 +6331,15 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Age { min_days, older_than, grouped, priority, repo, author, json } => {
+        Commands::Age {
+            min_days,
+            older_than,
+            grouped,
+            priority,
+            repo,
+            author,
+            json,
+        } => {
             use chrono::Utc;
 
             let now = Utc::now();
@@ -5627,10 +6349,10 @@ async fn main() -> anyhow::Result<()> {
             #[derive(Clone, Copy)]
             struct Bucket(&'static str, &'static str, Option<i64>, Option<i64>);
             const BUCKETS: [Bucket; 5] = [
-                Bucket("New",     "🆕", None, Some(2)),
-                Bucket("Fresh",   "🌱", Some(2), Some(4)),
-                Bucket("Aging",   "⏳", Some(4), Some(8)),
-                Bucket("Stale",   "🔥", Some(8), Some(15)),
+                Bucket("New", "🆕", None, Some(2)),
+                Bucket("Fresh", "🌱", Some(2), Some(4)),
+                Bucket("Aging", "⏳", Some(4), Some(8)),
+                Bucket("Stale", "🔥", Some(8), Some(15)),
                 Bucket("Overdue", "💀", Some(15), None),
             ];
 
@@ -5674,7 +6396,11 @@ async fn main() -> anyhow::Result<()> {
 
                 // Apply --author filter
                 if let Some(ref author_filter) = author {
-                    if !r.pr_author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                    if !r
+                        .pr_author
+                        .to_lowercase()
+                        .contains(&author_filter.to_lowercase())
+                    {
                         continue;
                     }
                 }
@@ -5721,21 +6447,28 @@ async fn main() -> anyhow::Result<()> {
                         AgeBucket {
                             label,
                             emoji,
-                            prs: prs.iter().map(|r| {
-                                let age_days = (now - r.created_at).num_days();
-                                AgeItem {
-                                    repo: &r.repo,
-                                    pr_number: r.pr_number,
-                                    pr_title: &r.pr_title,
-                                    pr_author: &r.pr_author,
-                                    pr_url: &r.pr_url,
-                                    age_days,
-                                    additions: r.additions,
-                                    deletions: r.deletions,
-                                    draft: r.draft,
-                                    priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
-                                }
-                            }).collect(),
+                            prs: prs
+                                .iter()
+                                .map(|r| {
+                                    let age_days = (now - r.created_at).num_days();
+                                    AgeItem {
+                                        repo: &r.repo,
+                                        pr_number: r.pr_number,
+                                        pr_title: &r.pr_title,
+                                        pr_author: &r.pr_author,
+                                        pr_url: &r.pr_url,
+                                        age_days,
+                                        additions: r.additions,
+                                        deletions: r.deletions,
+                                        draft: r.draft,
+                                        priority_score: if priority {
+                                            Some(logger::calculate_priority_score(r))
+                                        } else {
+                                            None
+                                        },
+                                    }
+                                })
+                                .collect(),
                         }
                     })
                     .collect();
@@ -5743,7 +6476,11 @@ async fn main() -> anyhow::Result<()> {
             } else if grouped {
                 // Grouped view: one section per bucket
                 let total: usize = buckets.iter().map(|(_, p)| p.len()).sum();
-                println!("\n📊 Age Breakdown — {} PRs total\n{}", total, "─".repeat(50));
+                println!(
+                    "\n📊 Age Breakdown — {} PRs total\n{}",
+                    total,
+                    "─".repeat(50)
+                );
 
                 let mut any_shown = false;
                 for (bucket, prs) in &buckets {
@@ -5764,7 +6501,11 @@ async fn main() -> anyhow::Result<()> {
                         } else {
                             format!("{} days", age_days).red().to_string()
                         };
-                        let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                        let draft_str = if r.draft {
+                            " 📝DRAFT".yellow().to_string()
+                        } else {
+                            String::new()
+                        };
                         let priority_str = if priority {
                             let score = logger::calculate_priority_score(r);
                             format!("  ⭐ {}/5", score)
@@ -5839,7 +6580,11 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} days", age_days).red().to_string()
                     };
 
-                    let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                    let draft_str = if r.draft {
+                        " 📝DRAFT".yellow().to_string()
+                    } else {
+                        String::new()
+                    };
                     let priority_str = if priority {
                         let score = logger::calculate_priority_score(r);
                         format!(" ⭐ {}/5", score)
@@ -5871,7 +6616,15 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Size { filter_size, grouped, priority, repo, author, since_days, json } => {
+        Commands::Size {
+            filter_size,
+            grouped,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+        } => {
             // Apply --repo, --author, and --since-days filters first (consistent with other commands)
             let filtered: Vec<_> = {
                 let mut result = reviews.clone();
@@ -5901,15 +6654,17 @@ async fn main() -> anyhow::Result<()> {
             struct SizeBucket(&'static str, u64, Option<u64>);
             const SIZE_BUCKETS: [SizeBucket; 5] = [
                 SizeBucket("XS", 0, Some(50)),
-                SizeBucket("S",  51, Some(200)),
-                SizeBucket("M",  201, Some(500)),
-                SizeBucket("L",  501, Some(1000)),
+                SizeBucket("S", 51, Some(200)),
+                SizeBucket("M", 201, Some(500)),
+                SizeBucket("L", 501, Some(1000)),
                 SizeBucket("XL", 1001, None),
             ];
 
             // Parse filter_size if provided
             let filter_sizes: Option<Vec<String>> = filter_size.as_ref().map(|s| {
-                s.split(',').map(|part| part.trim().to_uppercase()).collect()
+                s.split(',')
+                    .map(|part| part.trim().to_uppercase())
+                    .collect()
             });
 
             #[derive(serde::Serialize)]
@@ -5988,35 +6743,44 @@ async fn main() -> anyhow::Result<()> {
                         let SizeBucket(label, min, max) = *bucket;
                         SizeBucketOutput {
                             label,
-                            emoji: size_emojis[SIZE_BUCKETS.iter().position(|b| b.0 == label).unwrap_or(0)],
+                            emoji: size_emojis
+                                [SIZE_BUCKETS.iter().position(|b| b.0 == label).unwrap_or(0)],
                             min_lines: min,
                             max_lines: max,
-                            prs: prs.iter().map(|r| {
-                                let score = if priority {
-                                    Some(logger::calculate_priority_score(r))
-                                } else {
-                                    None
-                                };
-                                SizeItem {
-                                    repo: &r.repo,
-                                    pr_number: r.pr_number,
-                                    pr_title: &r.pr_title,
-                                    pr_author: &r.pr_author,
-                                    pr_url: &r.pr_url,
-                                    additions: r.additions,
-                                    deletions: r.deletions,
-                                    total_lines: r.additions + r.deletions,
-                                    draft: r.draft,
-                                    priority_score: score,
-                                }
-                            }).collect(),
+                            prs: prs
+                                .iter()
+                                .map(|r| {
+                                    let score = if priority {
+                                        Some(logger::calculate_priority_score(r))
+                                    } else {
+                                        None
+                                    };
+                                    SizeItem {
+                                        repo: &r.repo,
+                                        pr_number: r.pr_number,
+                                        pr_title: &r.pr_title,
+                                        pr_author: &r.pr_author,
+                                        pr_url: &r.pr_url,
+                                        additions: r.additions,
+                                        deletions: r.deletions,
+                                        total_lines: r.additions + r.deletions,
+                                        draft: r.draft,
+                                        priority_score: score,
+                                    }
+                                })
+                                .collect(),
                         }
-                    }).collect();
+                    })
+                    .collect();
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else if grouped {
                 // Grouped view: one section per size bucket
                 let total: usize = buckets.iter().map(|(_, p)| p.len()).sum();
-                println!("\n📏 Size Breakdown — {} PRs total\n{}", total, "─".repeat(50));
+                println!(
+                    "\n📏 Size Breakdown — {} PRs total\n{}",
+                    total,
+                    "─".repeat(50)
+                );
 
                 let mut any_shown = false;
                 for (bucket, prs) in &buckets {
@@ -6036,13 +6800,24 @@ async fn main() -> anyhow::Result<()> {
                     let bucket_additions: u64 = prs.iter().map(|r| r.additions).sum();
                     let bucket_deletions: u64 = prs.iter().map(|r| r.deletions).sum();
 
-                    println!("\n{} {} {} ({} PRs, +{}/-{} lines)",
-                        emoji, label.bold(), range_str.dimmed(), prs.len(), bucket_additions, bucket_deletions);
+                    println!(
+                        "\n{} {} {} ({} PRs, +{}/-{} lines)",
+                        emoji,
+                        label.bold(),
+                        range_str.dimmed(),
+                        prs.len(),
+                        bucket_additions,
+                        bucket_deletions
+                    );
                     println!("{}", "─".repeat(40));
 
                     for r in prs {
                         let _total_lines = r.additions + r.deletions;
-                        let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                        let draft_str = if r.draft {
+                            " 📝DRAFT".yellow().to_string()
+                        } else {
+                            String::new()
+                        };
                         let priority_str = if priority {
                             let score = logger::calculate_priority_score(r);
                             let stars = "★".repeat(score as usize);
@@ -6109,7 +6884,11 @@ async fn main() -> anyhow::Result<()> {
                 for r in &all_filtered {
                     let total_lines = r.additions + r.deletions;
                     let (size_label, emoji, _size_desc) = get_size_info(total_lines);
-                    let draft_str = if r.draft { " 📝DRAFT".yellow().to_string() } else { String::new() };
+                    let draft_str = if r.draft {
+                        " 📝DRAFT".yellow().to_string()
+                    } else {
+                        String::new()
+                    };
                     let priority_str = if priority {
                         let score = logger::calculate_priority_score(r);
                         let stars = "★".repeat(score as usize);
@@ -6140,7 +6919,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Digest { days, raw, dry_run, repo, author, priority, since_days, older_than } => {
+        Commands::Digest {
+            days,
+            raw,
+            dry_run,
+            repo,
+            author,
+            priority,
+            since_days,
+            older_than,
+        } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
@@ -6182,7 +6970,10 @@ async fn main() -> anyhow::Result<()> {
                     println!("\n🔍 No PRs would be included in the digest (dry-run).\n");
                     println!("  💡 Try adjusting your filters or increasing --days\n");
                 } else {
-                    println!("\n🔍 Dry-run: {} PR(s) would be included in the digest\n", filtered_reviews.len().to_string().yellow().bold());
+                    println!(
+                        "\n🔍 Dry-run: {} PR(s) would be included in the digest\n",
+                        filtered_reviews.len().to_string().yellow().bold()
+                    );
                     println!("  Filters:");
                     if let Some(ref repo_filter) = repo {
                         println!("    • repo: {}", repo_filter.yellow());
@@ -6208,14 +6999,15 @@ async fn main() -> anyhow::Result<()> {
             #[derive(Clone, Copy)]
             struct Bucket(&'static str, &'static str, i64, i64);
             const BUCKETS: [Bucket; 5] = [
-                Bucket("New",     "🆕", 0,  1),
-                Bucket("Fresh",   "🌱", 2,  3),
-                Bucket("Aging",   "⏳", 4,  7),
-                Bucket("Stale",   "🔥", 8,  14),
+                Bucket("New", "🆕", 0, 1),
+                Bucket("Fresh", "🌱", 2, 3),
+                Bucket("Aging", "⏳", 4, 7),
+                Bucket("Stale", "🔥", 8, 14),
                 Bucket("Overdue", "💀", 15, i64::MAX),
             ];
 
-            let mut bucket_counts: Vec<(Bucket, usize)> = BUCKETS.iter().copied().map(|b| (b, 0)).collect();
+            let mut bucket_counts: Vec<(Bucket, usize)> =
+                BUCKETS.iter().copied().map(|b| (b, 0)).collect();
             let mut total_additions = 0u64;
             let mut total_deletions = 0u64;
             let mut by_repo: HashMap<String, usize> = HashMap::new();
@@ -6278,8 +7070,10 @@ async fn main() -> anyhow::Result<()> {
                 };
                 println!("## 📋 Review Digest{}\n", days_label);
                 println!();
-                println!("**Total:** {} PRs | **+{}** / **-{}** lines | **Overdue:** {}",
-                    total, total_additions, total_deletions, overdue_count);
+                println!(
+                    "**Total:** {} PRs | **+{}** / **-{}** lines | **Overdue:** {}",
+                    total, total_additions, total_deletions, overdue_count
+                );
                 println!();
 
                 if !top_repos.is_empty() {
@@ -6315,8 +7109,10 @@ async fn main() -> anyhow::Result<()> {
                         } else {
                             String::new()
                         };
-                        println!("- [{}#{}]({}) *{}* — {}d old{}",
-                            r.repo, r.pr_number, r.pr_url, r.pr_title, age, priority_label);
+                        println!(
+                            "- [{}#{}]({}) *{}* — {}d old{}",
+                            r.repo, r.pr_number, r.pr_url, r.pr_title, age, priority_label
+                        );
                     }
                     if !priority {
                         println!("\n_Use `--priority` to show priority scores_");
@@ -6324,15 +7120,24 @@ async fn main() -> anyhow::Result<()> {
                 }
             } else {
                 // Pretty terminal output
-                println!("\n📋 Weekly Review Digest — last {} days\n{}", days, "─".repeat(45));
+                println!(
+                    "\n📋 Weekly Review Digest — last {} days\n{}",
+                    days,
+                    "─".repeat(45)
+                );
                 println!();
                 println!("  📊 Summary");
                 println!("     Total PRs:          {}", total);
-                println!("     Lines changed:      +{} / -{}",
+                println!(
+                    "     Lines changed:      +{} / -{}",
                     total_additions.to_string().green(),
-                    total_deletions.to_string().red());
+                    total_deletions.to_string().red()
+                );
                 if overdue_count > 0 {
-                    println!("     🚨 Overdue (15d+):  {}", overdue_count.to_string().red().bold());
+                    println!(
+                        "     🚨 Overdue (15d+):  {}",
+                        overdue_count.to_string().red().bold()
+                    );
                 }
                 println!();
 
@@ -6373,7 +7178,14 @@ async fn main() -> anyhow::Result<()> {
                         } else {
                             String::new()
                         };
-                        println!("     #{} {} — {}d old — {}{}", r.pr_number, r.pr_title.bold(), age, r.repo.dimmed(), priority_label);
+                        println!(
+                            "     #{} {} — {}d old — {}{}",
+                            r.pr_number,
+                            r.pr_title.bold(),
+                            age,
+                            r.repo.dimmed(),
+                            priority_label
+                        );
                     }
                     if overdue_prs.len() > 5 {
                         println!("     ...and {} more", overdue_prs.len() - 5);
@@ -6383,7 +7195,8 @@ async fn main() -> anyhow::Result<()> {
 
                 if priority {
                     // Show priority breakdown
-                    let mut scored: Vec<_> = filtered_reviews.iter()
+                    let mut scored: Vec<_> = filtered_reviews
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             (r, score)
@@ -6395,8 +7208,14 @@ async fn main() -> anyhow::Result<()> {
                         let age_days = (now - most_urgent.created_at).num_days();
                         let total = most_urgent.additions + most_urgent.deletions;
                         println!("  🚨 Most Urgent:");
-                        println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
-                        println!("    👤 {}  •  📦 {} lines  •  ⏱️ {}d  •  {}",
+                        println!(
+                            "    {}  #{}  {}",
+                            most_urgent.pr_title.bold(),
+                            most_urgent.pr_number,
+                            logger::priority_stars(*top_score).red()
+                        );
+                        println!(
+                            "    👤 {}  •  📦 {} lines  •  ⏱️ {}d  •  {}",
                             most_urgent.pr_author.cyan(),
                             total,
                             age_days,
@@ -6415,8 +7234,13 @@ async fn main() -> anyhow::Result<()> {
                     for score in (1..=5).rev() {
                         if let Some(prs) = score_groups.get(&score) {
                             let stars = logger::priority_stars(score);
-                            let oldest_age = prs.iter().map(|r| (now - r.created_at).num_days()).max().unwrap_or(0);
-                            println!("     ⭐{}  {} PR(s)  •  oldest: {}d  •  +{}/-{} lines",
+                            let oldest_age = prs
+                                .iter()
+                                .map(|r| (now - r.created_at).num_days())
+                                .max()
+                                .unwrap_or(0);
+                            println!(
+                                "     ⭐{}  {} PR(s)  •  oldest: {}d  •  +{}/-{} lines",
                                 stars,
                                 prs.len(),
                                 oldest_age,
@@ -6436,7 +7260,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Snooze { action, pr_number, pr, pr_numbers, days, since_days, json, priority, repo, author } => {
+        Commands::Snooze {
+            action,
+            pr_number,
+            pr,
+            pr_numbers,
+            days,
+            since_days,
+            json,
+            priority,
+            repo,
+            author,
+        } => {
             use serde::{Deserialize, Serialize};
 
             // Snooze storage file
@@ -6450,13 +7285,13 @@ async fn main() -> anyhow::Result<()> {
                 pub repo: String,
                 pub pr_number: u64,
                 pub pr_title: String,
-                pub pr_url: String,       // PR URL for quick access
-                pub snoozed_until: String, // ISO 8601 timestamp
-                pub snoozed_at: String,    // ISO 8601 timestamp when snooze was created
-                pub additions: u64,        // Lines added
-                pub deletions: u64,        // Lines deleted
+                pub pr_url: String,             // PR URL for quick access
+                pub snoozed_until: String,      // ISO 8601 timestamp
+                pub snoozed_at: String,         // ISO 8601 timestamp when snooze was created
+                pub additions: u64,             // Lines added
+                pub deletions: u64,             // Lines deleted
                 pub priority_score: Option<u8>, // Priority score when snoozed
-                pub author: String,        // PR author
+                pub author: String,             // PR author
             }
 
             // Load existing snooze data
@@ -6473,8 +7308,8 @@ async fn main() -> anyhow::Result<()> {
             match action {
                 cli::SnoozeAction::Add => {
                     let duration_days = days.unwrap_or(3) as i64;
-                    let snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
-                        .to_rfc3339();
+                    let snooze_until =
+                        (chrono::Utc::now() + chrono::Duration::days(duration_days)).to_rfc3339();
 
                     // Priority: global --pr flag > local --pr > local pr_number > pr_numbers
                     let target_pr = cli.pr.or(pr).or(pr_number);
@@ -6509,12 +7344,13 @@ async fn main() -> anyhow::Result<()> {
                                 *num,
                             )
                         });
-                        let all_prs: Vec<github::PendingReview> = futures::future::join_all(fetch_futures)
-                            .await
-                            .into_iter()
-                            .filter_map(|r| r.ok())
-                            .flatten()
-                            .collect();
+                        let all_prs: Vec<github::PendingReview> =
+                            futures::future::join_all(fetch_futures)
+                                .await
+                                .into_iter()
+                                .filter_map(|r| r.ok())
+                                .flatten()
+                                .collect();
                         all_prs
                     } else {
                         // Apply --repo, --author, and --since-days filters (consistent with other commands)
@@ -6569,7 +7405,9 @@ async fn main() -> anyhow::Result<()> {
 
                     for review in &targets {
                         // Remove existing entry if present (to update snooze time)
-                        snoozed.retain(|e| !(e.repo == review.repo && e.pr_number == review.pr_number));
+                        snoozed.retain(|e| {
+                            !(e.repo == review.repo && e.pr_number == review.pr_number)
+                        });
 
                         snoozed.push(SnoozeEntry {
                             repo: review.repo.clone(),
@@ -6596,7 +7434,9 @@ async fn main() -> anyhow::Result<()> {
                     if let Some(ref dir) = output_dir {
                         std::fs::create_dir_all(dir).ok();
                     }
-                    if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                    if let Err(e) =
+                        std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?)
+                    {
                         println!("  ⚠️ Failed to save snooze data: {}", e);
                     } else {
                         println!("\n✅ Snooze list saved ({} PRs snoozed)", snoozed.len());
@@ -6609,7 +7449,9 @@ async fn main() -> anyhow::Result<()> {
                     let mut active: Vec<_> = snoozed
                         .iter()
                         .filter(|e| {
-                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                            if let Ok(until) =
+                                chrono::DateTime::parse_from_rfc3339(&e.snoozed_until)
+                            {
                                 until.with_timezone(&chrono::Utc) > now
                             } else {
                                 false
@@ -6640,8 +7482,12 @@ async fn main() -> anyhow::Result<()> {
 
                     // Sort by expiry time
                     active.sort_by(|a, b| {
-                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
-                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until)
+                            .map(|t| t.timestamp())
+                            .unwrap_or(0);
+                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until)
+                            .map(|t| t.timestamp())
+                            .unwrap_or(0);
                         a_time.cmp(&b_time)
                     });
 
@@ -6680,7 +7526,10 @@ async fn main() -> anyhow::Result<()> {
                                 }
                             })
                             .collect();
-                        println!("{}", serde_json::to_string_pretty(&output).unwrap_or_default());
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&output).unwrap_or_default()
+                        );
                         return Ok(());
                     }
 
@@ -6733,7 +7582,9 @@ async fn main() -> anyhow::Result<()> {
                     let mut active: Vec<_> = snoozed
                         .iter()
                         .filter(|e| {
-                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                            if let Ok(until) =
+                                chrono::DateTime::parse_from_rfc3339(&e.snoozed_until)
+                            {
                                 until.with_timezone(&chrono::Utc) > now
                             } else {
                                 false
@@ -6760,8 +7611,12 @@ async fn main() -> anyhow::Result<()> {
 
                     // Sort by expiry time (soonest first)
                     active.sort_by(|a, b| {
-                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
-                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until).map(|t| t.timestamp()).unwrap_or(0);
+                        let a_time = chrono::DateTime::parse_from_rfc3339(&a.snoozed_until)
+                            .map(|t| t.timestamp())
+                            .unwrap_or(0);
+                        let b_time = chrono::DateTime::parse_from_rfc3339(&b.snoozed_until)
+                            .map(|t| t.timestamp())
+                            .unwrap_or(0);
                         a_time.cmp(&b_time)
                     });
 
@@ -6793,19 +7648,21 @@ async fn main() -> anyhow::Result<()> {
                             format!("{}d ago", snoozed_for / 24)
                         };
 
-                        println!("  😴 {}  #{}  ({})", 
-                            entry.pr_title.bold(), 
+                        println!(
+                            "  😴 {}  #{}  ({})",
+                            entry.pr_title.bold(),
                             entry.pr_number,
                             entry.repo.dimmed()
                         );
-                        println!("      ⏱️  Snoozed {}  •  ⏳ {}  •  📊 +{}/-{} lines",
+                        println!(
+                            "      ⏱️  Snoozed {}  •  ⏳ {}  •  📊 +{}/-{} lines",
                             snoozed_for_label.dimmed(),
                             remaining_label,
                             entry.additions,
                             entry.deletions
                         );
                         println!("      🔗 {}", entry.pr_url.blue().underline());
-                        
+
                         // Show priority if available
                         if let Some(score) = entry.priority_score {
                             if score > 0 {
@@ -6845,10 +7702,16 @@ async fn main() -> anyhow::Result<()> {
 
                     let removed = initial_len - snoozed.len();
                     if removed > 0 {
-                        if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                        if let Err(e) =
+                            std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?)
+                        {
                             println!("  ⚠️ Failed to save snooze data: {}", e);
                         } else {
-                            println!("\n✅ Removed {} PR(s) from snooze list ({} remaining)", removed, snoozed.len());
+                            println!(
+                                "\n✅ Removed {} PR(s) from snooze list ({} remaining)",
+                                removed,
+                                snoozed.len()
+                            );
                         }
                     } else {
                         println!("\n😶 No matching snoozed PRs found.");
@@ -6876,7 +7739,9 @@ async fn main() -> anyhow::Result<()> {
                     let expired: Vec<_> = snoozed
                         .iter()
                         .filter(|e| {
-                            if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                            if let Ok(until) =
+                                chrono::DateTime::parse_from_rfc3339(&e.snoozed_until)
+                            {
                                 until.with_timezone(&chrono::Utc) <= now
                             } else {
                                 false
@@ -6912,7 +7777,10 @@ async fn main() -> anyhow::Result<()> {
                             entry.repo.dimmed()
                         );
                     }
-                    println!("\n  ↩️  {} PR(s) have returned to your pending list.", expired.len());
+                    println!(
+                        "\n  ↩️  {} PR(s) have returned to your pending list.",
+                        expired.len()
+                    );
 
                     // Save updated snooze data
                     if let Some(ref dir) = output_dir {
@@ -6923,7 +7791,9 @@ async fn main() -> anyhow::Result<()> {
                             std::fs::remove_file(&snooze_file).ok();
                         }
                         println!("\n✅ All snooze entries cleaned (list is now empty).");
-                    } else if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                    } else if let Err(e) =
+                        std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?)
+                    {
                         println!("  ⚠️ Failed to save snooze data: {}", e);
                     } else {
                         println!("\n✅ {} snoozed PR(s) remain in the list.", snoozed.len());
@@ -6933,8 +7803,8 @@ async fn main() -> anyhow::Result<()> {
 
                 cli::SnoozeAction::Extend => {
                     let duration_days = days.unwrap_or(3) as i64;
-                    let new_snooze_until = (chrono::Utc::now() + chrono::Duration::days(duration_days))
-                        .to_rfc3339();
+                    let new_snooze_until =
+                        (chrono::Utc::now() + chrono::Duration::days(duration_days)).to_rfc3339();
 
                     // Priority: global --pr flag > local --pr > local pr_number > pr_numbers
                     let target_pr = cli.pr.or(pr).or(pr_number);
@@ -6957,10 +7827,14 @@ async fn main() -> anyhow::Result<()> {
                         }
 
                         if extended_count > 0 {
-                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                            if let Err(e) = std::fs::write(
+                                &snooze_file,
+                                serde_json::to_string_pretty(&snoozed)?,
+                            ) {
                                 println!("  ⚠️ Failed to save snooze data: {}", e);
                             } else {
-                                println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                println!(
+                                    "\n✅ Extended {} PR(s) until {} ({} days)",
                                     extended_count.to_string().green().bold(),
                                     &new_snooze_until[..10].cyan(),
                                     duration_days
@@ -7005,10 +7879,14 @@ async fn main() -> anyhow::Result<()> {
                         }
 
                         if extended_count > 0 {
-                            if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                            if let Err(e) = std::fs::write(
+                                &snooze_file,
+                                serde_json::to_string_pretty(&snoozed)?,
+                            ) {
                                 println!("  ⚠️ Failed to save snooze data: {}", e);
                             } else {
-                                println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                println!(
+                                    "\n✅ Extended {} PR(s) until {} ({} days)",
                                     extended_count.to_string().green().bold(),
                                     &new_snooze_until[..10].cyan(),
                                     duration_days
@@ -7029,7 +7907,9 @@ async fn main() -> anyhow::Result<()> {
                         let active: Vec<_> = snoozed
                             .iter()
                             .filter(|e| {
-                                if let Ok(until) = chrono::DateTime::parse_from_rfc3339(&e.snoozed_until) {
+                                if let Ok(until) =
+                                    chrono::DateTime::parse_from_rfc3339(&e.snoozed_until)
+                                {
                                     until.with_timezone(&chrono::Utc) > now
                                 } else {
                                     false
@@ -7056,7 +7936,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 format!("{}d left", remaining / 24).yellow()
                             };
-                            println!("  [{}] {}  #{} ({}) - {}",
+                            println!(
+                                "  [{}] {}  #{} ({}) - {}",
                                 i + 1,
                                 entry.pr_title.bold(),
                                 entry.pr_number,
@@ -7095,10 +7976,14 @@ async fn main() -> anyhow::Result<()> {
                                     }
                                 }
 
-                                if let Err(e) = std::fs::write(&snooze_file, serde_json::to_string_pretty(&snoozed)?) {
+                                if let Err(e) = std::fs::write(
+                                    &snooze_file,
+                                    serde_json::to_string_pretty(&snoozed)?,
+                                ) {
                                     println!("  ⚠️ Failed to save snooze data: {}", e);
                                 } else {
-                                    println!("\n✅ Extended {} PR(s) until {} ({} days)",
+                                    println!(
+                                        "\n✅ Extended {} PR(s) until {} ({} days)",
                                         indices_count.to_string().green().bold(),
                                         &new_snooze_until[..10].cyan(),
                                         duration_days
@@ -7115,7 +8000,17 @@ async fn main() -> anyhow::Result<()> {
             // (The actual filtering happens in the List command below via a shared helper)
         }
 
-        Commands::Follow { action, pr_number, pr_numbers, pr, json, repo, author, priority, since_days } => {
+        Commands::Follow {
+            action,
+            pr_number,
+            pr_numbers,
+            pr,
+            json,
+            repo,
+            author,
+            priority,
+            since_days,
+        } => {
             use serde::{Deserialize, Serialize};
 
             // Compute target PRs: global --pr > local --pr > local --pr-number > --pr-numbers
@@ -7131,8 +8026,15 @@ async fn main() -> anyhow::Result<()> {
                     Some(vec![p])
                 // --pr-numbers for comma-separated values
                 } else if let Some(ref nums) = pr_numbers {
-                    let parsed: Vec<u64> = nums.split(',').filter_map(|s| s.trim().parse().ok()).collect();
-                    if parsed.is_empty() { None } else { Some(parsed) }
+                    let parsed: Vec<u64> = nums
+                        .split(',')
+                        .filter_map(|s| s.trim().parse().ok())
+                        .collect();
+                    if parsed.is_empty() {
+                        None
+                    } else {
+                        Some(parsed)
+                    }
                 } else {
                     None
                 }
@@ -7152,9 +8054,9 @@ async fn main() -> anyhow::Result<()> {
                 pub pr_url: String,
                 pub followed_at: String,
                 pub last_check: String,
-                pub last_known_state: String,      // open, merged, closed
-                pub last_ci_status: String,         // success, failure, pending, unknown
-                pub last_review_state: String,      // none, approved, changes_requested, commented
+                pub last_known_state: String,  // open, merged, closed
+                pub last_ci_status: String,    // success, failure, pending, unknown
+                pub last_review_state: String, // none, approved, changes_requested, commented
                 pub last_commit_sha: String,
                 pub additions: u64,
                 pub deletions: u64,
@@ -7204,7 +8106,8 @@ async fn main() -> anyhow::Result<()> {
 
                             // Apply --since-days filter
                             if let Some(days) = since_days {
-                                let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
+                                let cutoff =
+                                    chrono::Utc::now() - chrono::Duration::days(days as i64);
                                 result.retain(|r| r.created_at >= cutoff);
                             }
 
@@ -7237,9 +8140,10 @@ async fn main() -> anyhow::Result<()> {
                         io::stdin().read_line(&mut input)?;
                         match parse_selection(input.trim(), filtered_reviews.len()) {
                             Selection::Quit => return Ok(()),
-                            Selection::Indices(indices) => {
-                                indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                            }
+                            Selection::Indices(indices) => indices
+                                .into_iter()
+                                .map(|i| filtered_reviews[i].clone())
+                                .collect(),
                         }
                     };
 
@@ -7256,7 +8160,9 @@ async fn main() -> anyhow::Result<()> {
                     let now = chrono::Utc::now().to_rfc3339();
                     for review in &targets {
                         // Remove existing entry if present (re-follow with updated state)
-                        followed.retain(|e| !(e.repo == review.repo && e.pr_number == review.pr_number));
+                        followed.retain(|e| {
+                            !(e.repo == review.repo && e.pr_number == review.pr_number)
+                        });
 
                         followed.push(FollowedPr {
                             repo: review.repo.clone(),
@@ -7265,7 +8171,11 @@ async fn main() -> anyhow::Result<()> {
                             pr_url: review.pr_url.clone(),
                             followed_at: now.clone(),
                             last_check: now.clone(),
-                            last_known_state: if review.draft { "draft".to_string() } else { "open".to_string() },
+                            last_known_state: if review.draft {
+                                "draft".to_string()
+                            } else {
+                                "open".to_string()
+                            },
                             last_ci_status: "unknown".to_string(),
                             last_review_state: "none".to_string(),
                             last_commit_sha: review.branch.clone(),
@@ -7286,7 +8196,9 @@ async fn main() -> anyhow::Result<()> {
                     if let Some(ref dir) = output_dir {
                         std::fs::create_dir_all(dir).ok();
                     }
-                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                    if let Err(e) =
+                        std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?)
+                    {
                         println!("  ⚠️ Failed to save follow data: {}", e);
                     } else {
                         println!("\n✅ Following {} PR(s)", followed.len());
@@ -7309,7 +8221,10 @@ async fn main() -> anyhow::Result<()> {
                     let followed: Vec<_> = match repo {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7318,7 +8233,10 @@ async fn main() -> anyhow::Result<()> {
                     let followed: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.author.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7351,22 +8269,25 @@ async fn main() -> anyhow::Result<()> {
                             author: String,
                             draft: bool,
                         }
-                        let items: Vec<FollowListItem> = followed.iter().map(|pr| FollowListItem {
-                            repo: pr.repo.clone(),
-                            pr_number: pr.pr_number,
-                            pr_title: pr.pr_title.clone(),
-                            pr_url: pr.pr_url.clone(),
-                            followed_at: pr.followed_at.clone(),
-                            last_check: pr.last_check.clone(),
-                            last_known_state: pr.last_known_state.clone(),
-                            last_ci_status: pr.last_ci_status.clone(),
-                            last_review_state: pr.last_review_state.clone(),
-                            last_commit_sha: pr.last_commit_sha.clone(),
-                            additions: pr.additions,
-                            deletions: pr.deletions,
-                            author: pr.author.clone(),
-                            draft: pr.draft,
-                        }).collect();
+                        let items: Vec<FollowListItem> = followed
+                            .iter()
+                            .map(|pr| FollowListItem {
+                                repo: pr.repo.clone(),
+                                pr_number: pr.pr_number,
+                                pr_title: pr.pr_title.clone(),
+                                pr_url: pr.pr_url.clone(),
+                                followed_at: pr.followed_at.clone(),
+                                last_check: pr.last_check.clone(),
+                                last_known_state: pr.last_known_state.clone(),
+                                last_ci_status: pr.last_ci_status.clone(),
+                                last_review_state: pr.last_review_state.clone(),
+                                last_commit_sha: pr.last_commit_sha.clone(),
+                                additions: pr.additions,
+                                deletions: pr.deletions,
+                                author: pr.author.clone(),
+                                draft: pr.draft,
+                            })
+                            .collect();
                         println!("{}", serde_json::to_string_pretty(&items)?);
                     } else {
                         println!(
@@ -7398,7 +8319,13 @@ async fn main() -> anyhow::Result<()> {
                             // Compute rough priority indicator from size (age not stored in FollowedPr)
                             let priority_display = if priority {
                                 let total = pr.additions + pr.deletions;
-                                let urgency = if total > 1000 { "🔴 LARGE" } else if total > 500 { "🟡 MEDIUM" } else { "🟢 SMALL" };
+                                let urgency = if total > 1000 {
+                                    "🔴 LARGE"
+                                } else if total > 500 {
+                                    "🟡 MEDIUM"
+                                } else {
+                                    "🟢 SMALL"
+                                };
                                 format!("  {} ({} lines)", urgency, total)
                             } else {
                                 String::new()
@@ -7435,7 +8362,10 @@ async fn main() -> anyhow::Result<()> {
                     let followed: Vec<_> = match repo {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7444,7 +8374,10 @@ async fn main() -> anyhow::Result<()> {
                     let mut followed: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.author.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7460,7 +8393,10 @@ async fn main() -> anyhow::Result<()> {
                                 let part = part.trim();
                                 if let Ok(num) = part.parse::<u64>() {
                                     // Try to find in first repo
-                                    Some((cfg.github_repos.first().cloned().unwrap_or_default(), num))
+                                    Some((
+                                        cfg.github_repos.first().cloned().unwrap_or_default(),
+                                        num,
+                                    ))
                                 } else if part.contains('#') {
                                     let parts: Vec<&str> = part.split('#').collect();
                                     if parts.len() == 2 {
@@ -7477,21 +8413,26 @@ async fn main() -> anyhow::Result<()> {
                             .collect()
                     } else {
                         // Interactive removal
-                        println!("\n👁️  Following {} PR(s) — select to remove:\n", followed.len());
+                        println!(
+                            "\n👁️  Following {} PR(s) — select to remove:\n",
+                            followed.len()
+                        );
                         for (i, pr) in followed.iter().enumerate() {
                             println!("  {}: {} #{}", i + 1, pr.repo, pr.pr_number);
                         }
-                        print!("\n{} ", "Select PRs to unfollow [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold());
+                        print!(
+                            "\n{} ",
+                            "Select PRs to unfollow [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                        );
                         io::stdout().flush()?;
                         let mut input = String::new();
                         io::stdin().read_line(&mut input)?;
                         match parse_selection(input.trim(), followed.len()) {
                             Selection::Quit => return Ok(()),
-                            Selection::Indices(indices) => {
-                                indices.into_iter()
-                                    .map(|i| (followed[i].repo.clone(), followed[i].pr_number))
-                                    .collect()
-                            }
+                            Selection::Indices(indices) => indices
+                                .into_iter()
+                                .map(|i| (followed[i].repo.clone(), followed[i].pr_number))
+                                .collect(),
                         }
                     };
 
@@ -7500,10 +8441,16 @@ async fn main() -> anyhow::Result<()> {
                     let removed = original_len - followed.len();
 
                     // Save updated list
-                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                    if let Err(e) =
+                        std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?)
+                    {
                         println!("  ⚠️ Failed to save follow data: {}", e);
                     } else {
-                        println!("\n👁️  Unfollowed {} PR(s) (now following {}).", removed, followed.len());
+                        println!(
+                            "\n👁️  Unfollowed {} PR(s) (now following {}).",
+                            removed,
+                            followed.len()
+                        );
                     }
                 }
 
@@ -7513,7 +8460,9 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
                     followed.clear();
-                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                    if let Err(e) =
+                        std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?)
+                    {
                         println!("  ⚠️ Failed to clear follow data: {}", e);
                     } else {
                         println!("\n👁️  Cleared all followed PRs.\n");
@@ -7534,7 +8483,10 @@ async fn main() -> anyhow::Result<()> {
                     let followed: Vec<_> = match repo {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.repo.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7543,7 +8495,10 @@ async fn main() -> anyhow::Result<()> {
                     let mut followed: Vec<_> = match author {
                         Some(ref pattern) => {
                             let pattern_lower = pattern.to_lowercase();
-                            followed.into_iter().filter(|pr| pr.author.to_lowercase().contains(&pattern_lower)).collect()
+                            followed
+                                .into_iter()
+                                .filter(|pr| pr.author.to_lowercase().contains(&pattern_lower))
+                                .collect()
                         }
                         None => followed,
                     };
@@ -7580,7 +8535,8 @@ async fn main() -> anyhow::Result<()> {
                         // Phase 1: Fetch all PR details in parallel
                         let client = octocrab::Octocrab::builder()
                             .personal_token(cfg.github_token.clone())
-                            .build().expect("failed to build GitHub client");
+                            .build()
+                            .expect("failed to build GitHub client");
 
                         let pr_futures = followed.iter().map(|pr| {
                             let client = client.clone();
@@ -7594,8 +8550,11 @@ async fn main() -> anyhow::Result<()> {
                             }
                         });
 
-                        let pr_results: Vec<(u64, String, Result<octocrab::models::pulls::PullRequest, octocrab::Error>)> =
-                            join_all(pr_futures).await;
+                        let pr_results: Vec<(
+                            u64,
+                            String,
+                            Result<octocrab::models::pulls::PullRequest, octocrab::Error>,
+                        )> = join_all(pr_futures).await;
 
                         // Phase 2: Fetch CI statuses in parallel for successful PR fetches
                         let ci_futures: Vec<_> = pr_results
@@ -7638,7 +8597,8 @@ async fn main() -> anyhow::Result<()> {
 
                         // Process and collect changes
                         for pr in followed.iter_mut() {
-                            let pr_result = pr_results.iter().find(|(num, _, _)| *num == pr.pr_number);
+                            let pr_result =
+                                pr_results.iter().find(|(num, _, _)| *num == pr.pr_number);
                             let current = match pr_result.and_then(|(_, _, r)| r.as_ref().ok()) {
                                 Some(current) => current,
                                 None => continue,
@@ -7677,8 +8637,11 @@ async fn main() -> anyhow::Result<()> {
                                     old_ci: pr.last_ci_status.clone(),
                                     new_ci: current_ci.clone(),
                                     has_new_commit: new_commit,
-                                    old_commit: pr.last_commit_sha[..7.min(pr.last_commit_sha.len())].to_string(),
-                                    new_commit_sha: current_commit[..7.min(current_commit.len())].to_string(),
+                                    old_commit: pr.last_commit_sha
+                                        [..7.min(pr.last_commit_sha.len())]
+                                        .to_string(),
+                                    new_commit_sha: current_commit[..7.min(current_commit.len())]
+                                        .to_string(),
                                 });
 
                                 // Update stored state
@@ -7692,7 +8655,9 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", serde_json::to_string_pretty(&changes)?);
 
                         // Save updated status
-                        if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                        if let Err(e) =
+                            std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?)
+                        {
                             println!("  ⚠️ Failed to update follow data: {}", e);
                         }
                         return Ok(());
@@ -7705,7 +8670,8 @@ async fn main() -> anyhow::Result<()> {
 
                     let client = octocrab::Octocrab::builder()
                         .personal_token(cfg.github_token.clone())
-                        .build().expect("failed to build GitHub client");
+                        .build()
+                        .expect("failed to build GitHub client");
 
                     // Phase 1: Fetch all PR details in parallel
                     let pr_futures = followed.iter().map(|pr| {
@@ -7720,8 +8686,11 @@ async fn main() -> anyhow::Result<()> {
                         }
                     });
 
-                    let pr_results: Vec<(u64, String, Result<octocrab::models::pulls::PullRequest, octocrab::Error>)> =
-                        join_all(pr_futures).await;
+                    let pr_results: Vec<(
+                        u64,
+                        String,
+                        Result<octocrab::models::pulls::PullRequest, octocrab::Error>,
+                    )> = join_all(pr_futures).await;
 
                     // Phase 2: Fetch CI statuses in parallel for successful PR fetches
                     let ci_futures: Vec<_> = pr_results
@@ -7842,15 +8811,30 @@ async fn main() -> anyhow::Result<()> {
                     }
 
                     // Save updated status
-                    if let Err(e) = std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?) {
+                    if let Err(e) =
+                        std::fs::write(&follow_file, serde_json::to_string_pretty(&followed)?)
+                    {
                         println!("  ⚠️ Failed to update follow data: {}", e);
                     }
                 }
             }
         }
 
-        Commands::Chase { pr_number, pr, pr_numbers, min_age, since_days, dry_run, send, message, repo, author, priority, json, quiet } => {
-
+        Commands::Chase {
+            pr_number,
+            pr,
+            pr_numbers,
+            min_age,
+            since_days,
+            dry_run,
+            send,
+            message,
+            repo,
+            author,
+            priority,
+            json,
+            quiet,
+        } => {
             // Warn user this is a dry run by default
             if !send {
                 println!("\n🔍 DRY RUN MODE - Use --send to actually post comments\n");
@@ -7869,7 +8853,14 @@ async fn main() -> anyhow::Result<()> {
             // Build initial filtered list: either target specific PR(s) or use all reviews
             let pr_filtered: Vec<_> = if let Some(num) = target_pr {
                 // Single PR targeted - use fetch_pr_by_number for accurate data
-                match github::fetch_pr_by_number(&cfg.github_token, &cfg.github_org, &cfg.github_repos, num).await {
+                match github::fetch_pr_by_number(
+                    &cfg.github_token,
+                    &cfg.github_org,
+                    &cfg.github_repos,
+                    num,
+                )
+                .await
+                {
                     Ok(prs) => prs,
                     Err(e) => {
                         println!("\n❌ Failed to fetch PR #{}: {}\n", num, e);
@@ -7878,12 +8869,18 @@ async fn main() -> anyhow::Result<()> {
                 }
             } else if let Some(ref nums) = pr_numbers {
                 // Multiple PRs targeted - fetch all in parallel
-                let pr_nums: Vec<u64> = nums.split(',')
+                let pr_nums: Vec<u64> = nums
+                    .split(',')
                     .filter_map(|s| s.trim().parse().ok())
                     .collect();
                 let mut results = Vec::new();
                 let fetch_futures = pr_nums.iter().map(|&num| {
-                    github::fetch_pr_by_number(&cfg.github_token, &cfg.github_org, &cfg.github_repos, num)
+                    github::fetch_pr_by_number(
+                        &cfg.github_token,
+                        &cfg.github_org,
+                        &cfg.github_repos,
+                        num,
+                    )
                 });
                 let fetched = join_all(fetch_futures).await;
                 for result in fetched {
@@ -7923,7 +8920,10 @@ async fn main() -> anyhow::Result<()> {
             }
 
             if stale_prs.is_empty() {
-                println!("\n🎉 No stale PRs older than {} day(s) to chase!\n", min_age);
+                println!(
+                    "\n🎉 No stale PRs older than {} day(s) to chase!\n",
+                    min_age
+                );
                 return Ok(());
             }
 
@@ -7934,7 +8934,9 @@ async fn main() -> anyhow::Result<()> {
 
             let mut prs_to_chase = Vec::new();
             for pr in stale_prs {
-                let already_commented = github::has_user_commented(&token, &org, &pr.repo, pr.pr_number, &username).await;
+                let already_commented =
+                    github::has_user_commented(&token, &org, &pr.repo, pr.pr_number, &username)
+                        .await;
                 match already_commented {
                     Ok(true) => {
                         println!("\n⏭️  Skipping #{} - you already commented", pr.pr_number);
@@ -7943,7 +8945,10 @@ async fn main() -> anyhow::Result<()> {
                         prs_to_chase.push(pr);
                     }
                     Err(e) => {
-                        eprintln!("Warning: Could not check comments for #{}: {}", pr.pr_number, e);
+                        eprintln!(
+                            "Warning: Could not check comments for #{}: {}",
+                            pr.pr_number, e
+                        );
                         prs_to_chase.push(pr); // Include anyway on error
                     }
                 }
@@ -7956,7 +8961,7 @@ async fn main() -> anyhow::Result<()> {
 
             // Default chase message template
             let default_message = "👋 Hi @{author}! Just checking in on this PR — it's been waiting for review for {days} days. Could you please address any pending feedback or let us know if it's ready for another look? Thanks!";
-            
+
             let message_template = message.as_deref().unwrap_or(default_message);
 
             // Build chase entries
@@ -7983,7 +8988,7 @@ async fn main() -> anyhow::Result<()> {
                         .replace("{days}", &days_waiting.to_string())
                         .replace("{repo}", &r.repo)
                         .replace("{pr}", &format!("#{}", r.pr_number));
-                    
+
                     ChaseEntry {
                         repo: r.repo.clone(),
                         pr_number: r.pr_number,
@@ -8002,8 +9007,9 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            println!("\n🐢 Chasing {} stale PR(s) (older than {} days)...\n", 
-                chase_entries.len().to_string().yellow().bold(), 
+            println!(
+                "\n🐢 Chasing {} stale PR(s) (older than {} days)...\n",
+                chase_entries.len().to_string().yellow().bold(),
                 min_age.to_string().cyan()
             );
 
@@ -8022,7 +9028,8 @@ async fn main() -> anyhow::Result<()> {
                     String::new()
                 };
 
-                println!("  📬 {} {} (#{}) - {}{}", 
+                println!(
+                    "  📬 {} {} (#{}) - {}{}",
                     entry.pr_title.bold(),
                     entry.author.cyan().to_string().as_str(),
                     entry.pr_number,
@@ -8033,8 +9040,11 @@ async fn main() -> anyhow::Result<()> {
             }
 
             if send {
-                println!("\n📤 Sending {} chase comment(s) in parallel...\n", chase_entries.len());
-                
+                println!(
+                    "\n📤 Sending {} chase comment(s) in parallel...\n",
+                    chase_entries.len()
+                );
+
                 let token = cfg.github_token.clone();
                 let org = cfg.github_org.clone();
 
@@ -8048,8 +9058,10 @@ async fn main() -> anyhow::Result<()> {
                     async move {
                         let client = octocrab::Octocrab::builder()
                             .personal_token(token)
-                            .build().expect("failed to build GitHub client");
-                        client.issues(&org, &repo)
+                            .build()
+                            .expect("failed to build GitHub client");
+                        client
+                            .issues(&org, &repo)
                             .create_comment(pr_number, &message)
                             .await
                     }
@@ -8063,13 +9075,22 @@ async fn main() -> anyhow::Result<()> {
                     match result {
                         Ok(_) => {
                             if !quiet {
-                                println!("  ✅ Sent: #{} - {}", entry.pr_number, entry.pr_title.dimmed());
+                                println!(
+                                    "  ✅ Sent: #{} - {}",
+                                    entry.pr_number,
+                                    entry.pr_title.dimmed()
+                                );
                             }
                             sent += 1;
                         }
                         Err(e) => {
                             if !quiet {
-                                println!("  ❌ Failed: #{} - {} ({})", entry.pr_number, entry.pr_title.dimmed(), e);
+                                println!(
+                                    "  ❌ Failed: #{} - {} ({})",
+                                    entry.pr_number,
+                                    entry.pr_title.dimmed(),
+                                    e
+                                );
                             }
                             failed += 1;
                         }
@@ -8077,8 +9098,9 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 if !quiet {
-                    println!("\n📊 Sent: {}, Failed: {}\n", 
-                        sent.to_string().green(), 
+                    println!(
+                        "\n📊 Sent: {}, Failed: {}\n",
+                        sent.to_string().green(),
                         failed.to_string().red()
                     );
                 } else {
@@ -8089,12 +9111,25 @@ async fn main() -> anyhow::Result<()> {
                 if dry_run {
                     println!("  (dry-run)\n");
                 } else {
-                    println!("  💡 Use --dry-run to preview or --send to post comments to GitHub\n");
+                    println!(
+                        "  💡 Use --dry-run to preview or --send to post comments to GitHub\n"
+                    );
                 }
             }
         }
 
-        Commands::ReviewTime { pr_number, pr, pr_numbers, all, grouped, priority, repo, author, since_days, json } => {
+        Commands::ReviewTime {
+            pr_number,
+            pr,
+            pr_numbers,
+            all,
+            grouped,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+        } => {
             // Target specific PR: global --pr flag > local --pr > local pr_number
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -8171,16 +9206,18 @@ async fn main() -> anyhow::Result<()> {
                 logger::print_reviews(&filtered_reviews, false);
                 print!(
                     "\n{} ",
-                    "Select PRs to estimate review time [e.g. 1,3 or 1-3 or 'all'] (q to quit):".bold()
+                    "Select PRs to estimate review time [e.g. 1,3 or 1-3 or 'all'] (q to quit):"
+                        .bold()
                 );
                 io::stdout().flush()?;
                 let mut input = String::new();
                 io::stdin().read_line(&mut input)?;
                 match parse_selection(input.trim(), filtered_reviews.len()) {
                     Selection::Quit => return Ok(()),
-                    Selection::Indices(indices) => {
-                        indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                    }
+                    Selection::Indices(indices) => indices
+                        .into_iter()
+                        .map(|i| filtered_reviews[i].clone())
+                        .collect(),
                 }
             };
 
@@ -8232,11 +9269,11 @@ async fn main() -> anyhow::Result<()> {
 
             for review in &targets {
                 let total_lines = review.additions + review.deletions;
-                
+
                 // Estimate review time based on lines changed
                 // Baseline: ~2 min per 50 lines, adjusted by complexity
                 let base_minutes = (total_lines as f64 / 50.0 * 2.0) as u32;
-                
+
                 // Complexity multipliers:
                 // - XS (<50 lines): 0.8x (quick review)
                 // - S (50-200): 1.0x (standard)
@@ -8259,8 +9296,9 @@ async fn main() -> anyhow::Result<()> {
                 let age_days = (now - review.created_at).num_days();
                 let age_factor = if age_days > 14 { 0.9 } else { 1.0 };
 
-                let estimated_minutes = ((base_minutes as f64 * complexity_mult * age_factor).ceil() as u32).max(5);
-                
+                let estimated_minutes =
+                    ((base_minutes as f64 * complexity_mult * age_factor).ceil() as u32).max(5);
+
                 // Time categories
                 let time_category = if estimated_minutes < 10 {
                     "⚡ lightning".to_string()
@@ -8397,7 +9435,11 @@ async fn main() -> anyhow::Result<()> {
                             est.total_lines,
                             time_str.green(),
                             stars.red(),
-                            if est.draft { " 📝DRAFT".yellow().to_string() } else { String::new() }
+                            if est.draft {
+                                " 📝DRAFT".yellow().to_string()
+                            } else {
+                                String::new()
+                            }
                         );
                     }
                 }
@@ -8406,7 +9448,10 @@ async fn main() -> anyhow::Result<()> {
                     println!("\n  No PRs to estimate.\n");
                 }
                 println!("\n{}", "─".repeat(55));
-                println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
+                println!(
+                    "  📊 Total review time: {:.1} hours ({} minutes)",
+                    total_hours, total_minutes
+                );
                 println!("  💡 Use `--grouped` to see PRs organized by time category");
                 println!("  💡 Use `--json` for scripting\n");
             } else {
@@ -8456,22 +9501,42 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!("{}", "─".repeat(55));
-                println!("  📊 Total review time: {:.1} hours ({} minutes)", total_hours, total_minutes);
-                println!("  💡 Time estimates based on lines changed, adjusted for size complexity");
+                println!(
+                    "  📊 Total review time: {:.1} hours ({} minutes)",
+                    total_hours, total_minutes
+                );
+                println!(
+                    "  💡 Time estimates based on lines changed, adjusted for size complexity"
+                );
                 println!("  💡 Use `--grouped` to see PRs organized by time category");
                 println!("  💡 Use `--priority` or `-P` to show priority scores");
                 println!("  💡 Use `--json` for scripting\n");
             }
         }
 
-        Commands::Report { pr_number, pr_numbers, all, days, json, repo, author, priority, since_days } => {
+        Commands::Report {
+            pr_number,
+            pr_numbers,
+            all,
+            days,
+            json,
+            repo,
+            author,
+            priority,
+            since_days,
+        } => {
             use chrono::{Duration, Utc};
             use std::collections::HashMap;
 
-            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+            let report_output_dir = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", report_output_dir.display());
+                println!(
+                    "❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.",
+                    report_output_dir.display()
+                );
                 return Ok(());
             }
 
@@ -8535,7 +9600,8 @@ async fn main() -> anyhow::Result<()> {
                 };
 
                 if json {
-                    let filtered_prs_json: Vec<serde_json::Value> = filtered.iter()
+                    let filtered_prs_json: Vec<serde_json::Value> = filtered
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
@@ -8625,28 +9691,59 @@ async fn main() -> anyhow::Result<()> {
                                 let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
                                 if let Some(date_str) = date_line {
                                     if let Some(date_part) = date_str.strip_prefix("Reviewed on ") {
-                                        if let Ok(date) = chrono::DateTime::parse_from_rfc3339(date_part) {
+                                        if let Ok(date) =
+                                            chrono::DateTime::parse_from_rfc3339(date_part)
+                                        {
                                             let date = date.with_timezone(&Utc);
                                             if date >= cutoff {
                                                 processed_count += 1;
-                                                recent_reviews.push((pr_title.to_string(), date, path.file_name().unwrap_or_default().to_string_lossy().to_string()));
+                                                recent_reviews.push((
+                                                    pr_title.to_string(),
+                                                    date,
+                                                    path.file_name()
+                                                        .unwrap_or_default()
+                                                        .to_string_lossy()
+                                                        .to_string(),
+                                                ));
 
                                                 for line in &lines {
                                                     if line.starts_with("- **Author**:") {
-                                                        if let Some(a) = line.strip_prefix("- **Author**:") {
+                                                        if let Some(a) =
+                                                            line.strip_prefix("- **Author**:")
+                                                        {
                                                             let a = a.trim();
                                                             // Apply --author filter if specified
-                                                            if author.is_none() || a.to_lowercase().contains(&author.as_ref().unwrap().to_lowercase()) {
-                                                                *processed_by_author.entry(a.to_string()).or_insert(0) += 1;
+                                                            if author.is_none()
+                                                                || a.to_lowercase().contains(
+                                                                    &author
+                                                                        .as_ref()
+                                                                        .unwrap()
+                                                                        .to_lowercase(),
+                                                                )
+                                                            {
+                                                                *processed_by_author
+                                                                    .entry(a.to_string())
+                                                                    .or_insert(0) += 1;
                                                             }
                                                         }
                                                     }
                                                     if line.starts_with("- **Repository**:") {
-                                                        if let Some(r) = line.strip_prefix("- **Repository**:") {
+                                                        if let Some(r) =
+                                                            line.strip_prefix("- **Repository**:")
+                                                        {
                                                             let r = r.trim();
                                                             // Apply --repo filter if specified
-                                                            if repo.is_none() || r.to_lowercase().contains(&repo.as_ref().unwrap().to_lowercase()) {
-                                                                *processed_by_repo.entry(r.to_string()).or_insert(0) += 1;
+                                                            if repo.is_none()
+                                                                || r.to_lowercase().contains(
+                                                                    &repo
+                                                                        .as_ref()
+                                                                        .unwrap()
+                                                                        .to_lowercase(),
+                                                                )
+                                                            {
+                                                                *processed_by_repo
+                                                                    .entry(r.to_string())
+                                                                    .or_insert(0) += 1;
                                                             }
                                                         }
                                                     }
@@ -8662,16 +9759,20 @@ async fn main() -> anyhow::Result<()> {
             }
 
             let pending_total = filtered_reviews.len();
-            let pending_old = filtered_reviews.iter().filter(|r| {
-                let age_days = (Utc::now() - r.created_at).num_days();
-                age_days >= days as i64
-            }).count();
+            let pending_old = filtered_reviews
+                .iter()
+                .filter(|r| {
+                    let age_days = (Utc::now() - r.created_at).num_days();
+                    age_days >= days as i64
+                })
+                .count();
 
             let pending_additions: u64 = filtered_reviews.iter().map(|r| r.additions).sum();
             let pending_deletions: u64 = filtered_reviews.iter().map(|r| r.deletions).sum();
 
             // Include filtered PR details in JSON output when targeting specific PR
-            let filtered_prs_json: Vec<serde_json::Value> = filtered_reviews.iter()
+            let filtered_prs_json: Vec<serde_json::Value> = filtered_reviews
+                .iter()
                 .map(|r| {
                     let score = logger::calculate_priority_score(r);
                     let age_days = (chrono::Utc::now() - r.created_at).num_days() as u32;
@@ -8707,8 +9808,15 @@ async fn main() -> anyhow::Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             } else {
-                println!("\n📊 Weekly Review Report  ({}-day period)\n{}", days, "─".repeat(45));
-                println!("  📁 Directory: {}", report_output_dir.display().to_string().dimmed());
+                println!(
+                    "\n📊 Weekly Review Report  ({}-day period)\n{}",
+                    days,
+                    "─".repeat(45)
+                );
+                println!(
+                    "  📁 Directory: {}",
+                    report_output_dir.display().to_string().dimmed()
+                );
                 println!();
                 println!("  ✅ Processed Reviews:");
                 println!("     Total reviewed:     {}", processed_count);
@@ -8732,7 +9840,8 @@ async fn main() -> anyhow::Result<()> {
                 println!("  ⏳ Current Pending:");
                 println!("     Total pending:       {}", pending_total);
                 println!("     Old ({}d+):          {}", days, pending_old);
-                println!("     Lines pending:       +{} / -{}",
+                println!(
+                    "     Lines pending:       +{} / -{}",
                     pending_additions.to_string().green(),
                     pending_deletions.to_string().red()
                 );
@@ -8741,7 +9850,8 @@ async fn main() -> anyhow::Result<()> {
                 // Priority breakdown if --priority flag is set
                 if priority && !filtered_reviews.is_empty() {
                     println!("  ⭐ Priority Breakdown:");
-                    let mut scored: Vec<_> = filtered_reviews.iter()
+                    let mut scored: Vec<_> = filtered_reviews
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             (r, score)
@@ -8766,7 +9876,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 format!("{} days", age_days)
                             };
-                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                            println!(
+                                "    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
                                 stars,
                                 prs.len(),
                                 age_str,
@@ -8800,8 +9911,21 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Activity { days, pr_numbers: _pr_numbers, all: _all, repo, author, pr, json, priority, since_days } => {
-            println!("\n📈 Fetching your review activity (last {} days)...\n", days);
+        Commands::Activity {
+            days,
+            pr_numbers: _pr_numbers,
+            all: _all,
+            repo,
+            author,
+            pr,
+            json,
+            priority,
+            since_days,
+        } => {
+            println!(
+                "\n📈 Fetching your review activity (last {} days)...\n",
+                days
+            );
 
             match github::fetch_my_review_activity(
                 &cfg.github_token,
@@ -8838,28 +9962,34 @@ async fn main() -> anyhow::Result<()> {
 
                     // When --priority is specified, fetch PR details in parallel for priority scoring
                     // Use a HashMap to avoid index misalignment when fetches fail
-                    let priority_scores: Option<std::collections::HashMap<(String, u64), u8>> = if priority {
-                        let fetch_futures = activities.iter().map(|activity| {
-                            github::fetch_pr_by_number(
-                                &cfg.github_token,
-                                &cfg.github_org,
-                                &cfg.github_repos,
-                                activity.pr_number,
-                            )
-                        });
-                        let results: Vec<Result<Vec<github::PendingReview>, anyhow::Error>> = join_all(fetch_futures).await;
-                        let mut score_map: std::collections::HashMap<(String, u64), u8> = std::collections::HashMap::new();
-                        for (activity, result) in activities.iter().zip(results.into_iter()) {
-                            if let Ok(prs) = result {
-                                if let Some(pr) = prs.into_iter().next() {
-                                    score_map.insert((activity.repo.clone(), activity.pr_number), logger::calculate_priority_score(&pr));
+                    let priority_scores: Option<std::collections::HashMap<(String, u64), u8>> =
+                        if priority {
+                            let fetch_futures = activities.iter().map(|activity| {
+                                github::fetch_pr_by_number(
+                                    &cfg.github_token,
+                                    &cfg.github_org,
+                                    &cfg.github_repos,
+                                    activity.pr_number,
+                                )
+                            });
+                            let results: Vec<Result<Vec<github::PendingReview>, anyhow::Error>> =
+                                join_all(fetch_futures).await;
+                            let mut score_map: std::collections::HashMap<(String, u64), u8> =
+                                std::collections::HashMap::new();
+                            for (activity, result) in activities.iter().zip(results.into_iter()) {
+                                if let Ok(prs) = result {
+                                    if let Some(pr) = prs.into_iter().next() {
+                                        score_map.insert(
+                                            (activity.repo.clone(), activity.pr_number),
+                                            logger::calculate_priority_score(&pr),
+                                        );
+                                    }
                                 }
                             }
-                        }
-                        Some(score_map)
-                    } else {
-                        None
-                    };
+                            Some(score_map)
+                        } else {
+                            None
+                        };
 
                     if json {
                         println!("{}", serde_json::to_string_pretty(&activities)?);
@@ -8867,7 +9997,11 @@ async fn main() -> anyhow::Result<()> {
                         if activities.is_empty() {
                             println!("\n  😴 No review activity found.\n");
                         } else {
-                            println!("📊 Your Review Activity  (last {} days)\n{}", days, "─".repeat(45));
+                            println!(
+                                "📊 Your Review Activity  (last {} days)\n{}",
+                                days,
+                                "─".repeat(45)
+                            );
                             println!("  Total PRs reviewed:  {}", activities.len());
                             // Group by day
                             use std::collections::HashMap;
@@ -8885,22 +10019,40 @@ async fn main() -> anyhow::Result<()> {
                                 let items = by_day.get(day).unwrap();
 
                                 // Count by state
-                                let approved = items.iter().filter(|a| a.state.contains("APPROVED")).count();
-                                let changes_req = items.iter().filter(|a| a.state.contains("CHANGES_REQUESTED")).count();
-                                let commented = items.iter().filter(|a| a.state.contains("COMMENT")).count();
+                                let approved = items
+                                    .iter()
+                                    .filter(|a| a.state.contains("APPROVED"))
+                                    .count();
+                                let changes_req = items
+                                    .iter()
+                                    .filter(|a| a.state.contains("CHANGES_REQUESTED"))
+                                    .count();
+                                let commented =
+                                    items.iter().filter(|a| a.state.contains("COMMENT")).count();
 
-                                let day_label = if *day == chrono::Utc::now().format("%Y-%m-%d").to_string() {
-                                    "today".green().bold()
-                                } else if *day == (chrono::Utc::now() - chrono::Duration::days(1)).format("%Y-%m-%d").to_string() {
-                                    "yesterday".normal().bold()
-                                } else {
-                                    day.yellow()
-                                };
+                                let day_label =
+                                    if *day == chrono::Utc::now().format("%Y-%m-%d").to_string() {
+                                        "today".green().bold()
+                                    } else if *day
+                                        == (chrono::Utc::now() - chrono::Duration::days(1))
+                                            .format("%Y-%m-%d")
+                                            .to_string()
+                                    {
+                                        "yesterday".normal().bold()
+                                    } else {
+                                        day.yellow()
+                                    };
 
                                 println!("\n  📅 {}  ({} PRs)", day_label, items.len());
-                                if approved > 0 { print!("    ✅ {} approved", approved); }
-                                if changes_req > 0 { print!("    🔁 {} changes requested", changes_req); }
-                                if commented > 0 { print!("    💬 {} commented", commented); }
+                                if approved > 0 {
+                                    print!("    ✅ {} approved", approved);
+                                }
+                                if changes_req > 0 {
+                                    print!("    🔁 {} changes requested", changes_req);
+                                }
+                                if commented > 0 {
+                                    print!("    💬 {} commented", commented);
+                                }
                                 println!();
 
                                 for activity in items.iter().take(5) {
@@ -8917,9 +10069,17 @@ async fn main() -> anyhow::Result<()> {
                                         activity.pr_title.clone()
                                     };
                                     let priority_display = if priority {
-                                        let score = priority_scores.as_ref().and_then(|scores| {
-                                            scores.get(&(activity.repo.clone(), activity.pr_number)).copied()
-                                        }).unwrap_or(0);
+                                        let score = priority_scores
+                                            .as_ref()
+                                            .and_then(|scores| {
+                                                scores
+                                                    .get(&(
+                                                        activity.repo.clone(),
+                                                        activity.pr_number,
+                                                    ))
+                                                    .copied()
+                                            })
+                                            .unwrap_or(0);
                                         format!("  {}", logger::priority_stars(score))
                                     } else {
                                         String::new()
@@ -8961,7 +10121,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Mentions { unread_only, limit, pr, since_days, repo, author, priority, json } => {
+        Commands::Mentions {
+            unread_only,
+            limit,
+            pr,
+            since_days,
+            repo,
+            author,
+            priority,
+            json,
+        } => {
             let limit = limit.unwrap_or(20);
 
             println!("\n🔔 Fetching your GitHub notifications...\n");
@@ -8977,7 +10146,10 @@ async fn main() -> anyhow::Result<()> {
                 Ok(mentions) => {
                     // Apply --pr filter if specified
                     let filtered_mentions: Vec<_> = match pr {
-                        Some(num) => mentions.into_iter().filter(|m| m.pr_number == num).collect(),
+                        Some(num) => mentions
+                            .into_iter()
+                            .filter(|m| m.pr_number == num)
+                            .collect(),
                         None => mentions,
                     };
 
@@ -9022,7 +10194,7 @@ async fn main() -> anyhow::Result<()> {
                             println!("{}", serde_json::to_string_pretty(&serde_json::json!([]))?);
                         } else {
                             if let Some(pr_num) = pr {
-                                println!("  😴 No notifications found for PR #{}." , pr_num);
+                                println!("  😴 No notifications found for PR #{}.", pr_num);
                             } else {
                                 println!("  😴 No notifications found.");
                             }
@@ -9039,9 +10211,14 @@ async fn main() -> anyhow::Result<()> {
                     if json {
                         println!("{}", serde_json::to_string_pretty(&filtered_mentions)?);
                     } else {
-                        println!("🔔 Notifications  ({} total{} | showing top {})\n{}",
+                        println!(
+                            "🔔 Notifications  ({} total{} | showing top {})\n{}",
                             total,
-                            if unread_count > 0 { format!(", {} unread", unread_count) } else { String::new() },
+                            if unread_count > 0 {
+                                format!(", {} unread", unread_count)
+                            } else {
+                                String::new()
+                            },
                             limit,
                             "─".repeat(50)
                         );
@@ -9093,7 +10270,8 @@ async fn main() -> anyhow::Result<()> {
                                 mention.pr_title.clone()
                             };
 
-                            println!("{}. {}  #{}  {}{}{}",
+                            println!(
+                                "{}. {}  #{}  {}{}{}",
                                 i + 1,
                                 reason_label,
                                 mention.pr_number,
@@ -9101,7 +10279,8 @@ async fn main() -> anyhow::Result<()> {
                                 unread_marker,
                                 priority_display
                             );
-                            println!("   👤 {}  •  📁 {}  •  ⏱️ {}",
+                            println!(
+                                "   👤 {}  •  📁 {}  •  ⏱️ {}",
                                 mention.author.cyan(),
                                 mention.repo.dimmed(),
                                 age_label,
@@ -9120,7 +10299,9 @@ async fn main() -> anyhow::Result<()> {
                         }
 
                         println!("\n{}", "─".repeat(50));
-                        println!("  💡 Use `--unread-only` or `-u` to show only unread notifications");
+                        println!(
+                            "  💡 Use `--unread-only` or `-u` to show only unread notifications"
+                        );
                         println!("  💡 Use `--json` for scripting\n");
                     }
                 }
@@ -9131,15 +10312,28 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Trends { days, limit, repo, author, json, priority, since_days } => {
+        Commands::Trends {
+            days,
+            limit,
+            repo,
+            author,
+            json,
+            priority,
+            since_days,
+        } => {
             use chrono::{Duration, Utc};
-            use std::collections::{HashMap, BTreeMap};
+            use std::collections::{BTreeMap, HashMap};
 
-            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+            let report_output_dir = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"));
             let n = limit.unwrap_or(10);
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", report_output_dir.display());
+                println!(
+                    "❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.",
+                    report_output_dir.display()
+                );
                 return Ok(());
             }
 
@@ -9176,19 +10370,33 @@ async fn main() -> anyhow::Result<()> {
                         if let Ok(content) = std::fs::read_to_string(&path) {
                             let lines: Vec<&str> = content.lines().collect();
                             if lines.len() >= 4 {
-                                let pr_title = lines.first().unwrap_or(&"").trim().trim_start_matches("# ").to_string();
+                                let pr_title = lines
+                                    .first()
+                                    .unwrap_or(&"")
+                                    .trim()
+                                    .trim_start_matches("# ")
+                                    .to_string();
                                 let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
-                                let additions_line = lines.iter().find(|l| l.contains("+") && l.contains("additions"));
-                                let deletions_line = lines.iter().find(|l| l.contains("-") && l.contains("deletions"));
-                                let author_line = lines.iter().find(|l| l.starts_with("- **Author**:"));
-                                let repo_line = lines.iter().find(|l| l.starts_with("- **Repository**:"));
+                                let additions_line = lines
+                                    .iter()
+                                    .find(|l| l.contains("+") && l.contains("additions"));
+                                let deletions_line = lines
+                                    .iter()
+                                    .find(|l| l.contains("-") && l.contains("deletions"));
+                                let author_line =
+                                    lines.iter().find(|l| l.starts_with("- **Author**:"));
+                                let repo_line =
+                                    lines.iter().find(|l| l.starts_with("- **Repository**:"));
 
                                 if let Some(date_str) = date_line {
                                     if let Some(date_part) = date_str.strip_prefix("Reviewed on ") {
-                                        if let Ok(reviewed_at) = chrono::DateTime::parse_from_rfc3339(date_part) {
+                                        if let Ok(reviewed_at) =
+                                            chrono::DateTime::parse_from_rfc3339(date_part)
+                                        {
                                             let reviewed_at_tz = reviewed_at.with_timezone(&Utc);
                                             if reviewed_at_tz >= cutoff {
-                                                let pr_number = path.file_stem()
+                                                let pr_number = path
+                                                    .file_stem()
                                                     .and_then(|s| s.to_str())
                                                     .and_then(|s| s.split('_').next_back())
                                                     .and_then(|s| s.parse().ok())
@@ -9196,18 +10404,30 @@ async fn main() -> anyhow::Result<()> {
 
                                                 let additions: u64 = additions_line
                                                     .and_then(|l| l.split('`').nth(1))
-                                                    .and_then(|s| s.replace(['+', ','], "").trim().parse().ok())
+                                                    .and_then(|s| {
+                                                        s.replace(['+', ','], "")
+                                                            .trim()
+                                                            .parse()
+                                                            .ok()
+                                                    })
                                                     .unwrap_or(0);
                                                 let deletions: u64 = deletions_line
                                                     .and_then(|l| l.split('`').nth(1))
-                                                    .and_then(|s| s.replace(['-', ','], "").trim().parse().ok())
+                                                    .and_then(|s| {
+                                                        s.replace(['-', ','], "")
+                                                            .trim()
+                                                            .parse()
+                                                            .ok()
+                                                    })
                                                     .unwrap_or(0);
                                                 let pr_author = author_line
                                                     .and_then(|l| l.strip_prefix("- **Author**:"))
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
                                                 let pr_repo = repo_line
-                                                    .and_then(|l| l.strip_prefix("- **Repository**:"))
+                                                    .and_then(|l| {
+                                                        l.strip_prefix("- **Repository**:")
+                                                    })
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
 
@@ -9229,26 +10449,34 @@ async fn main() -> anyhow::Result<()> {
                                                 // Apply --author filter (partial match, case-insensitive)
                                                 if let Some(ref author_filter) = author {
                                                     let pattern = author_filter.to_lowercase();
-                                                    if !pr_author.to_lowercase().contains(&pattern) {
+                                                    if !pr_author.to_lowercase().contains(&pattern)
+                                                    {
                                                         continue;
                                                     }
                                                 }
 
                                                 total_additions += additions;
                                                 total_deletions += deletions;
-                                                *by_author.entry(pr_author.clone()).or_insert(0) += 1;
+                                                *by_author.entry(pr_author.clone()).or_insert(0) +=
+                                                    1;
                                                 *by_repo.entry(pr_repo.clone()).or_insert(0) += 1;
 
-                                                let day_key = reviewed_at_tz.format("%Y-%m-%d").to_string();
+                                                let day_key =
+                                                    reviewed_at_tz.format("%Y-%m-%d").to_string();
                                                 *by_day.entry(day_key).or_insert(0) += 1;
 
                                                 // Parse created_at from review file
-                                                let created_line = lines.iter().find(|l| l.starts_with("- **Created**:"));
+                                                let created_line = lines
+                                                    .iter()
+                                                    .find(|l| l.starts_with("- **Created**:"));
                                                 let created_at_str = created_line
                                                     .and_then(|l| l.strip_prefix("- **Created**: "))
                                                     .unwrap_or("")
                                                     .trim();
-                                                let created_at_tz = if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(created_at_str) {
+                                                let created_at_tz = if let Ok(dt) =
+                                                    chrono::DateTime::parse_from_rfc3339(
+                                                        created_at_str,
+                                                    ) {
                                                     dt.with_timezone(&Utc)
                                                 } else {
                                                     reviewed_at_tz // fallback to reviewed_at if not found
@@ -9256,12 +10484,19 @@ async fn main() -> anyhow::Result<()> {
 
                                                 // Calculate priority score based on age and size
                                                 let size = additions.saturating_add(deletions);
-                                                let age_days = (reviewed_at_tz - created_at_tz).num_days().max(0) as u32;
-                                                let priority_score = logger::calculate_priority_score_for_stats(size, age_days);
+                                                let age_days = (reviewed_at_tz - created_at_tz)
+                                                    .num_days()
+                                                    .max(0)
+                                                    as u32;
+                                                let priority_score =
+                                                    logger::calculate_priority_score_for_stats(
+                                                        size, age_days,
+                                                    );
 
                                                 // Apply --since-days filter (PRs created within N days)
                                                 if let Some(since) = since_days {
-                                                    let since_cutoff = Utc::now() - Duration::days(since as i64);
+                                                    let since_cutoff =
+                                                        Utc::now() - Duration::days(since as i64);
                                                     if created_at_tz < since_cutoff {
                                                         continue;
                                                     }
@@ -9293,25 +10528,43 @@ async fn main() -> anyhow::Result<()> {
             // ── Compute daily averages ──
             let active_days = by_day.len().max(1) as u64;
             let avg_per_day = review_count as f64 / active_days as f64;
-            let avg_additions = if review_count > 0 { total_additions as f64 / review_count as f64 } else { 0.0 };
-            let avg_deletions = if review_count > 0 { total_deletions as f64 / review_count as f64 } else { 0.0 };
+            let avg_additions = if review_count > 0 {
+                total_additions as f64 / review_count as f64
+            } else {
+                0.0
+            };
+            let avg_deletions = if review_count > 0 {
+                total_deletions as f64 / review_count as f64
+            } else {
+                0.0
+            };
 
             // ── Week-over-week comparison ──
             let this_week_start = Utc::now() - Duration::days(7);
             let prev_week_start = Utc::now() - Duration::days(14);
 
-            let this_week_count: usize = reviews_data.iter().filter(|r| {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
-                    dt.with_timezone(&Utc) >= this_week_start
-                } else { false }
-            }).count();
+            let this_week_count: usize = reviews_data
+                .iter()
+                .filter(|r| {
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
+                        dt.with_timezone(&Utc) >= this_week_start
+                    } else {
+                        false
+                    }
+                })
+                .count();
 
-            let prev_week_count: usize = reviews_data.iter().filter(|r| {
-                if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
-                    let d = dt.with_timezone(&Utc);
-                    d >= prev_week_start && d < this_week_start
-                } else { false }
-            }).count();
+            let prev_week_count: usize = reviews_data
+                .iter()
+                .filter(|r| {
+                    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(&r.reviewed_at) {
+                        let d = dt.with_timezone(&Utc);
+                        d >= prev_week_start && d < this_week_start
+                    } else {
+                        false
+                    }
+                })
+                .count();
 
             let wow_change = if prev_week_count > 0 {
                 ((this_week_count as f64 - prev_week_count as f64) / prev_week_count as f64) * 100.0
@@ -9320,21 +10573,19 @@ async fn main() -> anyhow::Result<()> {
             };
 
             // ── Top authors ──
-            let mut top_authors: Vec<(String, u32)> = by_author
-                .into_iter()
-                .collect();
+            let mut top_authors: Vec<(String, u32)> = by_author.into_iter().collect();
             top_authors.sort_by(|a, b| b.1.cmp(&a.1));
 
             // ── Top repos ──
-            let mut top_repos: Vec<(String, u32)> = by_repo
-                .into_iter()
-                .collect();
+            let mut top_repos: Vec<(String, u32)> = by_repo.into_iter().collect();
             top_repos.sort_by(|a, b| b.1.cmp(&a.1));
 
             // ── Daily chart (last 14 days) ──
             let mut chart_days: Vec<(String, u32)> = vec![];
             for i in (0..14).rev() {
-                let day = (Utc::now() - Duration::days(i)).format("%Y-%m-%d").to_string();
+                let day = (Utc::now() - Duration::days(i))
+                    .format("%Y-%m-%d")
+                    .to_string();
                 let count = *by_day.get(&day).unwrap_or(&0);
                 chart_days.push((day, count));
             }
@@ -9373,7 +10624,11 @@ async fn main() -> anyhow::Result<()> {
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
-                println!("\n📈 Review Trends — last {} days\n{}", days, "─".repeat(45));
+                println!(
+                    "\n📈 Review Trends — last {} days\n{}",
+                    days,
+                    "─".repeat(45)
+                );
 
                 if review_count == 0 {
                     println!("  😴 No review data found in the last {} days.", days);
@@ -9385,16 +10640,26 @@ async fn main() -> anyhow::Result<()> {
                 println!("  📊 Summary");
                 println!("     Total reviews:       {}", review_count);
                 println!("     Daily average:       {:.1} PRs/day", avg_per_day);
-                println!("     Lines reviewed:      +{} / -{}",
+                println!(
+                    "     Lines reviewed:      +{} / -{}",
                     total_additions.to_string().green(),
-                    total_deletions.to_string().red());
-                println!("     Avg PR size:         +{:.0} / -{:.0}",
-                    avg_additions, avg_deletions);
+                    total_deletions.to_string().red()
+                );
+                println!(
+                    "     Avg PR size:         +{:.0} / -{:.0}",
+                    avg_additions, avg_deletions
+                );
                 println!();
 
                 // ── Week over week ──
                 println!("  📅 Week-over-Week");
-                let wow_icon = if wow_change > 0.0 { "📈" } else if wow_change < 0.0 { "📉" } else { "➖" };
+                let wow_icon = if wow_change > 0.0 {
+                    "📈"
+                } else if wow_change < 0.0 {
+                    "📉"
+                } else {
+                    "➖"
+                };
                 let wow_color: colored::ColoredString = if wow_change > 0.0 {
                     wow_change.to_string().green()
                 } else if wow_change < 0.0 {
@@ -9402,7 +10667,8 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     "0%".normal()
                 };
-                println!("     {} This week: {}   Previous: {}   Change: {}",
+                println!(
+                    "     {} This week: {}   Previous: {}   Change: {}",
                     wow_icon,
                     this_week_count.to_string().cyan().bold(),
                     prev_week_count.to_string().dimmed(),
@@ -9418,9 +10684,18 @@ async fn main() -> anyhow::Result<()> {
                     let bar: String = "█".repeat(bar_len);
                     let empty: String = "░".repeat(20 - bar_len);
                     let is_today = *day == Utc::now().format("%Y-%m-%d").to_string();
-                    let day_label = if is_today { format!("{} (today)", &day[5..]) } else { day[5..].to_string() };
-                    let count_label = if *count == 0 { "   ".to_string() } else { count.to_string() };
-                    println!("     {}  {}{}  {}",
+                    let day_label = if is_today {
+                        format!("{} (today)", &day[5..])
+                    } else {
+                        day[5..].to_string()
+                    };
+                    let count_label = if *count == 0 {
+                        "   ".to_string()
+                    } else {
+                        count.to_string()
+                    };
+                    println!(
+                        "     {}  {}{}  {}",
                         day_label.dimmed(),
                         bar.green(),
                         empty.truecolor(40, 40, 40),
@@ -9462,11 +10737,17 @@ async fn main() -> anyhow::Result<()> {
                         } else {
                             review.pr_title.clone()
                         };
-                        println!("     {}  #{}  {} ({})",
+                        println!(
+                            "     {}  #{}  {} ({})",
                             stars,
                             review.pr_number,
                             title.dimmed(),
-                            review.repo.split('/').next_back().unwrap_or(&review.repo).dimmed()
+                            review
+                                .repo
+                                .split('/')
+                                .next_back()
+                                .unwrap_or(&review.repo)
+                                .dimmed()
                         );
                     }
                     println!();
@@ -9479,15 +10760,30 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::ReviewVelocity { days, bottlenecks, priority, repo, author, since_days, json, pr_number, pr } => {
-            use chrono::{Duration, Utc};
-            use std::collections::{HashMap, BTreeMap};
+        Commands::ReviewVelocity {
+            days,
+            bottlenecks,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+            pr_number,
+            pr,
+        } => {
             use crate::logger;
+            use chrono::{Duration, Utc};
+            use std::collections::{BTreeMap, HashMap};
 
-            let report_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+            let report_output_dir = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !report_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `prctrl delegate` first.", report_output_dir.display());
+                println!(
+                    "❌ No reviews directory found at {}. Run `prctrl delegate` first.",
+                    report_output_dir.display()
+                );
                 return Ok(());
             }
 
@@ -9521,38 +10817,56 @@ async fn main() -> anyhow::Result<()> {
                         if let Ok(content) = std::fs::read_to_string(&path) {
                             let lines: Vec<&str> = content.lines().collect();
                             if lines.len() >= 4 {
-                                let pr_title = lines.first().unwrap_or(&"").trim().trim_start_matches("# ").to_string();
+                                let pr_title = lines
+                                    .first()
+                                    .unwrap_or(&"")
+                                    .trim()
+                                    .trim_start_matches("# ")
+                                    .to_string();
                                 let date_line = lines.iter().find(|l| l.starts_with("Reviewed on"));
-                                let created_line = lines.iter().find(|l| l.starts_with("- **Created**:"));
-                                let additions_line = lines.iter().find(|l| l.contains("+") && l.contains("additions"));
-                                let deletions_line = lines.iter().find(|l| l.contains("-") && l.contains("deletions"));
-                                let author_line = lines.iter().find(|l| l.starts_with("- **Author**:"));
-                                let repo_line = lines.iter().find(|l| l.starts_with("- **Repository**:"));
+                                let created_line =
+                                    lines.iter().find(|l| l.starts_with("- **Created**:"));
+                                let additions_line = lines
+                                    .iter()
+                                    .find(|l| l.contains("+") && l.contains("additions"));
+                                let deletions_line = lines
+                                    .iter()
+                                    .find(|l| l.contains("-") && l.contains("deletions"));
+                                let author_line =
+                                    lines.iter().find(|l| l.starts_with("- **Author**:"));
+                                let repo_line =
+                                    lines.iter().find(|l| l.starts_with("- **Repository**:"));
 
-                                if let (Some(date_str), Some(created_str)) = (date_line, created_line) {
+                                if let (Some(date_str), Some(created_str)) =
+                                    (date_line, created_line)
+                                {
                                     if let (Some(date_part), Some(created_part)) = (
                                         date_str.strip_prefix("Reviewed on "),
-                                        created_str.strip_prefix("- **Created**: ")
+                                        created_str.strip_prefix("- **Created**: "),
                                     ) {
                                         if let (Ok(reviewed_at), Ok(created_at)) = (
                                             chrono::DateTime::parse_from_rfc3339(date_part),
-                                            chrono::DateTime::parse_from_rfc3339(created_part)
+                                            chrono::DateTime::parse_from_rfc3339(created_part),
                                         ) {
                                             let reviewed_at_tz = reviewed_at.with_timezone(&Utc);
                                             let created_at_tz = created_at.with_timezone(&Utc);
 
                                             // Apply --since-days filter early (before expensive parsing)
                                             if let Some(since) = since_days {
-                                                let since_cutoff = Utc::now() - Duration::days(since as i64);
+                                                let since_cutoff =
+                                                    Utc::now() - Duration::days(since as i64);
                                                 if created_at_tz < since_cutoff {
                                                     continue;
                                                 }
                                             }
 
                                             if reviewed_at_tz >= cutoff {
-                                                let hours = (reviewed_at_tz - created_at_tz).num_hours() as f64;
+                                                let hours = (reviewed_at_tz - created_at_tz)
+                                                    .num_hours()
+                                                    as f64;
 
-                                                let pr_number = path.file_stem()
+                                                let pr_number = path
+                                                    .file_stem()
                                                     .and_then(|s| s.to_str())
                                                     .and_then(|s| s.split('_').next_back())
                                                     .and_then(|s| s.parse().ok())
@@ -9567,18 +10881,30 @@ async fn main() -> anyhow::Result<()> {
 
                                                 let additions: u64 = additions_line
                                                     .and_then(|l| l.split('`').nth(1))
-                                                    .and_then(|s| s.replace(['+', ','], "").trim().parse().ok())
+                                                    .and_then(|s| {
+                                                        s.replace(['+', ','], "")
+                                                            .trim()
+                                                            .parse()
+                                                            .ok()
+                                                    })
                                                     .unwrap_or(0);
                                                 let deletions: u64 = deletions_line
                                                     .and_then(|l| l.split('`').nth(1))
-                                                    .and_then(|s| s.replace(['-', ','], "").trim().parse().ok())
+                                                    .and_then(|s| {
+                                                        s.replace(['-', ','], "")
+                                                            .trim()
+                                                            .parse()
+                                                            .ok()
+                                                    })
                                                     .unwrap_or(0);
                                                 let pr_author = author_line
                                                     .and_then(|l| l.strip_prefix("- **Author**:"))
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
                                                 let pr_repo = repo_line
-                                                    .and_then(|l| l.strip_prefix("- **Repository**:"))
+                                                    .and_then(|l| {
+                                                        l.strip_prefix("- **Repository**:")
+                                                    })
                                                     .map(|s| s.trim().to_string())
                                                     .unwrap_or_default();
 
@@ -9593,13 +10919,20 @@ async fn main() -> anyhow::Result<()> {
                                                 // Apply --author filter (partial match, case-insensitive)
                                                 if let Some(ref author_filter) = author {
                                                     let pattern = author_filter.to_lowercase();
-                                                    if !pr_author.to_lowercase().contains(&pattern) {
+                                                    if !pr_author.to_lowercase().contains(&pattern)
+                                                    {
                                                         continue;
                                                     }
                                                 }
 
-                                                by_author.entry(pr_author.clone()).or_default().push(hours);
-                                                by_repo.entry(pr_repo.clone()).or_default().push(hours);
+                                                by_author
+                                                    .entry(pr_author.clone())
+                                                    .or_default()
+                                                    .push(hours);
+                                                by_repo
+                                                    .entry(pr_repo.clone())
+                                                    .or_default()
+                                                    .push(hours);
 
                                                 // Calculate priority score for this PR
                                                 let mock_review = github::PendingReview {
@@ -9614,7 +10947,8 @@ async fn main() -> anyhow::Result<()> {
                                                     draft: false,
                                                     branch: String::new(),
                                                 };
-                                                let priority_score = logger::calculate_priority_score(&mock_review);
+                                                let priority_score =
+                                                    logger::calculate_priority_score(&mock_review);
 
                                                 velocity_data.push(VelocityData {
                                                     pr_title,
@@ -9640,18 +10974,25 @@ async fn main() -> anyhow::Result<()> {
 
             if velocity_data.is_empty() {
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                        "period_days": days,
-                        "total_prs": 0,
-                        "avg_hours_to_review": 0.0,
-                        "median_hours": 0.0,
-                        "fastest_review_hours": 0.0,
-                        "slowest_review_hours": 0.0,
-                        "by_author": {},
-                        "by_repo": {},
-                    }))?);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "period_days": days,
+                            "total_prs": 0,
+                            "avg_hours_to_review": 0.0,
+                            "median_hours": 0.0,
+                            "fastest_review_hours": 0.0,
+                            "slowest_review_hours": 0.0,
+                            "by_author": {},
+                            "by_repo": {},
+                        }))?
+                    );
                 } else {
-                    println!("\n⚡ Review Velocity — last {} days\n{}", days, "─".repeat(45));
+                    println!(
+                        "\n⚡ Review Velocity — last {} days\n{}",
+                        days,
+                        "─".repeat(45)
+                    );
                     println!("  😴 No review data found in the last {} days.", days);
                     println!("  Process some reviews first with `prctrl delegate`.\n");
                 }
@@ -9718,10 +11059,15 @@ async fn main() -> anyhow::Result<()> {
                     by_repo: BTreeMap<String, (f64, f64, usize)>,
                 }
                 // Priority breakdown
-                let mut by_priority_map: std::collections::BTreeMap<u8, (f64, usize)> = std::collections::BTreeMap::new();
-                let mut by_priority_hours: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
+                let mut by_priority_map: std::collections::BTreeMap<u8, (f64, usize)> =
+                    std::collections::BTreeMap::new();
+                let mut by_priority_hours: std::collections::HashMap<u8, Vec<f64>> =
+                    std::collections::HashMap::new();
                 for v in &velocity_data {
-                    by_priority_hours.entry(v.priority_score).or_default().push(v.hours_to_review);
+                    by_priority_hours
+                        .entry(v.priority_score)
+                        .or_default()
+                        .push(v.hours_to_review);
                 }
                 for (score, hours_list) in &by_priority_hours {
                     let avg = hours_list.iter().sum::<f64>() / hours_list.len() as f64;
@@ -9748,7 +11094,11 @@ async fn main() -> anyhow::Result<()> {
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
-                println!("\n⚡ Review Velocity — last {} days\n{}", days, "─".repeat(45));
+                println!(
+                    "\n⚡ Review Velocity — last {} days\n{}",
+                    days,
+                    "─".repeat(45)
+                );
 
                 // Summary stats
                 println!("  📊 Summary ({} PRs reviewed)", total_prs);
@@ -9764,32 +11114,61 @@ async fn main() -> anyhow::Result<()> {
                 let mut over_72h = 0usize;
 
                 for h in &all_hours {
-                    if *h <= 4.0 { under_4h += 1; }
-                    else if *h <= 24.0 { under_24h += 1; }
-                    else if *h <= 72.0 { under_72h += 1; }
-                    else { over_72h += 1; }
+                    if *h <= 4.0 {
+                        under_4h += 1;
+                    } else if *h <= 24.0 {
+                        under_24h += 1;
+                    } else if *h <= 72.0 {
+                        under_72h += 1;
+                    } else {
+                        over_72h += 1;
+                    }
                 }
 
                 println!("\n  ⏱️  Time Distribution");
                 let total_f = total_prs as f64;
-                println!("     < 4h:   {:>4} ({:>5.1}%)  {}",
-                    under_4h, (under_4h as f64 / total_f) * 100.0,
-                    "▓".repeat((under_4h as f64 / total_f * 20.0) as usize).green());
-                println!("     4-24h:  {:>4} ({:>5.1}%)  {}",
-                    under_24h - under_4h, ((under_24h - under_4h) as f64 / total_f) * 100.0,
-                    "▓".repeat(((under_24h - under_4h) as f64 / total_f * 20.0) as usize).cyan());
-                println!("     1-3d:   {:>4} ({:>5.1}%)  {}",
-                    under_72h - under_24h, ((under_72h - under_24h) as f64 / total_f) * 100.0,
-                    "▓".repeat(((under_72h - under_24h) as f64 / total_f * 20.0) as usize).yellow());
-                println!("     > 3d:   {:>4} ({:>5.1}%)  {}",
-                    over_72h, (over_72h as f64 / total_f) * 100.0,
-                    "▓".repeat((over_72h as f64 / total_f * 20.0) as usize).red());
+                println!(
+                    "     < 4h:   {:>4} ({:>5.1}%)  {}",
+                    under_4h,
+                    (under_4h as f64 / total_f) * 100.0,
+                    "▓"
+                        .repeat((under_4h as f64 / total_f * 20.0) as usize)
+                        .green()
+                );
+                println!(
+                    "     4-24h:  {:>4} ({:>5.1}%)  {}",
+                    under_24h - under_4h,
+                    ((under_24h - under_4h) as f64 / total_f) * 100.0,
+                    "▓"
+                        .repeat(((under_24h - under_4h) as f64 / total_f * 20.0) as usize)
+                        .cyan()
+                );
+                println!(
+                    "     1-3d:   {:>4} ({:>5.1}%)  {}",
+                    under_72h - under_24h,
+                    ((under_72h - under_24h) as f64 / total_f) * 100.0,
+                    "▓"
+                        .repeat(((under_72h - under_24h) as f64 / total_f * 20.0) as usize)
+                        .yellow()
+                );
+                println!(
+                    "     > 3d:   {:>4} ({:>5.1}%)  {}",
+                    over_72h,
+                    (over_72h as f64 / total_f) * 100.0,
+                    "▓"
+                        .repeat((over_72h as f64 / total_f * 20.0) as usize)
+                        .red()
+                );
 
                 if priority {
                     // Show priority breakdown for reviewed PRs
-                    let mut by_priority: std::collections::HashMap<u8, Vec<f64>> = std::collections::HashMap::new();
+                    let mut by_priority: std::collections::HashMap<u8, Vec<f64>> =
+                        std::collections::HashMap::new();
                     for v in &velocity_data {
-                        by_priority.entry(v.priority_score).or_default().push(v.hours_to_review);
+                        by_priority
+                            .entry(v.priority_score)
+                            .or_default()
+                            .push(v.hours_to_review);
                     }
 
                     println!("\n  ⭐ Priority vs Review Time");
@@ -9807,11 +11186,9 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 bar.green().to_string()
                             };
-                            println!("     ⭐{}  {} PRs  {:.1}h avg  {}",
-                                stars,
-                                count,
-                                avg,
-                                bar_colored
+                            println!(
+                                "     ⭐{}  {} PRs  {:.1}h avg  {}",
+                                stars, count, avg, bar_colored
                             );
                         }
                     }
@@ -9823,7 +11200,8 @@ async fn main() -> anyhow::Result<()> {
                     for (author, avg, _median, count) in author_stats.iter().rev().take(5) {
                         let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
                         let bar: String = "█".repeat(bar_len.max(1));
-                        println!("     {} {}  {:.1}h avg  ({} PRs)",
+                        println!(
+                            "     {} {}  {:.1}h avg  ({} PRs)",
                             author.cyan(),
                             bar.red(),
                             avg,
@@ -9837,7 +11215,8 @@ async fn main() -> anyhow::Result<()> {
                         let short_name = repo.split('/').next_back().unwrap_or(repo);
                         let bar_len = ((avg / avg_hours) * 10.0).round() as usize;
                         let bar: String = "█".repeat(bar_len.max(1));
-                        println!("     {} {}  {:.1}h avg  ({} PRs)",
+                        println!(
+                            "     {} {}  {:.1}h avg  ({} PRs)",
                             short_name.yellow(),
                             bar.red(),
                             avg,
@@ -9854,7 +11233,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Summary { json, repo, author, since_days, priority } => {
+        Commands::Summary {
+            json,
+            repo,
+            author,
+            since_days,
+            priority,
+        } => {
             use chrono::Utc;
 
             // Apply --repo filter (partial match, case-insensitive)
@@ -9930,20 +11315,27 @@ async fn main() -> anyhow::Result<()> {
 
             let filtered: Vec<_> = filtered
                 .into_iter()
-                .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                .filter(|r| {
+                    !snoozed_prs
+                        .iter()
+                        .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                })
                 .collect();
 
             if filtered.is_empty() {
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                        "total": 0,
-                        "total_additions": 0,
-                        "total_deletions": 0,
-                        "oldest_age_days": 0,
-                        "draft_count": 0,
-                        "by_urgency": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
-                        "by_repo": {},
-                    }))?);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "total": 0,
+                            "total_additions": 0,
+                            "total_deletions": 0,
+                            "oldest_age_days": 0,
+                            "draft_count": 0,
+                            "by_urgency": { "critical": 0, "high": 0, "medium": 0, "low": 0 },
+                            "by_repo": {},
+                        }))?
+                    );
                 } else {
                     println!("✅ No pending reviews. You're all clear!");
                 }
@@ -9965,9 +11357,9 @@ async fn main() -> anyhow::Result<()> {
 
             // Categorize by urgency (based on priority score)
             let mut critical = 0usize; // score 5
-            let mut high = 0usize;     // score 4
-            let mut medium = 0usize;   // score 3
-            let mut low = 0usize;       // score 1-2
+            let mut high = 0usize; // score 4
+            let mut medium = 0usize; // score 3
+            let mut low = 0usize; // score 1-2
 
             for r in &filtered {
                 let score = logger::calculate_priority_score(r);
@@ -10010,7 +11402,12 @@ async fn main() -> anyhow::Result<()> {
                     total_deletions,
                     oldest_age_days,
                     draft_count,
-                    by_urgency: UrgencyBreakdown { critical, high, medium, low },
+                    by_urgency: UrgencyBreakdown {
+                        critical,
+                        high,
+                        medium,
+                        low,
+                    },
                     by_repo,
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
@@ -10030,10 +11427,18 @@ async fn main() -> anyhow::Result<()> {
 
                 let urgency_parts: Vec<String> = {
                     let mut parts = Vec::new();
-                    if critical > 0 { parts.push(format!("🔥{}/", critical)); }
-                    if high > 0 { parts.push(format!("⚡{}/", high)); }
-                    if medium > 0 { parts.push(format!("📅{}/", medium)); }
-                    if low > 0 { parts.push(format!("💤{}/", low)); }
+                    if critical > 0 {
+                        parts.push(format!("🔥{}/", critical));
+                    }
+                    if high > 0 {
+                        parts.push(format!("⚡{}/", high));
+                    }
+                    if medium > 0 {
+                        parts.push(format!("📅{}/", medium));
+                    }
+                    if low > 0 {
+                        parts.push(format!("💤{}/", low));
+                    }
                     parts
                 };
                 let urgency_str = if urgency_parts.is_empty() {
@@ -10062,8 +11467,11 @@ async fn main() -> anyhow::Result<()> {
 
                 // Compact repo breakdown
                 if !by_repo.is_empty() {
-                    let mut repo_parts: Vec<String> = by_repo.iter()
-                        .map(|(repo, count)| format!("{}:{}", repo.split('/').next_back().unwrap_or(repo), count))
+                    let mut repo_parts: Vec<String> = by_repo
+                        .iter()
+                        .map(|(repo, count)| {
+                            format!("{}:{}", repo.split('/').next_back().unwrap_or(repo), count)
+                        })
                         .collect();
                     repo_parts.sort();
                     println!("   📁 {}", repo_parts.join(" • "));
@@ -10073,7 +11481,8 @@ async fn main() -> anyhow::Result<()> {
                 if priority && !filtered.is_empty() {
                     println!();
                     println!("  ⭐ Priority breakdown:");
-                    let mut scored: Vec<_> = filtered.iter()
+                    let mut scored: Vec<_> = filtered
+                        .iter()
                         .map(|r| {
                             let score = logger::calculate_priority_score(r);
                             (r, score)
@@ -10098,7 +11507,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 format!("{} days", age_days)
                             };
-                            println!("    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
+                            println!(
+                                "    ⭐{}  {} PR(s)  •  oldest: {}  •  +{}/-{} lines",
                                 stars,
                                 prs.len(),
                                 age_str,
@@ -10112,11 +11522,20 @@ async fn main() -> anyhow::Result<()> {
                     if let Some((most_urgent, top_score)) = scored.first() {
                         let total = most_urgent.additions + most_urgent.deletions;
                         println!("\n  🚨 Most Urgent:");
-                        println!("    {}  #{}  {}", most_urgent.pr_title.bold(), most_urgent.pr_number, logger::priority_stars(*top_score).red());
-                        println!("    👤 {}  •  📦 {} lines  •  {}  •  {}",
+                        println!(
+                            "    {}  #{}  {}",
+                            most_urgent.pr_title.bold(),
+                            most_urgent.pr_number,
+                            logger::priority_stars(*top_score).red()
+                        );
+                        println!(
+                            "    👤 {}  •  📦 {} lines  •  {}  •  {}",
                             most_urgent.pr_author.cyan(),
                             total,
-                            format_args!("{} old", (chrono::Utc::now() - most_urgent.created_at).num_days()),
+                            format_args!(
+                                "{} old",
+                                (chrono::Utc::now() - most_urgent.created_at).num_days()
+                            ),
                             most_urgent.repo.dimmed()
                         );
                         println!("    🔗 {}", most_urgent.pr_url.blue().underline());
@@ -10125,15 +11544,28 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Attention { threshold, detailed, limit, priority, repo, author, since_days, json } => {
-            use chrono::Utc;
+        Commands::Attention {
+            threshold,
+            detailed,
+            limit,
+            priority,
+            repo,
+            author,
+            since_days,
+            json,
+        } => {
             use crate::github::PendingReview;
+            use chrono::Utc;
 
             // Apply --since-days filter first (consistent with other commands)
             let mut filtered_reviews: Vec<_> = match since_days {
                 Some(days) => {
                     let cutoff = chrono::Utc::now() - chrono::Duration::days(days as i64);
-                    reviews.iter().filter(|r| r.created_at >= cutoff).cloned().collect()
+                    reviews
+                        .iter()
+                        .filter(|r| r.created_at >= cutoff)
+                        .cloned()
+                        .collect()
                 }
                 None => reviews.clone(),
             };
@@ -10187,15 +11619,22 @@ async fn main() -> anyhow::Result<()> {
                 Vec::new()
             };
 
-            filtered_reviews.retain(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo));
+            filtered_reviews.retain(|r| {
+                !snoozed_prs
+                    .iter()
+                    .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+            });
 
             if filtered_reviews.is_empty() {
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                        "total": 0,
-                        "high_attention": [],
-                        "message": "No pending reviews — nothing demands attention!"
-                    }))?);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "total": 0,
+                            "high_attention": [],
+                            "message": "No pending reviews — nothing demands attention!"
+                        }))?
+                    );
                 } else {
                     println!("✅ No pending reviews. Nothing demands your attention!");
                 }
@@ -10231,53 +11670,79 @@ async fn main() -> anyhow::Result<()> {
                 let now = Utc::now();
                 let age_days = (now - review.created_at).num_days() as f64;
                 let size = review.additions + review.deletions;
-                
+
                 // Age score (0-3): 0-3 days=1, 3-7=2, 7-14=3, 14-30=4, 30+=5
-                let age_score = if age_days <= 3.0 { 1 }
-                    else if age_days <= 7.0 { 2 }
-                    else if age_days <= 14.0 { 3 }
-                    else if age_days <= 30.0 { 4 }
-                    else { 5 };
-                
+                let age_score = if age_days <= 3.0 {
+                    1
+                } else if age_days <= 7.0 {
+                    2
+                } else if age_days <= 14.0 {
+                    3
+                } else if age_days <= 30.0 {
+                    4
+                } else {
+                    5
+                };
+
                 // Size score (0-2): <100=1, 100-500=2, 500+=3
-                let size_score = if size < 100 { 1 }
-                    else if size < 500 { 2 }
-                    else { 3 };
-                
+                let size_score = if size < 100 {
+                    1
+                } else if size < 500 {
+                    2
+                } else {
+                    3
+                };
+
                 // Draft penalty (drafts are less urgent)
                 let draft_score = if review.draft { 1 } else { 2 };
-                
+
                 // Staleness bonus: if waiting >7 days, add urgency
-                let staleness_bonus = if age_days > 14.0 { 2 }
-                    else if age_days > 7.0 { 1 }
-                    else { 0 };
-                
+                let staleness_bonus = if age_days > 14.0 {
+                    2
+                } else if age_days > 7.0 {
+                    1
+                } else {
+                    0
+                };
+
                 let total = (age_score + size_score + draft_score + staleness_bonus).min(10);
-                
-                (total, AttentionFactors { age_score, size_score, draft_score, staleness_bonus })
+
+                (
+                    total,
+                    AttentionFactors {
+                        age_score,
+                        size_score,
+                        draft_score,
+                        staleness_bonus,
+                    },
+                )
             }
 
-            let mut attention_list: Vec<AttentionPR> = filtered_reviews.iter().map(|r| {
-                let (attention_score, factors) = calc_attention_score(r);
-                AttentionPR {
-                    repo: r.repo.clone(),
-                    pr_number: r.pr_number,
-                    pr_title: r.pr_title.clone(),
-                    pr_author: r.pr_author.clone(),
-                    pr_url: r.pr_url.clone(),
-                    age_days: (Utc::now() - r.created_at).num_days(),
-                    size: r.additions + r.deletions,
-                    draft: r.draft,
-                    attention_score,
-                    factors,
-                }
-            }).collect();
+            let mut attention_list: Vec<AttentionPR> = filtered_reviews
+                .iter()
+                .map(|r| {
+                    let (attention_score, factors) = calc_attention_score(r);
+                    AttentionPR {
+                        repo: r.repo.clone(),
+                        pr_number: r.pr_number,
+                        pr_title: r.pr_title.clone(),
+                        pr_author: r.pr_author.clone(),
+                        pr_url: r.pr_url.clone(),
+                        age_days: (Utc::now() - r.created_at).num_days(),
+                        size: r.additions + r.deletions,
+                        draft: r.draft,
+                        attention_score,
+                        factors,
+                    }
+                })
+                .collect();
 
             // Sort by attention score descending
             attention_list.sort_by(|a, b| b.attention_score.cmp(&a.attention_score));
 
             // Filter by threshold
-            let filtered: Vec<&AttentionPR> = attention_list.iter()
+            let filtered: Vec<&AttentionPR> = attention_list
+                .iter()
                 .filter(|p| p.attention_score >= threshold)
                 .take(limit)
                 .collect();
@@ -10291,61 +11756,111 @@ async fn main() -> anyhow::Result<()> {
                 }
                 let output = AttentionOutput {
                     threshold,
-                    total_matching: attention_list.iter().filter(|p| p.attention_score >= threshold).count(),
+                    total_matching: attention_list
+                        .iter()
+                        .filter(|p| p.attention_score >= threshold)
+                        .count(),
                     high_attention: filtered.into_iter().cloned().collect(),
                 };
                 println!("{}", serde_json::to_string_pretty(&output)?);
             } else {
                 if filtered.is_empty() {
-                    println!("✅ No PRs above attention threshold {} — you're in good shape!", threshold);
+                    println!(
+                        "✅ No PRs above attention threshold {} — you're in good shape!",
+                        threshold
+                    );
                     return Ok(());
                 }
 
-                println!("\n🎯 {} PR(s) demand your attention (score >= {})\n", 
-                    filtered.len(), threshold);
+                println!(
+                    "\n🎯 {} PR(s) demand your attention (score >= {})\n",
+                    filtered.len(),
+                    threshold
+                );
 
                 for pr in filtered {
-                    let age_label = if pr.age_days == 0 { "today".green().to_string() }
-                        else if pr.age_days == 1 { "1d".yellow().to_string() }
-                        else if pr.age_days <= 3 { format!("{}d", pr.age_days).yellow().to_string() }
-                        else if pr.age_days <= 7 { format!("{}d", pr.age_days).red().to_string() }
-                        else { format!("{}d!!", pr.age_days).red().bold().to_string() };
+                    let age_label = if pr.age_days == 0 {
+                        "today".green().to_string()
+                    } else if pr.age_days == 1 {
+                        "1d".yellow().to_string()
+                    } else if pr.age_days <= 3 {
+                        format!("{}d", pr.age_days).yellow().to_string()
+                    } else if pr.age_days <= 7 {
+                        format!("{}d", pr.age_days).red().to_string()
+                    } else {
+                        format!("{}d!!", pr.age_days).red().bold().to_string()
+                    };
 
-                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let draft_label = if pr.draft {
+                        " [DRAFT]".yellow().to_string()
+                    } else {
+                        String::new()
+                    };
                     let stars = "🔥".repeat((pr.attention_score / 2).min(5) as usize);
                     let priority_display = if priority {
-                        let p_score = logger::calculate_priority_score(&crate::github::PendingReview {
-                            repo: pr.repo.clone(),
-                            pr_number: pr.pr_number,
-                            pr_title: pr.pr_title.clone(),
-                            pr_author: pr.pr_author.clone(),
-                            pr_url: pr.pr_url.clone(),
-                            created_at: chrono::Utc::now() - chrono::Duration::days(pr.age_days),
-                            additions: pr.size,
-                            deletions: 0,
-                            draft: pr.draft,
-                            branch: String::new(),
-                        });
+                        let p_score =
+                            logger::calculate_priority_score(&crate::github::PendingReview {
+                                repo: pr.repo.clone(),
+                                pr_number: pr.pr_number,
+                                pr_title: pr.pr_title.clone(),
+                                pr_author: pr.pr_author.clone(),
+                                pr_url: pr.pr_url.clone(),
+                                created_at: chrono::Utc::now()
+                                    - chrono::Duration::days(pr.age_days),
+                                additions: pr.size,
+                                deletions: 0,
+                                draft: pr.draft,
+                                branch: String::new(),
+                            });
                         format!("  {}", logger::priority_stars(p_score))
                     } else {
                         String::new()
                     };
 
-                    println!("  {}  {} {} ({}){}{}", stars, pr.pr_title.bold(), format!("#{}", pr.pr_number).dimmed(), pr.repo.dimmed(), draft_label, priority_display);
-                    println!("      👤 {}  •  {} lines  •  opened {}", 
-                        pr.pr_author.cyan(), pr.size, age_label);
-                    
+                    println!(
+                        "  {}  {} {} ({}){}{}",
+                        stars,
+                        pr.pr_title.bold(),
+                        format!("#{}", pr.pr_number).dimmed(),
+                        pr.repo.dimmed(),
+                        draft_label,
+                        priority_display
+                    );
+                    println!(
+                        "      👤 {}  •  {} lines  •  opened {}",
+                        pr.pr_author.cyan(),
+                        pr.size,
+                        age_label
+                    );
+
                     if detailed {
-                        println!("      📊 breakdown: age={} size={} draft={} stale_bonus={}", 
-                            pr.factors.age_score, pr.factors.size_score, 
-                            pr.factors.draft_score, pr.factors.staleness_bonus);
+                        println!(
+                            "      📊 breakdown: age={} size={} draft={} stale_bonus={}",
+                            pr.factors.age_score,
+                            pr.factors.size_score,
+                            pr.factors.draft_score,
+                            pr.factors.staleness_bonus
+                        );
                     }
                     println!("      🔗 {}\n", pr.pr_url.blue().underline());
                 }
             }
         }
 
-        Commands::Focus { dry_run, all, limit, open, json, priority, repo, author, since_days, pr_number, pr_numbers, pr } => {
+        Commands::Focus {
+            dry_run,
+            all,
+            limit,
+            open,
+            json,
+            priority,
+            repo,
+            author,
+            since_days,
+            pr_number,
+            pr_numbers,
+            pr,
+        } => {
             use chrono::Utc;
 
             // Target specific PR(s): global --pr > local --pr > local --pr-number > --pr-numbers
@@ -10400,12 +11915,19 @@ async fn main() -> anyhow::Result<()> {
                     let age_b = (Utc::now() - b.created_at).num_days();
                     (score_b, age_a).cmp(&(score_a, age_b))
                 });
-                let focused_prs = if all { sorted } else { sorted.into_iter().take(1).collect() };
+                let focused_prs = if all {
+                    sorted
+                } else {
+                    sorted.into_iter().take(1).collect()
+                };
                 // Output (simplified - just show the PRs)
                 for pr in &focused_prs {
                     let score = logger::calculate_priority_score(pr);
                     println!("#{} {} [⭐{}/5]", pr.pr_number, pr.pr_title, score);
-                    println!("   {}  •  {}  •  +{}/-{} lines", pr.repo, pr.pr_author, pr.additions, pr.deletions);
+                    println!(
+                        "   {}  •  {}  •  +{}/-{} lines",
+                        pr.repo, pr.pr_author, pr.additions, pr.deletions
+                    );
                 }
                 return Ok(());
             }
@@ -10447,7 +11969,8 @@ async fn main() -> anyhow::Result<()> {
                     &cfg.github_repos,
                     num,
                 )
-                .await {
+                .await
+                {
                     Ok(prs) => prs,
                     Err(e) => {
                         println!("❌ Failed to fetch PR #{}: {}", num, e);
@@ -10468,14 +11991,18 @@ async fn main() -> anyhow::Result<()> {
                 let now = chrono::Utc::now();
                 let snoozed_prs: Vec<(String, u64)> = if snooze_file.exists() {
                     if let Ok(content) = std::fs::read_to_string(&snooze_file) {
-                        if let Ok(entries) = serde_json::from_str::<Vec<serde_json::Value>>(&content) {
+                        if let Ok(entries) =
+                            serde_json::from_str::<Vec<serde_json::Value>>(&content)
+                        {
                             entries
                                 .into_iter()
                                 .filter_map(|e| {
                                     let repo = e.get("repo")?.as_str()?.to_string();
                                     let pr_number = e.get("pr_number")?.as_u64()?;
                                     let until_str = e.get("snoozed_until")?.as_str()?;
-                                    if let Ok(until) = chrono::DateTime::parse_from_rfc3339(until_str) {
+                                    if let Ok(until) =
+                                        chrono::DateTime::parse_from_rfc3339(until_str)
+                                    {
                                         if until.with_timezone(&chrono::Utc) > now {
                                             return Some((repo, pr_number));
                                         }
@@ -10496,7 +12023,11 @@ async fn main() -> anyhow::Result<()> {
                 let _snoozed_count = snoozed_prs.len();
                 base_reviews
                     .into_iter()
-                    .filter(|r| !snoozed_prs.iter().any(|(repo, num)| *num == r.pr_number && repo == &r.repo))
+                    .filter(|r| {
+                        !snoozed_prs
+                            .iter()
+                            .any(|(repo, num)| *num == r.pr_number && repo == &r.repo)
+                    })
                     .inspect(|_| ())
                     .collect()
             } else {
@@ -10505,11 +12036,14 @@ async fn main() -> anyhow::Result<()> {
 
             if filtered.is_empty() {
                 if json {
-                    println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                        "focused": null,
-                        "total_pending": reviews.len(),
-                        "message": "No matching reviews found."
-                    }))?);
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "focused": null,
+                            "total_pending": reviews.len(),
+                            "message": "No matching reviews found."
+                        }))?
+                    );
                 } else {
                     println!("🎯 No matching PRs found.");
                     if let Some(pr_num) = target_pr {
@@ -10591,7 +12125,11 @@ async fn main() -> anyhow::Result<()> {
                         format!("{} days ago!!", age_days).red().bold().to_string()
                     };
 
-                    let draft_label = if pr.draft { " [DRAFT]".yellow().to_string() } else { String::new() };
+                    let draft_label = if pr.draft {
+                        " [DRAFT]".yellow().to_string()
+                    } else {
+                        String::new()
+                    };
                     let header = if is_single {
                         "🎯 YOUR FOCUS PR".to_string()
                     } else {
@@ -10604,16 +12142,25 @@ async fn main() -> anyhow::Result<()> {
                     println!();
                     println!("  #{}  {}{}", pr.pr_number, pr.pr_title.bold(), draft_label);
                     println!();
-                    println!("  📁 {}  👤 {}  ⏱️ {}  📊 {}/{}",
+                    println!(
+                        "  📁 {}  👤 {}  ⏱️ {}  📊 {}/{}",
                         pr.repo.split('/').next_back().unwrap_or(&pr.repo).dimmed(),
                         pr.pr_author.cyan(),
                         age_label,
                         pr.additions.to_string().green(),
                         pr.deletions.to_string().red()
                     );
-                    println!("  📏 Total: {} lines  {}", total_lines, score_stars.red().bold());
+                    println!(
+                        "  📏 Total: {} lines  {}",
+                        total_lines,
+                        score_stars.red().bold()
+                    );
                     if priority {
-                        println!("  ⭐ Priority: {}/5  {}", score, logger::priority_stars(score));
+                        println!(
+                            "  ⭐ Priority: {}/5  {}",
+                            score,
+                            logger::priority_stars(score)
+                        );
                     }
                     println!("  🔗 {}", pr.pr_url.blue().underline());
                     println!();
@@ -10621,7 +12168,11 @@ async fn main() -> anyhow::Result<()> {
                     // Only show footer for the last PR
                     if idx == focused_count - 1 {
                         println!("{}", "─".repeat(50));
-                        println!("  Total pending: {} PRs ({} matching filters)", reviews.len(), filtered.len());
+                        println!(
+                            "  Total pending: {} PRs ({} matching filters)",
+                            reviews.len(),
+                            filtered.len()
+                        );
                         if filtered.len() > show_count {
                             println!("  Run `prctrl focus --all` to see more, or `prctrl top` for full list");
                         }
@@ -10641,7 +12192,18 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Conflicts { only_conflicts, all, pr_numbers, pr_number, pr, repo, author, since_days, priority, json } => {
+        Commands::Conflicts {
+            only_conflicts,
+            all,
+            pr_numbers,
+            pr_number,
+            pr,
+            repo,
+            author,
+            since_days,
+            priority,
+            json,
+        } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             let targets: Vec<_> = if let Some(num) = target_pr {
@@ -10727,15 +12289,14 @@ async fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            println!("\n🔍 Checking merge conflict status for {} PR(s)...\n", targets.len());
+            println!(
+                "\n🔍 Checking merge conflict status for {} PR(s)...\n",
+                targets.len()
+            );
             io::stdout().flush()?;
 
-            match github::fetch_merge_conflict_status(
-                &cfg.github_token,
-                &cfg.github_org,
-                &targets,
-            )
-            .await
+            match github::fetch_merge_conflict_status(&cfg.github_token, &cfg.github_org, &targets)
+                .await
             {
                 Ok(statuses) => {
                     let conflict_count = statuses.iter().filter(|s| s.has_conflicts).count();
@@ -10765,12 +12326,21 @@ async fn main() -> anyhow::Result<()> {
                         println!("{}", serde_json::to_string_pretty(&output)?);
                     } else {
                         println!("\n⚠️  Merge Conflict Report\n{}", "─".repeat(50));
-                        println!("  ❌ PRs with conflicts: {}", conflict_count.to_string().red().bold());
-                        println!("  ✅ Clean PRs:           {}", clean_count.to_string().green().bold());
+                        println!(
+                            "  ❌ PRs with conflicts: {}",
+                            conflict_count.to_string().red().bold()
+                        );
+                        println!(
+                            "  ✅ Clean PRs:           {}",
+                            clean_count.to_string().green().bold()
+                        );
                         println!("{}", "─".repeat(50));
 
                         // Build a lookup from (repo, pr_number) -> PriorityReview for priority scores
-                        let priority_lookup: std::collections::HashMap<(String, u64), &github::PendingReview> = targets
+                        let priority_lookup: std::collections::HashMap<
+                            (String, u64),
+                            &github::PendingReview,
+                        > = targets
                             .iter()
                             .map(|r| ((r.repo.clone(), r.pr_number), r))
                             .collect();
@@ -10796,7 +12366,9 @@ async fn main() -> anyhow::Result<()> {
 
                             // Get priority score if available
                             let priority_label = if priority {
-                                if let Some(review) = priority_lookup.get(&(status.repo.clone(), status.pr_number)) {
+                                if let Some(review) =
+                                    priority_lookup.get(&(status.repo.clone(), status.pr_number))
+                                {
                                     let score = logger::calculate_priority_score(review);
                                     format!("  ⭐ {}/5", score)
                                 } else {
@@ -10821,7 +12393,12 @@ async fn main() -> anyhow::Result<()> {
                                     priority_label
                                 );
                                 println!("      ⚠️  Cannot merge - has merge conflicts");
-                                println!("      🔗 {}", format!("{}/pull/{}", status.repo, status.pr_number).blue().underline());
+                                println!(
+                                    "      🔗 {}",
+                                    format!("{}/pull/{}", status.repo, status.pr_number)
+                                        .blue()
+                                        .underline()
+                                );
                             } else {
                                 println!(
                                     "\n  ✅ #{} {} ({}){}",
@@ -10855,7 +12432,19 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ci { failed_only, passing_only, all, pr_numbers, pr_number, pr, repo, author, since_days, priority, json } => {
+        Commands::Ci {
+            failed_only,
+            passing_only,
+            all,
+            pr_numbers,
+            pr_number,
+            pr,
+            repo,
+            author,
+            since_days,
+            priority,
+            json,
+        } => {
             let target_pr = cli.pr.or(pr).or(pr_number);
 
             // Apply --repo, --author, and --since-days filters (consistent with other batch commands)
@@ -10939,21 +12528,19 @@ async fn main() -> anyhow::Result<()> {
             println!("\n🔧 Checking CI status for {} PR(s)...\n", targets.len());
             io::stdout().flush()?;
 
-            match github::fetch_ci_status(
-                &cfg.github_token,
-                &cfg.github_org,
-                &targets,
-            )
-            .await
-            {
+            match github::fetch_ci_status(&cfg.github_token, &cfg.github_org, &targets).await {
                 Ok(statuses) => {
                     // Pair CI statuses with original pending reviews for priority calculation
-                    let statuses_with_reviews: Vec<(&github::CiStatus, &github::PendingReview)> = statuses
-                        .iter()
-                        .filter_map(|s| {
-                            targets.iter().find(|r| r.pr_number == s.pr_number && r.repo == s.repo).map(|r| (s, r))
-                        })
-                        .collect();
+                    let statuses_with_reviews: Vec<(&github::CiStatus, &github::PendingReview)> =
+                        statuses
+                            .iter()
+                            .filter_map(|s| {
+                                targets
+                                    .iter()
+                                    .find(|r| r.pr_number == s.pr_number && r.repo == s.repo)
+                                    .map(|r| (s, r))
+                            })
+                            .collect();
 
                     // Apply filters
                     let filtered: Vec<_> = statuses_with_reviews
@@ -10961,10 +12548,17 @@ async fn main() -> anyhow::Result<()> {
                         .filter(|(s, _)| {
                             if failed_only {
                                 // Failing: overall failure OR any check failed
-                                s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))
+                                s.overall_status == "failure"
+                                    || s.checks
+                                        .iter()
+                                        .any(|c| c.conclusion.as_deref() == Some("failure"))
                             } else if passing_only {
                                 // Passing: overall success AND all checks passed (or no checks configured)
-                                s.overall_status == "success" && (s.checks.is_empty() || s.checks.iter().all(|c| c.conclusion.as_deref() == Some("success")))
+                                s.overall_status == "success"
+                                    && (s.checks.is_empty()
+                                        || s.checks
+                                            .iter()
+                                            .all(|c| c.conclusion.as_deref() == Some("success")))
                             } else {
                                 true
                             }
@@ -10983,7 +12577,15 @@ async fn main() -> anyhow::Result<()> {
                         return Ok(());
                     }
 
-                    let failure_count = filtered.iter().filter(|(s, _)| s.overall_status == "failure" || s.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"))).count();
+                    let failure_count = filtered
+                        .iter()
+                        .filter(|(s, _)| {
+                            s.overall_status == "failure"
+                                || s.checks
+                                    .iter()
+                                    .any(|c| c.conclusion.as_deref() == Some("failure"))
+                        })
+                        .count();
                     let success_count = filtered.len() - failure_count;
 
                     if json {
@@ -11015,14 +12617,33 @@ async fn main() -> anyhow::Result<()> {
                     } else {
                         println!("\n🔧 CI Status Report\n{}", "─".repeat(50));
                         println!("  ❌ Failing:  {}", failure_count.to_string().red().bold());
-                        println!("  ✅ Passing:  {}", success_count.to_string().green().bold());
+                        println!(
+                            "  ✅ Passing:  {}",
+                            success_count.to_string().green().bold()
+                        );
                         println!("{}", "─".repeat(50));
 
                         // Sort: failures first, then by repo
                         let mut sorted = filtered.clone();
                         sorted.sort_by(|(a, _), (b, _)| {
-                            let a_fail = if a.overall_status == "failure" || a.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
-                            let b_fail = if b.overall_status == "failure" || b.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure")) { 0 } else { 1 };
+                            let a_fail = if a.overall_status == "failure"
+                                || a.checks
+                                    .iter()
+                                    .any(|c| c.conclusion.as_deref() == Some("failure"))
+                            {
+                                0
+                            } else {
+                                1
+                            };
+                            let b_fail = if b.overall_status == "failure"
+                                || b.checks
+                                    .iter()
+                                    .any(|c| c.conclusion.as_deref() == Some("failure"))
+                            {
+                                0
+                            } else {
+                                1
+                            };
                             if a_fail != b_fail {
                                 a_fail.cmp(&b_fail)
                             } else {
@@ -11031,9 +12652,17 @@ async fn main() -> anyhow::Result<()> {
                         });
 
                         for (status, review) in &sorted {
-                            let has_failure = status.overall_status == "failure" || status.checks.iter().any(|c| c.conclusion.as_deref() == Some("failure"));
-                            let has_success = status.checks.iter().all(|c| c.conclusion.as_deref() == Some("success"));
-                            let has_in_progress = status.checks.iter().any(|c| c.status == "in_progress");
+                            let has_failure = status.overall_status == "failure"
+                                || status
+                                    .checks
+                                    .iter()
+                                    .any(|c| c.conclusion.as_deref() == Some("failure"));
+                            let has_success = status
+                                .checks
+                                .iter()
+                                .all(|c| c.conclusion.as_deref() == Some("success"));
+                            let has_in_progress =
+                                status.checks.iter().any(|c| c.status == "in_progress");
 
                             let status_icon = if has_failure {
                                 "❌".red()
@@ -11083,11 +12712,18 @@ async fn main() -> anyhow::Result<()> {
                                         Some("timed_out") => "⏱️ ".to_string(),
                                         Some("neutral") => "➖".to_string(),
                                         Some("action_required") => "🔔".to_string(),
-                                        None if check.status == "in_progress" => "🔄 ".yellow().to_string(),
-                                        None if check.status == "queued" || check.status == "waiting" => "⏳ ".yellow().to_string(),
+                                        None if check.status == "in_progress" => {
+                                            "🔄 ".yellow().to_string()
+                                        }
+                                        None if check.status == "queued"
+                                            || check.status == "waiting" =>
+                                        {
+                                            "⏳ ".yellow().to_string()
+                                        }
                                         _ => "⚪ ".to_string(),
                                     };
-                                    let check_conclusion = check.conclusion.as_deref().unwrap_or(&check.status);
+                                    let check_conclusion =
+                                        check.conclusion.as_deref().unwrap_or(&check.status);
                                     println!(
                                         "      {}{}  ({})",
                                         check_status_icon,
@@ -11123,7 +12759,14 @@ async fn main() -> anyhow::Result<()> {
 
                         // Authentication status
                         if health.authenticated {
-                            println!("  ✅ Authenticated as: {}", health.username.as_ref().unwrap_or(&"unknown".to_string()).cyan());
+                            println!(
+                                "  ✅ Authenticated as: {}",
+                                health
+                                    .username
+                                    .as_ref()
+                                    .unwrap_or(&"unknown".to_string())
+                                    .cyan()
+                            );
                         } else {
                             println!("  ❌ Not authenticated - check your GITHUB_TOKEN");
                         }
@@ -11166,7 +12809,8 @@ async fn main() -> anyhow::Result<()> {
                             let bar_width = 20;
                             let used_pct = 100.0 - usage_pct; // Invert to show used quota
                             let bar: String = if limit.limit > 0 {
-                                let filled = ((used_pct / 100.0) * bar_width as f64).round() as usize;
+                                let filled =
+                                    ((used_pct / 100.0) * bar_width as f64).round() as usize;
                                 let empty = bar_width - filled;
                                 // Color the bar based on used percentage (high usage = red)
                                 let bar_color: colored::Color = if used_pct > 80.0 {
@@ -11176,7 +12820,8 @@ async fn main() -> anyhow::Result<()> {
                                 } else {
                                     colored::Color::Green
                                 };
-                                format!("{}{}",
+                                format!(
+                                    "{}{}",
                                     "█".repeat(filled).color(bar_color),
                                     "░".repeat(empty).truecolor(60, 60, 60)
                                 )
@@ -11200,17 +12845,29 @@ async fn main() -> anyhow::Result<()> {
                             if limit.remaining == 0 {
                                 critical_limits.push(limit.resource.clone());
                             } else if usage_pct < 10.0 {
-                                low_limits.push((limit.resource.clone(), limit.remaining, limit.limit));
+                                low_limits.push((
+                                    limit.resource.clone(),
+                                    limit.remaining,
+                                    limit.limit,
+                                ));
                             }
                         }
 
                         if health.rate_limit_warning {
                             println!();
-                            println!("  ⚠️  {}", "Rate limit warning: API quota is running low!".yellow().bold());
+                            println!(
+                                "  ⚠️  {}",
+                                "Rate limit warning: API quota is running low!"
+                                    .yellow()
+                                    .bold()
+                            );
                         }
 
                         println!("{}", "─".repeat(50));
-                        let server_time_str = health.server_time.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+                        let server_time_str = health
+                            .server_time
+                            .format("%Y-%m-%d %H:%M:%S UTC")
+                            .to_string();
                         println!("  🕐 Server time: {}", server_time_str.dimmed());
 
                         // Suggestions based on rate limit status
@@ -11219,7 +12876,9 @@ async fn main() -> anyhow::Result<()> {
                             println!("💡 Recommendations\n{}", "─".repeat(50));
 
                             // Get core limit remaining for calculations
-                            let core_remaining = health.rate_limits.iter()
+                            let core_remaining = health
+                                .rate_limits
+                                .iter()
                                 .find(|l| l.resource == "core")
                                 .map(|l| l.remaining)
                                 .unwrap_or(0);
@@ -11230,31 +12889,115 @@ async fn main() -> anyhow::Result<()> {
                             println!();
                             println!("  {:25} {:>6}   Notes", "Command", "Calls");
                             println!("  {}", "─".repeat(60));
-                            
-                            struct CmdCost<'a> { name: &'a str, calls: u32, notes: &'a str }
+
+                            struct CmdCost<'a> {
+                                name: &'a str,
+                                calls: u32,
+                                notes: &'a str,
+                            }
                             let cmd_costs = vec![
-                                CmdCost { name: "list", calls: 1, notes: "per repo (list PRs)" },
-                                CmdCost { name: "list --all", calls: 3, notes: "all repos + details" },
-                                CmdCost { name: "stats", calls: 2, notes: "list + per-PR details" },
-                                CmdCost { name: "team-summary", calls: 2, notes: "list + per-PR details" },
-                                CmdCost { name: "summary", calls: 1, notes: "lightweight aggregate" },
-                                CmdCost { name: "search", calls: 2, notes: "list + per-PR details" },
-                                CmdCost { name: "delegate", calls: 8, notes: "+PR details +CLAUDE API" },
-                                CmdCost { name: "delegate --dry-run", calls: 3, notes: "preview without CLAUDE" },
-                                CmdCost { name: "focus", calls: 4, notes: "list + details +score" },
-                                CmdCost { name: "top", calls: 3, notes: "list + details +score" },
-                                CmdCost { name: "ci", calls: 6, notes: "+ status + check runs" },
-                                CmdCost { name: "conflicts", calls: 4, notes: "list + merge status" },
-                                CmdCost { name: "info", calls: 2, notes: "single PR full details" },
-                                CmdCost { name: "files", calls: 4, notes: "list + per-PR file diff" },
-                                CmdCost { name: "labels", calls: 4, notes: "list + per-PR labels" },
-                                CmdCost { name: "timeline", calls: 3, notes: "list + timeline events" },
-                                CmdCost { name: "review", calls: 3, notes: "full diff with patches" },
-                                CmdCost { name: "mentions", calls: 4, notes: "notifications + PR details" },
-                                CmdCost { name: "activity", calls: 8, notes: "all repos + timelines" },
-                                CmdCost { name: "digest", calls: 6, notes: "aggregate + trends" },
+                                CmdCost {
+                                    name: "list",
+                                    calls: 1,
+                                    notes: "per repo (list PRs)",
+                                },
+                                CmdCost {
+                                    name: "list --all",
+                                    calls: 3,
+                                    notes: "all repos + details",
+                                },
+                                CmdCost {
+                                    name: "stats",
+                                    calls: 2,
+                                    notes: "list + per-PR details",
+                                },
+                                CmdCost {
+                                    name: "team-summary",
+                                    calls: 2,
+                                    notes: "list + per-PR details",
+                                },
+                                CmdCost {
+                                    name: "summary",
+                                    calls: 1,
+                                    notes: "lightweight aggregate",
+                                },
+                                CmdCost {
+                                    name: "search",
+                                    calls: 2,
+                                    notes: "list + per-PR details",
+                                },
+                                CmdCost {
+                                    name: "delegate",
+                                    calls: 8,
+                                    notes: "+PR details +CLAUDE API",
+                                },
+                                CmdCost {
+                                    name: "delegate --dry-run",
+                                    calls: 3,
+                                    notes: "preview without CLAUDE",
+                                },
+                                CmdCost {
+                                    name: "focus",
+                                    calls: 4,
+                                    notes: "list + details +score",
+                                },
+                                CmdCost {
+                                    name: "top",
+                                    calls: 3,
+                                    notes: "list + details +score",
+                                },
+                                CmdCost {
+                                    name: "ci",
+                                    calls: 6,
+                                    notes: "+ status + check runs",
+                                },
+                                CmdCost {
+                                    name: "conflicts",
+                                    calls: 4,
+                                    notes: "list + merge status",
+                                },
+                                CmdCost {
+                                    name: "info",
+                                    calls: 2,
+                                    notes: "single PR full details",
+                                },
+                                CmdCost {
+                                    name: "files",
+                                    calls: 4,
+                                    notes: "list + per-PR file diff",
+                                },
+                                CmdCost {
+                                    name: "labels",
+                                    calls: 4,
+                                    notes: "list + per-PR labels",
+                                },
+                                CmdCost {
+                                    name: "timeline",
+                                    calls: 3,
+                                    notes: "list + timeline events",
+                                },
+                                CmdCost {
+                                    name: "review",
+                                    calls: 3,
+                                    notes: "full diff with patches",
+                                },
+                                CmdCost {
+                                    name: "mentions",
+                                    calls: 4,
+                                    notes: "notifications + PR details",
+                                },
+                                CmdCost {
+                                    name: "activity",
+                                    calls: 8,
+                                    notes: "all repos + timelines",
+                                },
+                                CmdCost {
+                                    name: "digest",
+                                    calls: 6,
+                                    notes: "aggregate + trends",
+                                },
                             ];
-                            
+
                             for cmd in &cmd_costs {
                                 let affordable = if core_remaining >= 10 {
                                     "🟢".green()
@@ -11263,7 +13006,8 @@ async fn main() -> anyhow::Result<()> {
                                 } else {
                                     "🔴".red()
                                 };
-                                println!("  {} {:25} {:>5}   {}", 
+                                println!(
+                                    "  {} {:25} {:>5}   {}",
                                     affordable,
                                     cmd.name,
                                     format!("~{}", cmd.calls),
@@ -11274,7 +13018,9 @@ async fn main() -> anyhow::Result<()> {
                             println!();
                             println!("  💡 Tips:");
                             println!("    • Commands with --dry-run cost ~3x less (skip external API calls)");
-                            println!("    • Batch commands (--all) multiply API costs by number of PRs");
+                            println!(
+                                "    • Batch commands (--all) multiply API costs by number of PRs"
+                            );
                             println!("    • Use --json to reduce output parsing overhead");
                             println!();
 
@@ -11294,7 +13040,9 @@ async fn main() -> anyhow::Result<()> {
                                 println!("    • Wait for reset (or use --json to check timing)");
                                 println!();
                                 println!("  When limits reset, consider:");
-                                println!("    • Use --json for scripting to reduce output overhead");
+                                println!(
+                                    "    • Use --json for scripting to reduce output overhead"
+                                );
                                 println!("    • Avoid commands that fetch full diffs or files");
                                 println!("    • Run critical commands first before they reset");
 
@@ -11309,10 +13057,17 @@ async fn main() -> anyhow::Result<()> {
                                     }
                                 }
                             } else {
-                                let low = low_limits.iter().map(|(r, _, _)| r.clone()).collect::<Vec<_>>().join(", ");
+                                let low = low_limits
+                                    .iter()
+                                    .map(|(r, _, _)| r.clone())
+                                    .collect::<Vec<_>>()
+                                    .join(", ");
                                 println!("  🟡 LOW: {} limit(s) below 10%", low);
                                 println!();
-                                println!("  Current budget: ~{} core API calls remaining", core_remaining);
+                                println!(
+                                    "  Current budget: ~{} core API calls remaining",
+                                    core_remaining
+                                );
                                 println!();
                                 println!("  Safe commands to run now:");
                                 println!("    • prctrl summary");
@@ -11330,12 +13085,20 @@ async fn main() -> anyhow::Result<()> {
                                 println!("    • prctrl browse (URLs only)");
 
                                 // Show safe remaining calls
-                                if let Some((_, remaining, limit)) = low_limits.iter().find(|(r, _, _)| *r == "core") {
+                                if let Some((_, remaining, limit)) =
+                                    low_limits.iter().find(|(r, _, _)| *r == "core")
+                                {
                                     println!();
-                                    println!("  📊 Core API: ~{} calls remaining before throttle", remaining);
+                                    println!(
+                                        "  📊 Core API: ~{} calls remaining before throttle",
+                                        remaining
+                                    );
                                     if *limit > 0 {
                                         let safe_batch = (*remaining as f64 * 0.3).round() as usize;
-                                        println!("  📊 Suggested safe batch size: {} requests", safe_batch);
+                                        println!(
+                                            "  📊 Suggested safe batch size: {} requests",
+                                            safe_batch
+                                        );
                                     }
                                 }
                             }
@@ -11356,7 +13119,20 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Export { format, output, columns, pr_number, pr_numbers, pr, all, json, repo, author, since_days, priority } => {
+        Commands::Export {
+            format,
+            output,
+            columns,
+            pr_number,
+            pr_numbers,
+            pr,
+            all,
+            json,
+            repo,
+            author,
+            since_days,
+            priority,
+        } => {
             use chrono::Utc;
 
             let target_pr = cli.pr.or(pr).or(pr_number);
@@ -11463,7 +13239,9 @@ async fn main() -> anyhow::Result<()> {
             }
 
             // Parse columns (default: all) - only used for CSV/Markdown
-            let default_cols = vec!["repo", "number", "title", "author", "size", "age", "draft", "url"];
+            let default_cols = vec![
+                "repo", "number", "title", "author", "size", "age", "draft", "url",
+            ];
             let cols: Vec<&str> = if let Some(ref c) = columns {
                 c.split(',').map(|s| s.trim()).collect()
             } else {
@@ -11503,7 +13281,11 @@ async fn main() -> anyhow::Result<()> {
                             age_days,
                             draft: r.draft,
                             url: &r.pr_url,
-                            priority_score: if priority { Some(logger::calculate_priority_score(r)) } else { None },
+                            priority_score: if priority {
+                                Some(logger::calculate_priority_score(r))
+                            } else {
+                                None
+                            },
                         }
                     })
                     .collect();
@@ -11551,13 +13333,15 @@ async fn main() -> anyhow::Result<()> {
                             "number" => output_content.push_str(&format!("#{} | ", r.pr_number)),
                             "title" => output_content.push_str(&format!("{} | ", r.pr_title)),
                             "author" => output_content.push_str(&format!("{} | ", r.pr_author)),
-                            "size" => output_content.push_str(&format!("+{}/-{} | ", r.additions, r.deletions)),
+                            "size" => output_content
+                                .push_str(&format!("+{}/-{} | ", r.additions, r.deletions)),
                             "age" => {
                                 let age = r.created_at.signed_duration_since(now);
                                 let age_days = age.num_days().abs();
                                 output_content.push_str(&format!("{}d | ", age_days));
                             }
-                            "draft" => output_content.push_str(&format!("{} | ", if r.draft { "yes" } else { "no" })),
+                            "draft" => output_content
+                                .push_str(&format!("{} | ", if r.draft { "yes" } else { "no" })),
                             "url" => output_content.push_str(&format!("[link]({}) | ", r.pr_url)),
                             "priority" => {
                                 let score = logger::calculate_priority_score(r);
@@ -11595,7 +13379,8 @@ async fn main() -> anyhow::Result<()> {
                                 output_content.push_str(&format!("\"{}\"", escaped));
                             }
                             "author" => output_content.push_str(&r.pr_author),
-                            "size" => output_content.push_str(&format!("+{}/-{}", r.additions, r.deletions)),
+                            "size" => output_content
+                                .push_str(&format!("+{}/-{}", r.additions, r.deletions)),
                             "age" => {
                                 let age = r.created_at.signed_duration_since(now);
                                 let age_days = age.num_days().abs();
@@ -11620,22 +13405,42 @@ async fn main() -> anyhow::Result<()> {
             if let Some(ref path) = output {
                 std::fs::write(path, &output_content)?;
                 if json {
-                    println!("✅ Exported {} reviews to {} (JSON)", reviews_to_export.len(), path.display());
+                    println!(
+                        "✅ Exported {} reviews to {} (JSON)",
+                        reviews_to_export.len(),
+                        path.display()
+                    );
                 } else {
-                    println!("✅ Exported {} reviews to {}", reviews_to_export.len(), path.display());
+                    println!(
+                        "✅ Exported {} reviews to {}",
+                        reviews_to_export.len(),
+                        path.display()
+                    );
                 }
             } else {
                 print!("{}", output_content);
             }
         }
 
-        Commands::History { repo, author, state, days, limit, json } => {
+        Commands::History {
+            repo,
+            author,
+            state,
+            days,
+            limit,
+            json,
+        } => {
             use std::collections::HashMap;
 
-            let history_output_dir = output_dir.clone().unwrap_or_else(|| PathBuf::from("./reviews"));
+            let history_output_dir = output_dir
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("./reviews"));
 
             if !history_output_dir.exists() {
-                println!("❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.", history_output_dir.display());
+                println!(
+                    "❌ No reviews directory found at {}. Run `prctrl list` first to save reviews.",
+                    history_output_dir.display()
+                );
                 return Ok(());
             }
 
@@ -11668,23 +13473,41 @@ async fn main() -> anyhow::Result<()> {
                                     .unwrap_or("")
                                     .trim();
 
-                                if let Ok(date) = chrono::DateTime::parse_from_rfc3339(reviewed_at) {
+                                if let Ok(date) = chrono::DateTime::parse_from_rfc3339(reviewed_at)
+                                {
                                     if date.with_timezone(&chrono::Utc) < cutoff {
                                         continue;
                                     }
 
-                                    let repo = lines.get(1).unwrap_or(&"").replace("Repository: ", "").trim().to_string();
-                                    let author = lines.get(2).unwrap_or(&"").replace("Author: ", "").trim().to_string();
-                                    let state = lines.get(3).unwrap_or(&"").replace("Review state: ", "").trim().to_string();
+                                    let repo = lines
+                                        .get(1)
+                                        .unwrap_or(&"")
+                                        .replace("Repository: ", "")
+                                        .trim()
+                                        .to_string();
+                                    let author = lines
+                                        .get(2)
+                                        .unwrap_or(&"")
+                                        .replace("Author: ", "")
+                                        .trim()
+                                        .to_string();
+                                    let state = lines
+                                        .get(3)
+                                        .unwrap_or(&"")
+                                        .replace("Review state: ", "")
+                                        .trim()
+                                        .to_string();
 
                                     // Try to extract lines added/deleted
-                                    let lines_added: u64 = lines.iter()
+                                    let lines_added: u64 = lines
+                                        .iter()
                                         .find(|l| l.contains("+") && l.contains("additions"))
                                         .and_then(|l| l.split('+').nth(1))
                                         .and_then(|s| s.split('/').next())
                                         .and_then(|s| s.parse().ok())
                                         .unwrap_or(0);
-                                    let lines_deleted: u64 = lines.iter()
+                                    let lines_deleted: u64 = lines
+                                        .iter()
                                         .find(|l| l.contains("-") && l.contains("deletions"))
                                         .and_then(|l| l.split('-').nth(1))
                                         .and_then(|s| s.split('/').next())
@@ -11713,10 +13536,18 @@ async fn main() -> anyhow::Result<()> {
                 all_entries.retain(|e| e.repo.to_lowercase().contains(&repo_filter.to_lowercase()));
             }
             if let Some(ref author_filter) = author {
-                all_entries.retain(|e| e.author.to_lowercase().contains(&author_filter.to_lowercase()));
+                all_entries.retain(|e| {
+                    e.author
+                        .to_lowercase()
+                        .contains(&author_filter.to_lowercase())
+                });
             }
             if let Some(ref state_filter) = state {
-                all_entries.retain(|e| e.state.to_uppercase().contains(&state_filter.to_uppercase()));
+                all_entries.retain(|e| {
+                    e.state
+                        .to_uppercase()
+                        .contains(&state_filter.to_uppercase())
+                });
             }
 
             // Sort by most recent
@@ -11729,7 +13560,11 @@ async fn main() -> anyhow::Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&all_entries)?);
             } else {
-                println!("\n📜 Review History (last {} days)\n{}", days, "─".repeat(50));
+                println!(
+                    "\n📜 Review History (last {} days)\n{}",
+                    days,
+                    "─".repeat(50)
+                );
                 println!("  Total matching entries: {}", total);
 
                 if all_entries.is_empty() {
@@ -11763,7 +13598,8 @@ async fn main() -> anyhow::Result<()> {
                             } else {
                                 "just now".to_string()
                             };
-                            println!("    #{}  {}  {}  ({})",
+                            println!(
+                                "    #{}  {}  {}  ({})",
                                 entry.pr_number,
                                 entry.pr_title.chars().take(40).collect::<String>(),
                                 entry.repo.dimmed(),
@@ -11777,11 +13613,23 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 println!("\n{}", "─".repeat(50));
-                println!("  💡 Use `--json` for scripting | `--repo`, `--author`, `--state` to filter\n");
+                println!(
+                    "  💡 Use `--json` for scripting | `--repo`, `--author`, `--state` to filter\n"
+                );
             }
         }
 
-        Commands::Ready { repo, author, priority, since_days, json, pr_number, pr, pr_numbers, all } => {
+        Commands::Ready {
+            repo,
+            author,
+            priority,
+            since_days,
+            json,
+            pr_number,
+            pr,
+            pr_numbers,
+            all,
+        } => {
             use std::collections::HashMap;
 
             // Priority: global --pr flag > local --pr > positional PR_NUMBER
@@ -11867,9 +13715,7 @@ async fn main() -> anyhow::Result<()> {
             // Group reviews by repo for efficient API calls
             let mut by_repo: HashMap<String, Vec<&github::PendingReview>> = HashMap::new();
             for r in &filtered_reviews {
-                by_repo.entry(r.repo.clone())
-                    .or_default()
-                    .push(r);
+                by_repo.entry(r.repo.clone()).or_default().push(r);
             }
 
             #[derive(serde::Serialize)]
@@ -11894,7 +13740,9 @@ async fn main() -> anyhow::Result<()> {
             let fetch_tasks: Vec<(String, u64)> = by_repo
                 .iter()
                 .flat_map(|(repo_name, repo_reviews)| {
-                    repo_reviews.iter().map(|r| (repo_name.clone(), r.pr_number))
+                    repo_reviews
+                        .iter()
+                        .map(|r| (repo_name.clone(), r.pr_number))
                 })
                 .collect();
 
@@ -11909,7 +13757,8 @@ async fn main() -> anyhow::Result<()> {
             let futures = fetch_tasks.iter().map(move |(repo_name, pr_number)| {
                 let client = octocrab::Octocrab::builder()
                     .personal_token(cfg.github_token.clone())
-                    .build().expect("failed to build GitHub client");
+                    .build()
+                    .expect("failed to build GitHub client");
                 let org = cfg.github_org.clone();
                 let repo_name = repo_name.clone();
                 let pr_number = *pr_number;
@@ -11922,9 +13771,7 @@ async fn main() -> anyhow::Result<()> {
                     let approved = pr
                         .requested_reviewers
                         .as_deref()
-                        .map(|reviewers| {
-                            reviewers.iter().any(|r| r.login == github_username)
-                        })
+                        .map(|reviewers| reviewers.iter().any(|r| r.login == github_username))
                         .unwrap_or(false);
 
                     // Check CI status via combined status
@@ -11936,9 +13783,7 @@ async fn main() -> anyhow::Result<()> {
                         .get(
                             format!(
                                 "/repos/{}/{}/commits/{}/status",
-                                org,
-                                repo_name,
-                                pr.head.sha
+                                org, repo_name, pr.head.sha
                             ),
                             None::<&str>,
                         )
@@ -11950,16 +13795,25 @@ async fn main() -> anyhow::Result<()> {
                     let has_conflicts = pr.mergeable == Some(false);
                     let mergeable = pr.mergeable;
 
-                    Ok::<(bool, String, bool, Option<bool>), anyhow::Error>((approved, ci_state, has_conflicts, mergeable))
+                    Ok::<(bool, String, bool, Option<bool>), anyhow::Error>((
+                        approved,
+                        ci_state,
+                        has_conflicts,
+                        mergeable,
+                    ))
                 }
             });
 
             #[allow(clippy::type_complexity)]
-            let detail_results: Vec<Result<(bool, String, bool, Option<bool>), anyhow::Error>> = join_all(futures).await;
+            let detail_results: Vec<
+                Result<(bool, String, bool, Option<bool>), anyhow::Error>,
+            > = join_all(futures).await;
 
             let mut ready_prs = Vec::new();
 
-            for ((repo_name, pr_number), result) in fetch_tasks.iter().zip(detail_results.into_iter()) {
+            for ((repo_name, pr_number), result) in
+                fetch_tasks.iter().zip(detail_results.into_iter())
+            {
                 let review = match review_lookup.get(&(repo_name.clone(), *pr_number)) {
                     Some(r) => r,
                     None => continue,
@@ -11990,14 +13844,22 @@ async fn main() -> anyhow::Result<()> {
                     ci_status,
                     has_conflicts,
                     draft: review.draft,
-                    priority_score: if priority { Some(logger::calculate_priority_score(review)) } else { None },
+                    priority_score: if priority {
+                        Some(logger::calculate_priority_score(review))
+                    } else {
+                        None
+                    },
                 });
             }
 
             // Sort by readiness: ready first, then by age
             ready_prs.sort_by(|a, b| {
-                let a_ready = !a.draft && (a.ci_status == "success" || a.ci_status == "pending") && !a.has_conflicts;
-                let b_ready = !b.draft && (b.ci_status == "success" || b.ci_status == "pending") && !b.has_conflicts;
+                let a_ready = !a.draft
+                    && (a.ci_status == "success" || a.ci_status == "pending")
+                    && !a.has_conflicts;
+                let b_ready = !b.draft
+                    && (b.ci_status == "success" || b.ci_status == "pending")
+                    && !b.has_conflicts;
                 match (a_ready, b_ready) {
                     (true, false) => std::cmp::Ordering::Less,
                     (false, true) => std::cmp::Ordering::Greater,
@@ -12008,18 +13870,26 @@ async fn main() -> anyhow::Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&ready_prs)?);
             } else {
-                let ready_count = ready_prs.iter().filter(|p| {
-                    !p.draft && (p.ci_status == "success" || p.ci_status == "pending") && !p.has_conflicts
-                }).count();
+                let ready_count = ready_prs
+                    .iter()
+                    .filter(|p| {
+                        !p.draft
+                            && (p.ci_status == "success" || p.ci_status == "pending")
+                            && !p.has_conflicts
+                    })
+                    .count();
 
-                println!("\n🚀 Merge Readiness — {} PRs total, {} ready to merge\n{}",
+                println!(
+                    "\n🚀 Merge Readiness — {} PRs total, {} ready to merge\n{}",
                     ready_prs.len(),
                     ready_count,
                     "─".repeat(50)
                 );
 
                 for pr in &ready_prs {
-                    let is_ready = !pr.draft && (pr.ci_status == "success" || pr.ci_status == "pending") && !pr.has_conflicts;
+                    let is_ready = !pr.draft
+                        && (pr.ci_status == "success" || pr.ci_status == "pending")
+                        && !pr.has_conflicts;
 
                     let status_icon = if is_ready {
                         "✅".green()
@@ -12059,15 +13929,23 @@ async fn main() -> anyhow::Result<()> {
                         String::new()
                     };
 
-                    println!("  {}  #{}  {}{}", status_icon, pr.pr_number, pr.pr_title.bold(), priority_display);
-                    println!("      👤 {}  •  📦 +{}/-{}  •  ⏱️ {}  •  {}",
+                    println!(
+                        "  {}  #{}  {}{}",
+                        status_icon,
+                        pr.pr_number,
+                        pr.pr_title.bold(),
+                        priority_display
+                    );
+                    println!(
+                        "      👤 {}  •  📦 +{}/-{}  •  ⏱️ {}  •  {}",
                         pr.pr_author.cyan(),
                         pr.additions,
                         pr.deletions,
                         age_str,
                         ci_icon
                     );
-                    println!("      📁 {}  🔗 {}",
+                    println!(
+                        "      📁 {}  🔗 {}",
                         pr.repo.dimmed(),
                         pr.pr_url.blue().underline()
                     );
@@ -12083,7 +13961,16 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Blocked { repo, author, since_days, ci_only, conflicts_only, priority, limit, json } => {
+        Commands::Blocked {
+            repo,
+            author,
+            since_days,
+            ci_only,
+            conflicts_only,
+            priority,
+            limit,
+            json,
+        } => {
             let limit = limit.unwrap_or(20);
 
             #[derive(Clone, serde::Serialize)]
@@ -12149,7 +14036,8 @@ async fn main() -> anyhow::Result<()> {
                 async move {
                     let client = octocrab::Octocrab::builder()
                         .personal_token(token)
-                        .build().expect("failed to build GitHub client");
+                        .build()
+                        .expect("failed to build GitHub client");
                     client.pulls(org, repo_name).get(pr_number).await
                 }
             });
@@ -12169,7 +14057,8 @@ async fn main() -> anyhow::Result<()> {
                 Some(async move {
                     let client = octocrab::Octocrab::builder()
                         .personal_token(token)
-                        .build().expect("failed to build GitHub client");
+                        .build()
+                        .expect("failed to build GitHub client");
                     let state: String = client
                         .get(
                             format!("/repos/{}/{}/commits/{}/status", org, repo_name, sha),
@@ -12184,7 +14073,8 @@ async fn main() -> anyhow::Result<()> {
             let ci_results: Vec<Result<(usize, String), _>> = join_all(ci_futures).await;
 
             // Build a map of idx -> ci_status for fast lookup
-            let mut ci_map: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+            let mut ci_map: std::collections::HashMap<usize, String> =
+                std::collections::HashMap::new();
             for ci_result in ci_results.into_iter().flatten() {
                 ci_map.insert(ci_result.0, ci_result.1);
             }
@@ -12192,8 +14082,15 @@ async fn main() -> anyhow::Result<()> {
             // Build blocked_prs from parallel results
             let mut blocked_prs: Vec<BlockedPr> = Vec::new();
 
-            for (idx, (review, pr_result)) in filtered_reviews.iter().zip(pr_results.into_iter()).enumerate() {
-                let ci_status = ci_map.get(&idx).cloned().unwrap_or_else(|| "unknown".to_string());
+            for (idx, (review, pr_result)) in filtered_reviews
+                .iter()
+                .zip(pr_results.into_iter())
+                .enumerate()
+            {
+                let ci_status = ci_map
+                    .get(&idx)
+                    .cloned()
+                    .unwrap_or_else(|| "unknown".to_string());
 
                 let (has_conflicts, mergeable, blockers) = match pr_result {
                     Ok(pr) => {
@@ -12219,9 +14116,7 @@ async fn main() -> anyhow::Result<()> {
 
                         (conflicts, can_merge, block_list)
                     }
-                    Err(_) => {
-                        (false, false, vec!["Unable to fetch PR details".to_string()])
-                    }
+                    Err(_) => (false, false, vec!["Unable to fetch PR details".to_string()]),
                 };
 
                 let is_blocked = !blockers.is_empty();
@@ -12250,7 +14145,11 @@ async fn main() -> anyhow::Result<()> {
                         has_conflicts,
                         mergeable,
                         blockers,
-                        priority_score: if priority { Some(logger::calculate_priority_score(review)) } else { None },
+                        priority_score: if priority {
+                            Some(logger::calculate_priority_score(review))
+                        } else {
+                            None
+                        },
                     });
                 }
             }
@@ -12274,7 +14173,8 @@ async fn main() -> anyhow::Result<()> {
             if json {
                 println!("{}", serde_json::to_string_pretty(&shown_prs)?);
             } else {
-                println!("\n🚧 Blocked PRs — {} total\n{}",
+                println!(
+                    "\n🚧 Blocked PRs — {} total\n{}",
                     blocked_prs.len(),
                     "─".repeat(50)
                 );
@@ -12284,7 +14184,9 @@ async fn main() -> anyhow::Result<()> {
                 } else {
                     for pr in &shown_prs {
                         let total = pr.additions + pr.deletions;
-                        let blocker_tags: String = pr.blockers.iter()
+                        let blocker_tags: String = pr
+                            .blockers
+                            .iter()
                             .map(|b: &String| {
                                 if b.contains("CI") {
                                     "🔴 CI".red().to_string()
@@ -12299,20 +14201,33 @@ async fn main() -> anyhow::Result<()> {
                             .collect::<Vec<_>>()
                             .join("  ");
 
-                        println!("  🚫 #{} {}  ({})", pr.pr_number, pr.pr_title.bold(), pr.repo.dimmed());
+                        println!(
+                            "  🚫 #{} {}  ({})",
+                            pr.pr_number,
+                            pr.pr_title.bold(),
+                            pr.repo.dimmed()
+                        );
                         if priority {
                             if let Some(score) = pr.priority_score {
                                 println!("     ⭐ {}/5  {}", score, logger::priority_stars(score));
                             }
                         }
-                        println!("     👤 {}  •  📦 {} lines  •  ⏱️ {} days", pr.pr_author.cyan(), total, pr.age_days);
+                        println!(
+                            "     👤 {}  •  📦 {} lines  •  ⏱️ {} days",
+                            pr.pr_author.cyan(),
+                            total,
+                            pr.age_days
+                        );
                         println!("     {}", blocker_tags);
                         println!("     🔗 {}", pr.pr_url.blue().underline());
                         println!();
                     }
 
                     if blocked_prs.len() > limit {
-                        println!("  ...and {} more. Use `--limit 30` to see additional.", blocked_prs.len() - limit);
+                        println!(
+                            "  ...and {} more. Use `--limit 30` to see additional.",
+                            blocked_prs.len() - limit
+                        );
                     }
                 }
 
@@ -12325,7 +14240,20 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Ping { emoji, pr_numbers, pr_number, pr, dry_run, all, send, since_days, repo, author, json, priority } => {
+        Commands::Ping {
+            emoji,
+            pr_numbers,
+            pr_number,
+            pr,
+            dry_run,
+            all,
+            send,
+            since_days,
+            repo,
+            author,
+            json,
+            priority,
+        } => {
             // Priority: global --pr flag > local --pr > local pr_number > pr_numbers > interactive
             let target_pr = cli.pr.or(pr).or(pr_number);
 
@@ -12374,7 +14302,11 @@ async fn main() -> anyhow::Result<()> {
                     .split(',')
                     .filter_map(|s| s.trim().parse().ok())
                     .collect();
-                let nums_for_display = nums.iter().map(|n| n.to_string()).collect::<Vec<_>>().join(", ");
+                let nums_for_display = nums
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 let mut matched = Vec::new();
                 for num in nums {
                     if let Some(review) = filtered_reviews.iter().find(|r| r.pr_number == num) {
@@ -12405,9 +14337,10 @@ async fn main() -> anyhow::Result<()> {
                     io::stdin().read_line(&mut input)?;
                     match parse_selection(input.trim(), filtered_reviews.len()) {
                         Selection::Quit => return Ok(()),
-                        Selection::Indices(indices) => {
-                            indices.into_iter().map(|i| filtered_reviews[i].clone()).collect()
-                        }
+                        Selection::Indices(indices) => indices
+                            .into_iter()
+                            .map(|i| filtered_reviews[i].clone())
+                            .collect(),
                     }
                 }
             };
@@ -12462,28 +14395,36 @@ async fn main() -> anyhow::Result<()> {
                         review.pr_number,
                         review.pr_title,
                         review.pr_author.cyan(),
-                        if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                        if age_days == 0 {
+                            "today".to_string()
+                        } else {
+                            format!("{} days", age_days)
+                        },
                         priority_label
                     );
                 }
 
-                println!("\n⏳ Sending {} emoji reaction(s) in parallel...\n", targets.len());
+                println!(
+                    "\n⏳ Sending {} emoji reaction(s) in parallel...\n",
+                    targets.len()
+                );
 
                 let token = cfg.github_token.clone();
                 let org = cfg.github_org.clone();
                 let emoji = emoji.clone();
 
                 // Send all reactions in parallel
-                let send_futures = targets.iter().map(|review| {
-                    let token = token.clone();
-                    let org = org.clone();
-                    let repo = review.repo.clone();
-                    let pr_number = review.pr_number;
-                    let emoji = emoji.clone();
-                    async move {
-                        github::add_pr_reaction(&token, &org, &repo, pr_number, &emoji).await
-                    }
-                });
+                let send_futures =
+                    targets.iter().map(|review| {
+                        let token = token.clone();
+                        let org = org.clone();
+                        let repo = review.repo.clone();
+                        let pr_number = review.pr_number;
+                        let emoji = emoji.clone();
+                        async move {
+                            github::add_pr_reaction(&token, &org, &repo, pr_number, &emoji).await
+                        }
+                    });
                 let results = join_all(send_futures).await;
 
                 let mut sent = 0;
@@ -12496,14 +14437,20 @@ async fn main() -> anyhow::Result<()> {
                             sent += 1;
                         }
                         Err(e) => {
-                            println!("  ❌ #{} — {} ({})", review.pr_number, review.pr_title.dimmed(), e);
+                            println!(
+                                "  ❌ #{} — {} ({})",
+                                review.pr_number,
+                                review.pr_title.dimmed(),
+                                e
+                            );
                             failed += 1;
                         }
                     }
                 }
 
-                println!("\n📊 Sent: {}, Failed: {}\n", 
-                    sent.to_string().green(), 
+                println!(
+                    "\n📊 Sent: {}, Failed: {}\n",
+                    sent.to_string().green(),
                     failed.to_string().red()
                 );
             } else {
@@ -12522,7 +14469,11 @@ async fn main() -> anyhow::Result<()> {
                             review.pr_number,
                             review.pr_title,
                             review.pr_author.cyan(),
-                            if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                            if age_days == 0 {
+                                "today".to_string()
+                            } else {
+                                format!("{} days", age_days)
+                            },
                             priority_label
                         );
                     } else {
@@ -12531,7 +14482,11 @@ async fn main() -> anyhow::Result<()> {
                             review.pr_number,
                             review.pr_title,
                             review.pr_author.cyan(),
-                            if age_days == 0 { "today".to_string() } else { format!("{} days", age_days) },
+                            if age_days == 0 {
+                                "today".to_string()
+                            } else {
+                                format!("{} days", age_days)
+                            },
                             priority_label
                         );
                     }
@@ -12549,7 +14504,13 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Compare { pr1, pr2, detailed, priority, json } => {
+        Commands::Compare {
+            pr1,
+            pr2,
+            detailed,
+            priority,
+            json,
+        } => {
             // Parse PR identifiers (format: "repo#123" or just "123")
             fn parse_pr_id(s: &str, repos: &[String]) -> Option<(String, u64)> {
                 if s.contains('#') {
@@ -12568,13 +14529,18 @@ async fn main() -> anyhow::Result<()> {
                 None
             }
 
-            let (repo1, num1) = parse_pr_id(&pr1, &cfg.github_repos).ok_or_else(|| anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr1))?;
-            let (repo2, num2) = parse_pr_id(&pr2, &cfg.github_repos).ok_or_else(|| anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr2))?;
+            let (repo1, num1) = parse_pr_id(&pr1, &cfg.github_repos).ok_or_else(|| {
+                anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr1)
+            })?;
+            let (repo2, num2) = parse_pr_id(&pr2, &cfg.github_repos).ok_or_else(|| {
+                anyhow::anyhow!("Invalid PR format: {}. Use 'repo#123' or '123'", pr2)
+            })?;
 
             // Fetch both PRs
             let client = octocrab::Octocrab::builder()
                 .personal_token(cfg.github_token.clone())
-                .build().expect("failed to build GitHub client");
+                .build()
+                .expect("failed to build GitHub client");
 
             #[derive(Debug, Clone, serde::Serialize)]
             struct ComparedPr {
@@ -12592,54 +14558,93 @@ async fn main() -> anyhow::Result<()> {
                 priority_score: u8,
             }
 
-            async fn fetch_pr_details(client: &octocrab::Octocrab, org: &str, repo: &str, pr_number: u64) -> anyhow::Result<ComparedPr> {
+            async fn fetch_pr_details(
+                client: &octocrab::Octocrab,
+                org: &str,
+                repo: &str,
+                pr_number: u64,
+            ) -> anyhow::Result<ComparedPr> {
                 let pr = client.pulls(org, repo).get(pr_number).await?;
-                let age_days = (chrono::Utc::now() - pr.created_at.unwrap_or_else(chrono::Utc::now)).num_days();
+                let age_days = (chrono::Utc::now()
+                    - pr.created_at.unwrap_or_else(chrono::Utc::now))
+                .num_days();
                 let additions = pr.additions.unwrap_or(0);
                 let deletions = pr.deletions.unwrap_or(0);
                 let total_lines = additions + deletions;
 
                 // Calculate priority score (1-5 stars)
                 let priority_score = {
-                    let age_score = if age_days <= 1 { 1 } else if age_days <= 3 { 2 } else if age_days <= 7 { 3 } else if age_days <= 14 { 4 } else { 5 };
-                    let size_score = if total_lines <= 50 { 1 } else if total_lines <= 200 { 2 } else if total_lines <= 500 { 3 } else if total_lines <= 1000 { 4 } else { 5 };
+                    let age_score = if age_days <= 1 {
+                        1
+                    } else if age_days <= 3 {
+                        2
+                    } else if age_days <= 7 {
+                        3
+                    } else if age_days <= 14 {
+                        4
+                    } else {
+                        5
+                    };
+                    let size_score = if total_lines <= 50 {
+                        1
+                    } else if total_lines <= 200 {
+                        2
+                    } else if total_lines <= 500 {
+                        3
+                    } else if total_lines <= 1000 {
+                        4
+                    } else {
+                        5
+                    };
                     ((age_score + size_score) / 2).clamp(1, 5) as u8
                 };
 
                 // Fetch files to get language breakdown
-                let files = client.pulls(org, repo).list_files(pr_number).await?.into_iter().collect::<Vec<_>>();
+                let files = client
+                    .pulls(org, repo)
+                    .list_files(pr_number)
+                    .await?
+                    .into_iter()
+                    .collect::<Vec<_>>();
                 let files_count = files.len();
-                let mut languages: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+                let mut languages: std::collections::HashMap<String, u64> =
+                    std::collections::HashMap::new();
                 for f in &files {
-                    let lang = f.filename.split('.').next_back()
-                        .map(|ext| match ext {
-                            "ts" | "tsx" => "TypeScript",
-                            "js" | "jsx" | "mjs" => "JavaScript",
-                            "py" => "Python",
-                            "go" => "Go",
-                            "java" => "Java",
-                            "rs" => "Rust",
-                            "rb" => "Ruby",
-                            "cs" => "C#",
-                            "cpp" | "cc" | "cxx" => "C++",
-                            "c" | "h" => "C",
-                            "swift" => "Swift",
-                            "kt" | "kts" => "Kotlin",
-                            "scala" => "Scala",
-                            "php" => "PHP",
-                            "ex" | "exs" => "Elixir",
-                            "erl" => "Erlang",
-                            "hs" => "Haskell",
-                            "lua" => "Lua",
-                            "sql" => "SQL",
-                            "sh" | "bash" | "zsh" => "Shell",
-                            "yml" | "yaml" => "YAML",
-                            "json" => "JSON",
-                            "md" => "Markdown",
-                            "html" | "htm" => "HTML",
-                            "css" | "scss" | "sass" => "CSS",
-                            _ => "Other",
-                        }.to_string())
+                    let lang = f
+                        .filename
+                        .split('.')
+                        .next_back()
+                        .map(|ext| {
+                            match ext {
+                                "ts" | "tsx" => "TypeScript",
+                                "js" | "jsx" | "mjs" => "JavaScript",
+                                "py" => "Python",
+                                "go" => "Go",
+                                "java" => "Java",
+                                "rs" => "Rust",
+                                "rb" => "Ruby",
+                                "cs" => "C#",
+                                "cpp" | "cc" | "cxx" => "C++",
+                                "c" | "h" => "C",
+                                "swift" => "Swift",
+                                "kt" | "kts" => "Kotlin",
+                                "scala" => "Scala",
+                                "php" => "PHP",
+                                "ex" | "exs" => "Elixir",
+                                "erl" => "Erlang",
+                                "hs" => "Haskell",
+                                "lua" => "Lua",
+                                "sql" => "SQL",
+                                "sh" | "bash" | "zsh" => "Shell",
+                                "yml" | "yaml" => "YAML",
+                                "json" => "JSON",
+                                "md" => "Markdown",
+                                "html" | "htm" => "HTML",
+                                "css" | "scss" | "sass" => "CSS",
+                                _ => "Other",
+                            }
+                            .to_string()
+                        })
                         .unwrap_or_else(|| "Other".to_string());
                     *languages.entry(lang).or_insert(0) += 1;
                 }
@@ -12648,7 +14653,11 @@ async fn main() -> anyhow::Result<()> {
                     repo: repo.to_string(),
                     pr_number,
                     pr_title: pr.title.unwrap_or_default(),
-                    author: pr.user.as_ref().map(|u| u.login.clone()).unwrap_or_default(),
+                    author: pr
+                        .user
+                        .as_ref()
+                        .map(|u| u.login.clone())
+                        .unwrap_or_default(),
                     age_days,
                     additions,
                     deletions,
@@ -12666,16 +14675,23 @@ async fn main() -> anyhow::Result<()> {
                 let fetch_2 = fetch_pr_details(&client, &cfg.github_org, &repo2, num2);
                 let (result_1, result_2) = tokio::join!(fetch_1, fetch_2);
                 (
-                    result_1.map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo1, num1, e))?,
-                    result_2.map_err(|e| anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo2, num2, e))?,
+                    result_1.map_err(|e| {
+                        anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo1, num1, e)
+                    })?,
+                    result_2.map_err(|e| {
+                        anyhow::anyhow!("Failed to fetch PR {}#{}: {}", repo2, num2, e)
+                    })?,
                 )
             };
 
             if json {
-                println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-                    "pr1": pr_details_1,
-                    "pr2": pr_details_2,
-                }))?);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "pr1": pr_details_1,
+                        "pr2": pr_details_2,
+                    }))?
+                );
             } else {
                 println!("\n⚖️  PR Comparison\n{}", "═".repeat(60));
 
@@ -12690,30 +14706,72 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 // PR headers
-                println!("\n  {:12}  {:<40}  {:<40}", "",
-                    format!("#{} {}", num1, &pr_details_1.pr_title[..pr_details_1.pr_title.len().min(35)]),
-                    format!("#{} {}", num2, &pr_details_2.pr_title[..pr_details_2.pr_title.len().min(35)]));
-                println!("  {:12}  {:<40}  {:<40}", "",
-                    pr_details_1.repo.bold(), pr_details_2.repo.bold());
+                println!(
+                    "\n  {:12}  {:<40}  {:<40}",
+                    "",
+                    format!(
+                        "#{} {}",
+                        num1,
+                        &pr_details_1.pr_title[..pr_details_1.pr_title.len().min(35)]
+                    ),
+                    format!(
+                        "#{} {}",
+                        num2,
+                        &pr_details_2.pr_title[..pr_details_2.pr_title.len().min(35)]
+                    )
+                );
+                println!(
+                    "  {:12}  {:<40}  {:<40}",
+                    "",
+                    pr_details_1.repo.bold(),
+                    pr_details_2.repo.bold()
+                );
                 println!("{}", "─".repeat(60));
 
-                print_row!("Author", pr_details_1.author.cyan().to_string(), pr_details_2.author.cyan().to_string());
-                print_row!("Age", format!("{} days", pr_details_1.age_days), format!("{} days", pr_details_2.age_days));
-                print_row!("Size", format!("+{}/-{}", pr_details_1.additions, pr_details_1.deletions),
-                    format!("+{}/-{}", pr_details_2.additions, pr_details_2.deletions));
-                print_row!("Files", pr_details_1.files_count.to_string(), pr_details_2.files_count.to_string());
-                print_row!("Draft", if pr_details_1.draft { "Yes" } else { "No" }.to_string(),
-                    if pr_details_2.draft { "Yes" } else { "No" }.to_string());
-                print_row!("Priority", 
-                    if priority { 
-                        format!("{}/5 {}", pr_details_1.priority_score, logger::priority_stars(pr_details_1.priority_score)) 
-                    } else { 
-                        format!("{}/5", pr_details_1.priority_score) 
-                    }, 
-                    if priority { 
-                        format!("{}/5 {}", pr_details_2.priority_score, logger::priority_stars(pr_details_2.priority_score)) 
-                    } else { 
-                        format!("{}/5", pr_details_2.priority_score) 
+                print_row!(
+                    "Author",
+                    pr_details_1.author.cyan().to_string(),
+                    pr_details_2.author.cyan().to_string()
+                );
+                print_row!(
+                    "Age",
+                    format!("{} days", pr_details_1.age_days),
+                    format!("{} days", pr_details_2.age_days)
+                );
+                print_row!(
+                    "Size",
+                    format!("+{}/-{}", pr_details_1.additions, pr_details_1.deletions),
+                    format!("+{}/-{}", pr_details_2.additions, pr_details_2.deletions)
+                );
+                print_row!(
+                    "Files",
+                    pr_details_1.files_count.to_string(),
+                    pr_details_2.files_count.to_string()
+                );
+                print_row!(
+                    "Draft",
+                    if pr_details_1.draft { "Yes" } else { "No" }.to_string(),
+                    if pr_details_2.draft { "Yes" } else { "No" }.to_string()
+                );
+                print_row!(
+                    "Priority",
+                    if priority {
+                        format!(
+                            "{}/5 {}",
+                            pr_details_1.priority_score,
+                            logger::priority_stars(pr_details_1.priority_score)
+                        )
+                    } else {
+                        format!("{}/5", pr_details_1.priority_score)
+                    },
+                    if priority {
+                        format!(
+                            "{}/5 {}",
+                            pr_details_2.priority_score,
+                            logger::priority_stars(pr_details_2.priority_score)
+                        )
+                    } else {
+                        format!("{}/5", pr_details_2.priority_score)
                     }
                 );
 
@@ -12733,9 +14791,30 @@ async fn main() -> anyhow::Result<()> {
                 let priority_winner = pr_details_1.priority_score > pr_details_2.priority_score;
 
                 println!("  📊 Summary:");
-                println!("    • Age: {} (newer)", winner("age", age_winner, pr_details_2.age_days < pr_details_1.age_days));
-                println!("    • Size: {} (smaller)", winner("size", size_winner, pr_details_2.total_lines < pr_details_1.total_lines));
-                println!("    • Priority: {} (higher score)", winner("priority", priority_winner, pr_details_2.priority_score > pr_details_1.priority_score));
+                println!(
+                    "    • Age: {} (newer)",
+                    winner(
+                        "age",
+                        age_winner,
+                        pr_details_2.age_days < pr_details_1.age_days
+                    )
+                );
+                println!(
+                    "    • Size: {} (smaller)",
+                    winner(
+                        "size",
+                        size_winner,
+                        pr_details_2.total_lines < pr_details_1.total_lines
+                    )
+                );
+                println!(
+                    "    • Priority: {} (higher score)",
+                    winner(
+                        "priority",
+                        priority_winner,
+                        pr_details_2.priority_score > pr_details_1.priority_score
+                    )
+                );
 
                 if detailed {
                     println!("\n  💻 Languages:");
@@ -12765,31 +14844,51 @@ async fn main() -> anyhow::Result<()> {
             }
         }
 
-        Commands::Config { action } => {
-            match action {
-                cli::ConfigAction::Init { force } => {
-                    run_config_init(force)?;
-                }
-                cli::ConfigAction::Show => {
-                    run_config_show()?;
-                }
-                cli::ConfigAction::Update { token, username, org, repos, teams, .. } => {
-                    run_config_update(
-                        token.as_deref(),
-                        username.as_deref(),
-                        org.as_deref(),
-                        repos.as_deref(),
-                        teams.as_deref(),
-                    )?;
-                }
+        Commands::Config { action } => match action {
+            cli::ConfigAction::Init { force } => {
+                run_config_init(force)?;
             }
-        }
+            cli::ConfigAction::Show => {
+                run_config_show()?;
+            }
+            cli::ConfigAction::Update {
+                token,
+                username,
+                org,
+                repos,
+                teams,
+                ..
+            } => {
+                run_config_update(
+                    token.as_deref(),
+                    username.as_deref(),
+                    org.as_deref(),
+                    repos.as_deref(),
+                    teams.as_deref(),
+                )?;
+            }
+        },
         Commands::Chat { .. } => {
             // Already handled above before GitHub config
         }
-        Commands::Stack { json, repo, author, limit } => {
+        Commands::Stack {
+            json,
+            repo,
+            author,
+            limit,
+        } => {
             use crate::stack;
-            match stack::detect_stacks(&cfg.github_token, &cfg.github_org, &cfg.github_repos, author.as_deref(), repo.as_deref(), cli.include_drafts, limit).await {
+            match stack::detect_stacks(
+                &cfg.github_token,
+                &cfg.github_org,
+                &cfg.github_repos,
+                author.as_deref(),
+                repo.as_deref(),
+                cli.include_drafts,
+                limit,
+            )
+            .await
+            {
                 Ok(stacks) => {
                     if json {
                         println!("{}", serde_json::to_string_pretty(&stacks)?);
@@ -12974,10 +15073,7 @@ fn display_timeline(
                             .get("assignee")
                             .and_then(|a| a.as_str())
                             .unwrap_or("unknown");
-                        (
-                            "👤".to_string(),
-                            format!("Unassigned @{}", assignee.cyan()),
-                        )
+                        ("👤".to_string(), format!("Unassigned @{}", assignee.cyan()))
                     }
                     "merged" => (
                         "🔀".to_string(),
@@ -13043,11 +15139,7 @@ fn display_timeline(
                     ),
                     "subscribed" | "unsubscribed" => (
                         "🔔".to_string(),
-                        format!(
-                            "@{} {}",
-                            actor_str.cyan(),
-                            event.event.replace("_", " ")
-                        ),
+                        format!("@{} {}", actor_str.cyan(), event.event.replace("_", " ")),
                     ),
                     "mentioned" | "team_mentioned" => (
                         "@".to_string(),
@@ -13161,7 +15253,7 @@ fn get_config_path() -> std::path::PathBuf {
 
 fn run_config_init(force: bool) -> anyhow::Result<()> {
     use std::io::{self, Write};
-    
+
     let config_path = get_config_path();
 
     if config_path.exists() && !force {
@@ -13206,7 +15298,8 @@ fn run_config_init(force: bool) -> anyhow::Result<()> {
     io::stdin().read_line(&mut github_teams)?;
     github_teams = github_teams.trim().to_string();
 
-    let config_content = format!(r#"# PRCtrl Configuration
+    let config_content = format!(
+        r#"# PRCtrl Configuration
 # Generated by `prctrl config init`
 
 [github]
@@ -13224,11 +15317,19 @@ interval = 300
 include_drafts = false
 exclude_prefix = ["chore(deps)"]
 "#,
-        repos = github_repos.split(',').map(|s| format!("\"{}\"", s.trim())).collect::<Vec<_>>().join(", "),
+        repos = github_repos
+            .split(',')
+            .map(|s| format!("\"{}\"", s.trim()))
+            .collect::<Vec<_>>()
+            .join(", "),
         teams = if github_teams.is_empty() {
             "[]".to_string()
         } else {
-            github_teams.split(',').map(|s| format!("\"{}\"", s.trim().to_lowercase())).collect::<Vec<_>>().join(", ")
+            github_teams
+                .split(',')
+                .map(|s| format!("\"{}\"", s.trim().to_lowercase()))
+                .collect::<Vec<_>>()
+                .join(", ")
         }
     );
 
@@ -13271,11 +15372,11 @@ fn mask_token_in_config(content: &str) -> String {
     for line in lines.iter_mut() {
         if let Some((key, value)) = line.split_once('=') {
             let key_trimmed = key.trim();
-            if sensitive_keys.iter().any(|k| key_trimmed == *k) {
+            if sensitive_keys.contains(&key_trimmed) {
                 // Extract the quoted value
                 let val = value.trim().trim_matches('"').trim();
                 if val.len() > 8 {
-                    let masked_val = format!("{}****{}", &val[..4], &val[val.len()-4..]);
+                    let masked_val = format!("{}****{}", &val[..4], &val[val.len() - 4..]);
                     *line = line.replace(val, &masked_val);
                 }
             }
@@ -13300,50 +15401,64 @@ fn run_config_update(
     }
 
     let content = std::fs::read_to_string(&config_path)?;
-    let mut config: toml::Table = toml::from_str(&content)
-        .unwrap_or_else(|_| {
-            println!("⚠️  Could not parse existing config. Creating new structure.");
-            toml::Table::new()
-        });
+    let mut config: toml::Table = toml::from_str(&content).unwrap_or_else(|_| {
+        println!("⚠️  Could not parse existing config. Creating new structure.");
+        toml::Table::new()
+    });
 
     if let Some(token) = token {
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        config
+            .entry("github".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
             github.insert("token".to_string(), toml::Value::String(token.to_string()));
         }
     }
 
     if let Some(username) = username {
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        config
+            .entry("github".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
-            github.insert("username".to_string(), toml::Value::String(username.to_string()));
+            github.insert(
+                "username".to_string(),
+                toml::Value::String(username.to_string()),
+            );
         }
     }
 
     if let Some(org) = org {
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        config
+            .entry("github".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
             github.insert("org".to_string(), toml::Value::String(org.to_string()));
         }
     }
 
     if let Some(repos) = repos {
-        let repos_array: toml::Value = repos.split(',')
+        let repos_array: toml::Value = repos
+            .split(',')
             .map(|s| toml::Value::String(s.trim().to_string()))
             .collect::<Vec<_>>()
             .into();
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        config
+            .entry("github".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
             github.insert("repos".to_string(), repos_array);
         }
     }
 
     if let Some(teams) = teams {
-        let teams_array: toml::Value = teams.split(',')
+        let teams_array: toml::Value = teams
+            .split(',')
             .map(|s| toml::Value::String(s.trim().to_lowercase()))
             .collect::<Vec<_>>()
             .into();
-        config.entry("github".to_string()).or_insert_with(|| toml::Value::Table(toml::Table::new()));
+        config
+            .entry("github".to_string())
+            .or_insert_with(|| toml::Value::Table(toml::Table::new()));
         if let Some(github) = config.get_mut("github").and_then(|v| v.as_table_mut()) {
             github.insert("teams".to_string(), teams_array);
         }

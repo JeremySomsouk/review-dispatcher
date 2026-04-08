@@ -2,7 +2,12 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "prctrl", version, about = "Terminal-native GitHub PR management. Stay on top of code reviews without leaving your terminal.", author = "Jeremy Somsouk <jeremy@somsouk.fr>")]
+#[command(
+    name = "prctrl",
+    version,
+    about = "Terminal-native GitHub PR management. Stay on top of code reviews without leaving your terminal.",
+    author = "Jeremy Somsouk <jeremy@somsouk.fr>"
+)]
 pub struct Cli {
     /// Folder where review files will be written (default: ./reviews)
     #[arg(long, short, global = true)]
@@ -33,7 +38,12 @@ pub struct Cli {
     pub show_stacks: bool,
 
     /// Exclude PRs whose title matches these prefixes (comma-separated, default: "chore(deps)")
-    #[arg(long, global = true, value_delimiter = ',', default_value = "chore(deps)")]
+    #[arg(
+        long,
+        global = true,
+        value_delimiter = ',',
+        default_value = "chore(deps)"
+    )]
     pub exclude_prefix: Vec<String>,
 
     /// Target a specific PR by number (bypasses review-request filters)
@@ -241,7 +251,7 @@ pub enum Commands {
         /// Automatically open PRs in Chrome when notifications appear
         #[arg(long)]
         auto_open: bool,
-        
+
         /// Disable automatic opening of PRs in Chrome
         #[arg(long)]
         no_auto_open: bool,
