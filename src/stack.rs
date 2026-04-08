@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::process::Command;
 
 #[derive(Clone)]
@@ -33,7 +33,7 @@ pub fn detect_stacks(repo_filter: Option<&str>, limit: Option<u32>) -> Result<Ve
     let json_output = String::from_utf8_lossy(&output.stdout);
     let prs_data: Vec<serde_json::Value> = serde_json::from_str(&json_output)?;
 
-    let mut base_groups: HashMap<String, Vec<StackedPR>> = HashMap::new();
+    let mut all_prs: Vec<StackedPR> = Vec::new();
     
     for pr in prs_data {
         let repo_name = pr["repository"]["name"].as_str().unwrap_or("");
@@ -59,45 +59,58 @@ pub fn detect_stacks(repo_filter: Option<&str>, limit: Option<u32>) -> Result<Ve
             url: url.to_string(),
         };
 
-        base_groups
-            .entry(format!("{}:{}", repo_name, base_branch))
-            .or_default()
-            .push(stacked_pr);
+        all_prs.push(stacked_pr);
+    }
+
+    // Build a map of branch -> PR for quick lookup
+    let mut branch_to_pr: HashMap<String, Vec<StackedPR>> = HashMap::new();
+    for pr in &all_prs {
+        branch_to_pr.entry(pr.head_branch.clone()).or_default().push(pr.clone());
     }
 
     let mut stacks = Vec::new();
-    for (repo_base, prs) in base_groups {
-        if prs.len() < 2 {
+    let mut used_prs: HashSet<u64> = HashSet::new();
+    
+    // Find stacks by checking if a PR's base branch is another PR's head branch
+    for pr in &all_prs {
+        if used_prs.contains(&pr.number) {
             continue;
         }
-
-        let mut prs = prs;
-        prs.sort_by(|a, b| a.head_branch.cmp(&b.head_branch));
         
-        let mut detected_stack: Vec<StackedPR> = Vec::new();
-
-        for (i, pr) in prs.iter().enumerate() {
-            if i == 0 {
-                detected_stack.push(pr.clone());
-                continue;
-            }
-
-            let prev_head = &prs[i - 1].head_branch;
-            
-            if is_stack_child(prev_head, &pr.head_branch) {
-                detected_stack.push(pr.clone());
-            } else {
-                if detected_stack.len() >= 2 {
-                    let (repo, base_branch) = repo_base.split_once(':').unwrap();
-                    stacks.push(build_stack(repo, base_branch, detected_stack));
+        // Check if this PR's base branch is another PR's head branch (meaning it's stacked)
+        if let Some(parent_prs) = branch_to_pr.get(&pr.base_branch) {
+            for parent_pr in parent_prs {
+                if parent_pr.repo == pr.repo && parent_pr.number != pr.number {
+                    // Found a stacked relationship
+                    let mut stack = Vec::new();
+                    let mut current_pr = parent_pr;
+                    
+                    // Build the stack upwards
+                    while let Some(grandparent_prs) = branch_to_pr.get(&current_pr.base_branch) {
+                        if let Some(grandparent_pr) = grandparent_prs.iter().find(|gp| 
+                            gp.repo == current_pr.repo && gp.number != current_pr.number) {
+                            stack.insert(0, grandparent_pr.clone());
+                            used_prs.insert(grandparent_pr.number);
+                            current_pr = grandparent_pr;
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    // Add the parent and current PR
+                    stack.push(parent_pr.clone());
+                    stack.push(pr.clone());
+                    used_prs.insert(parent_pr.number);
+                    used_prs.insert(pr.number);
+                    
+                    if stack.len() >= 2 {
+                        let base_branch = stack.first().unwrap().base_branch.clone();
+                        let repo = stack.first().unwrap().repo.clone();
+                        stacks.push(build_stack(&repo, &base_branch, stack));
+                    }
+                    break;
                 }
-                detected_stack = vec![pr.clone()];
             }
-        }
-
-        if detected_stack.len() >= 2 {
-            let (repo, base_branch) = repo_base.split_once(':').unwrap();
-            stacks.push(build_stack(repo, base_branch, detected_stack));
         }
     }
 
@@ -118,10 +131,6 @@ fn build_stack(repo: &str, base_branch: &str, prs: Vec<StackedPR>) -> Stack {
         pr.position = i + 1;
     }
     stack
-}
-
-fn is_stack_child(parent: &str, child: &str) -> bool {
-    child.starts_with(&format!("{}-", parent))
 }
 
 pub fn render_stacks(stacks: &[Stack]) -> String {
