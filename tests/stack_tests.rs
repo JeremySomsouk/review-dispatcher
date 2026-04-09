@@ -10,6 +10,32 @@ fn test_pr(number: u64, title: &str, head: &str, base: &str) -> StackedPR {
         repo: "test-repo".to_string(),
         head_branch: head.to_string(),
         base_branch: base.to_string(),
+        head_sha: String::new(),
+        base_sha: String::new(),
+        position: 0,
+        url: format!("https://github.com/org/test-repo/pull/{}", number),
+        author: "testuser".to_string(),
+        draft: false,
+    }
+}
+
+/// Helper to create a test PR with commit SHAs.
+fn test_pr_with_sha(
+    number: u64,
+    title: &str,
+    head: &str,
+    base: &str,
+    head_sha: &str,
+    base_sha: &str,
+) -> StackedPR {
+    StackedPR {
+        number,
+        title: title.to_string(),
+        repo: "test-repo".to_string(),
+        head_branch: head.to_string(),
+        base_branch: base.to_string(),
+        head_sha: head_sha.to_string(),
+        base_sha: base_sha.to_string(),
         position: 0,
         url: format!("https://github.com/org/test-repo/pull/{}", number),
         author: "testuser".to_string(),
@@ -19,7 +45,6 @@ fn test_pr(number: u64, title: &str, head: &str, base: &str) -> StackedPR {
 
 #[test]
 fn test_extract_ticket_key_from_branch() {
-    // The regex in stack.rs should match patterns like TAHC-1666, PROJ-123
     let re = regex::Regex::new(r"(?i)\b([A-Z][A-Z0-9]*-\d+)\b").unwrap();
 
     assert!(re.captures("TAHC-1666-onboarding-client").is_some());
@@ -34,7 +59,6 @@ fn test_extract_ticket_key_from_branch() {
         .unwrap();
     assert_eq!(caps.get(1).unwrap().as_str().to_uppercase(), "TAHC-1666");
 
-    // No ticket key
     assert!(re.captures("just-a-branch").is_none());
 }
 
@@ -61,43 +85,33 @@ fn test_extract_position_index() {
         Some(3)
     );
 
-    // No marker
     assert!(re.captures("just a normal title").is_none());
 }
 
 #[test]
 fn test_branch_chain_stacks_simple() {
-    // PR 1: feature → main
-    // PR 2: feature-2 → feature
-    // Should detect a chain: PR1 → PR2
     let prs = [
         test_pr(1, "Add feature", "feature", "main"),
         test_pr(2, "Extend feature", "feature-2", "feature"),
     ];
 
-    // Verify the branch-chaining relationship
     assert_eq!(prs[1].base_branch, prs[0].head_branch);
 }
 
 #[test]
 fn test_branch_chain_three_deep() {
-    // PR 1: feature → main
-    // PR 2: feature-2 → feature
-    // PR 3: feature-3 → feature-2
     let prs = [
         test_pr(1, "Add feature", "feature", "main"),
         test_pr(2, "Extend feature", "feature-2", "feature"),
         test_pr(3, "Add tests", "feature-3", "feature-2"),
     ];
 
-    // Verify the chain relationships
     assert_eq!(prs[1].base_branch, prs[0].head_branch);
     assert_eq!(prs[2].base_branch, prs[1].head_branch);
 }
 
 #[test]
 fn test_convention_stacks_ticket_key_grouping() {
-    // PRs with the same ticket key but all targeting main
     let prs = [
         test_pr(
             974,
@@ -121,7 +135,6 @@ fn test_convention_stacks_ticket_key_grouping() {
 
     let re = regex::Regex::new(r"(?i)\b([A-Z][A-Z0-9]*-\d+)\b").unwrap();
 
-    // All share the same ticket key
     let keys: Vec<String> = prs
         .iter()
         .map(|p| {
@@ -136,7 +149,6 @@ fn test_convention_stacks_ticket_key_grouping() {
     assert_eq!(keys[1], "TAHC-1666");
     assert_eq!(keys[2], "TAHC-1666");
 
-    // All share the same base branch
     assert!(prs.windows(2).all(|w| w[0].base_branch == w[1].base_branch));
 }
 
@@ -147,8 +159,51 @@ fn test_no_stack_unrelated_prs() {
         test_pr(2, "Add feature B", "add-feature-b", "main"),
     ];
 
-    // No chain: different branches, all target main
     assert_ne!(prs[1].base_branch, prs[0].head_branch);
     assert_eq!(prs[0].base_branch, "main");
     assert_eq!(prs[1].base_branch, "main");
+}
+
+#[test]
+fn test_commit_chain_stacks() {
+    // PR 1: head_sha=abc123, base_sha=main-sha (root of the chain)
+    // PR 2: head_sha=def456, base_sha=abc123 (chains off PR 1)
+    // PR 3: head_sha=ghi789, base_sha=def456 (chains off PR 2)
+    let prs = [
+        test_pr_with_sha(1, "Add feature", "feature", "main", "abc123", "main-sha"),
+        test_pr_with_sha(
+            2,
+            "Extend feature",
+            "feature-2",
+            "feature",
+            "def456",
+            "abc123",
+        ),
+        test_pr_with_sha(3, "Add tests", "feature-3", "feature-2", "ghi789", "def456"),
+    ];
+
+    // Verify the commit chain relationships
+    assert_eq!(prs[1].base_sha, prs[0].head_sha);
+    assert_eq!(prs[2].base_sha, prs[1].head_sha);
+
+    // Root's base_sha should NOT match any other PR's head_sha
+    assert_ne!(prs[0].base_sha, prs[0].head_sha);
+    assert_ne!(prs[0].base_sha, prs[1].head_sha);
+    assert_ne!(prs[0].base_sha, prs[2].head_sha);
+}
+
+#[test]
+fn test_commit_chain_not_branch_chain() {
+    // Two PRs where branch names DON'T chain but SHAs DO chain
+    let prs = [
+        test_pr_with_sha(10, "Fix login", "fix-login", "develop", "sha-a", "sha-dev"),
+        test_pr_with_sha(11, "Fix logout", "fix-logout", "develop", "sha-b", "sha-a"),
+    ];
+
+    // Branch names don't chain (fix-logout targets develop, not fix-login)
+    assert_eq!(prs[1].base_branch, "develop");
+    assert_ne!(prs[1].base_branch, prs[0].head_branch);
+
+    // But SHAs DO chain (fix-logout's base = fix-login's head)
+    assert_eq!(prs[1].base_sha, prs[0].head_sha);
 }

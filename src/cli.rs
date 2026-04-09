@@ -1516,17 +1516,14 @@ pub enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
-    /// Start an interactive chat session with Claude about your PRs
-    Chat {
-        /// Start chat about a specific PR
-        #[arg(long, short = 'p')]
-        pr: Option<u64>,
-    },
     /// Detect and visualize stacked PRs (sequential dependencies)
     Stack {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+        /// Render as unicode tree
+        #[arg(long)]
+        tree: bool,
         /// Filter by repository name
         #[arg(long, short = 'r')]
         repo: Option<String>,
